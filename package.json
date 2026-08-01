@@ -1,8 +1,8 @@
 {
   "name": "zero-one-desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "ZERO ONE unified Windows command center for ZMail, ZeroThink, OpenZero, and CallChat.",
+  "description": "ZERO ONE desktop command center for ZMail, ZeroThink, OpenZero, CallChat, and the local ZSEC Shield preview.",
   "author": "QUANTUMENCRYPTION1 LTD",
   "license": "UNLICENSED",
   "main": "electron/main.cjs",
@@ -12,13 +12,18 @@
     "test": "vitest run",
     "check": "npm run test && npm run build",
     "pack:win": "npm run check && electron-builder --win dir",
-    "dist:win": "npm run check && electron-builder --win nsis"
+    "dist:win": "npm run check && electron-builder --win nsis",
+    "pack:mac": "npm run check && electron-builder --mac dir",
+    "dist:mac": "npm run check && electron-builder --mac dmg zip",
+    "pack:linux": "npm run check && electron-builder --linux dir",
+    "dist:linux": "npm run check && electron-builder --linux AppImage deb"
   },
   "dependencies": {
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@electron/fuses": "2.1.3",
     "@types/node": "26.1.2",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
@@ -34,7 +39,8 @@
   "build": {
     "appId": "org.talktoai.zeroone",
     "productName": "ZERO ONE",
-    "artifactName": "ZERO-ONE-Setup-${version}.${ext}",
+    "artifactName": "ZERO-ONE-${version}-${os}-${arch}.${ext}",
+    "afterPack": "build/afterPack.cjs",
     "directories": {
       "output": "release"
     },
@@ -55,6 +61,27 @@
           ]
         }
       ],
+      "icon": "assets/zero-one-icon.png",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "zip", "arch": ["x64", "arm64"] }
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "assets/zero-one-icon.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64", "arm64"] },
+        { "target": "deb", "arch": ["x64", "arm64"] }
+      ],
+      "category": "Utility",
       "icon": "assets/zero-one-icon.png"
     },
     "nsis": {

@@ -1,7 +1,7 @@
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SERVICES, ServiceDefinition, ServiceId, serviceById, serviceUrl } from "./lib/services";
 
-type View = "home" | "agents" | "settings" | `service:${ServiceId}`;
+type View = "home" | "shield" | "agents" | "settings" | `service:${ServiceId}`;
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 const initialAssistant: ChatMessage[] = [
@@ -56,6 +56,7 @@ function Sidebar({ view, onNavigate }: { view: View; onNavigate: (view: View) =>
       </button>
       <nav className="primary-nav" aria-label="Primary navigation">
         <NavButton active={view === "home"} label="Command" onClick={() => onNavigate("home")} icon="home" />
+        <NavButton active={view === "shield"} label="ZSEC" onClick={() => onNavigate("shield")} icon="shield" />
         <NavButton active={view === "agents"} label="Agents" onClick={() => onNavigate("agents")} icon="agents" />
         <div className="nav-separator" />
         {SERVICES.map((service) => (
@@ -84,9 +85,9 @@ function NavButton({ active, label, onClick, icon, compact = false }: { active: 
   );
 }
 
-function Topbar({ view, probes, system, onRefresh, onSearch }: { view: View; probes: ServiceProbe[]; system: SystemSnapshot | null; onRefresh: () => void; onSearch: () => void }) {
+function Topbar({ view, probes, system, onRefresh, onSearch, searchRef }: { view: View; probes: ServiceProbe[]; system: SystemSnapshot | null; onRefresh: () => void; onSearch: () => void; searchRef: React.RefObject<HTMLButtonElement | null> }) {
   const online = probes.filter((probe) => probe.state === "online").length;
-  const title = view === "home" ? "Command center" : view === "agents" ? "Agent lattice" : view === "settings" ? "System settings" : serviceById(view.split(":")[1] as ServiceId).name;
+  const title = view === "home" ? "Command center" : view === "shield" ? "ZSEC Shield" : view === "agents" ? "Agent lattice" : view === "settings" ? "System settings" : serviceById(view.split(":")[1] as ServiceId).name;
   return (
     <header className="topbar">
       <div>
@@ -94,16 +95,15 @@ function Topbar({ view, probes, system, onRefresh, onSearch }: { view: View; pro
         <h1>{title}</h1>
       </div>
       <div className="top-actions">
-        <button className="command-trigger" onClick={onSearch}>
+        <button ref={searchRef} className="command-trigger" onClick={onSearch} aria-label="Search or command">
           <Icon name="search" size={17} />
           <span>Search or command</span>
           <kbd>Ctrl K</kbd>
         </button>
-        <div className="telemetry-pill">
+        <div className="telemetry-pill" aria-live="polite" aria-label={`${online} of ${SERVICES.length} connected services are online`}>
           <span className="live-pulse" />
           <span>{online}/{SERVICES.length} online</span>
-          {system && <strong>{system.memoryPercent}% RAM</strong>}
-        </div>
+          {system && <strong>{system.memoryPercent}% RAM</strong>}        </div>
         <button className="icon-button" onClick={onRefresh} aria-label="Refresh status">
           <Icon name="refresh" />
         </button>
@@ -112,19 +112,19 @@ function Topbar({ view, probes, system, onRefresh, onSearch }: { view: View; pro
   );
 }
 
-function Dashboard({ settings, probes, system, onOpen }: { settings: ZeroOneSettings; probes: ServiceProbe[]; system: SystemSnapshot | null; onOpen: (id: ServiceId) => void }) {
+function Dashboard({ settings, probes, system, zsec, onOpen, onOpenShield }: { settings: ZeroOneSettings; probes: ServiceProbe[]; system: SystemSnapshot | null; zsec: ZsecSnapshot | null; onOpen: (id: ServiceId) => void; onOpenShield: () => void }) {
   const openZero = probes.find((probe) => probe.name === "openzero");
   return (
     <div className="view-scroll dashboard">
       <section className="hero-panel">
         <div className="hero-grid" />
         <div className="hero-copy">
-          <div className="hero-kicker"><span /> AI COMMUNICATIONS OPERATING SYSTEM</div>
+          <div className="hero-kicker"><span /> SOVEREIGN DIGITAL OPERATING SYSTEM</div>
           <h2>Your intelligence.<br /><em>Your conversations.</em><br />One sovereign command.</h2>
-          <p>Mail, research, local AI, agents, calls, and secure workflows—composed into one fast Windows experience.</p>
+          <p>Mail, research, local AI, agents, calls, and deterministic endpoint security—composed into one fast desktop experience.</p>
           <div className="hero-actions">
             <button className="primary-action" onClick={() => onOpen("openzero")}><span>Enter OpenZero</span><span>↗</span></button>
-            <button className="secondary-action" onClick={() => onOpen("callchat")}><span className="button-dot" /> Start a conversation</button>
+            <button className="secondary-action shield-action" onClick={onOpenShield}><Icon name="shield" size={17} /> Open ZSEC Shield</button>
           </div>
         </div>
         <div className="hero-core" aria-label="ZERO ONE neural core">
@@ -137,10 +137,10 @@ function Dashboard({ settings, probes, system, onOpen }: { settings: ZeroOneSett
         <div className="hero-metrics">
           <Metric label="Local runtime" value={openZero?.state === "online" ? "ACTIVE" : "STANDBY"} tone={openZero?.state === "online" ? "green" : "amber"} />
           <Metric label="Memory" value={system ? `${system.memoryPercent}%` : "—"} />
-          <Metric label="Privacy" value="LOCAL-FIRST" tone="cyan" />
+          <Metric label="Privacy" value="USER-CONTROLLED" tone="cyan" />
+          <Metric label="Endpoint" value={zsec?.state === "ready" ? "NO RULE MATCHES" : zsec?.state === "attention" ? "REVIEW" : zsec?.state === "idle" ? "INSTALLED" : "READY TO INSTALL"} tone={zsec?.state === "ready" ? "green" : "amber"} />
         </div>
       </section>
-
       <div className="section-heading">
         <div><p>CONNECTED SYSTEMS</p><h3>Your four workspaces</h3></div>
         <span>Live health and direct access</span>
@@ -170,6 +170,39 @@ function Dashboard({ settings, probes, system, onOpen }: { settings: ZeroOneSett
           </dl>
         </div>
       </section>
+    </div>
+  );
+}
+
+function ZsecView({ snapshot }: { snapshot: ZsecSnapshot | null }) {
+  const state = snapshot?.state || "unavailable";
+  const lastScan = snapshot?.lastScan ? new Date(snapshot.lastScan).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "Not yet recorded";
+  return (
+    <div className="view-scroll zsec-view">
+      <section className="zsec-hero glass-card">
+        <div className="zsec-radar" aria-hidden="true"><span /><i /><b>ZS</b></div>
+        <div className="zsec-copy">
+          <p className="section-kicker">NO AI · DETERMINISTIC CONTROLS · LOCAL EVIDENCE</p>
+          <h2>Programmatic endpoint defence,<br /><em>without the black box.</em></h2>
+          <p>This preview reads a separately installed ZSEC Shield runtime. Its deterministic design uses explicit signatures, hashes, bounded rules, data-only definitions, recoverable quarantine, and auditable JSON evidence.</p>
+          <div className="zsec-state-row" aria-live="polite"><span className={`zsec-state ${state}`}>{state.replace("-", " ")}</span><span>{snapshot?.message || "Checking the local ZSEC Shield runtime."}</span></div>
+        </div>
+      </section>
+      <section className="zsec-stats" aria-label="ZSEC Shield status">
+        <article><span>ENGINE</span><strong>{snapshot?.installed ? snapshot.version || "Installed" : "Not installed"}</strong><small>Fixed local binary locations only</small></article>
+        <article><span>DEFINITIONS</span><strong>{snapshot?.definitions || "Awaiting install"}</strong><small>Data-only definitions; signed production channel is a release gate</small></article>
+        <article><span>LAST SCAN</span><strong>{lastScan}</strong><small>Rendered from the local CLI status contract</small></article>
+        <article><span>FINDINGS</span><strong className={(snapshot?.findings || 0) > 0 ? "danger" : "safe"}>{snapshot?.lastScan ? snapshot.findings ?? 0 : "—"}</strong><small>{snapshot?.quarantine ?? 0} recoverable quarantine items</small></article>
+      </section>
+      <section className="zsec-platforms">
+        {[
+          ["WINDOWS 10 / 11", "Preview target: Defender posture, startup inventory, on-demand filesystem scan, update health"],
+          ["macOS", "Preview target: Gatekeeper/XProtect posture, launch-item inventory, user-selected filesystem scan"],
+          ["LINUX", "Preview target: package posture, service inventory, filesystem scan, data-only advisory feed"],
+        ].map(([name, detail], index) => <article key={name}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{name}</h3><p>{detail}</p></div><strong>PREVIEW</strong></article>)}
+      </section>
+      <section className="zsec-boundary glass-card">
+        <Icon name="shield" size={25} /><div><strong>Truthful protection boundary</strong><p>This UI does not claim kernel-level real-time interception, independent antivirus certification, or complete malware prevention. Those remain release gates until the platform drivers, signing identities, and independent lab evidence exist.</p></div>      </section>
     </div>
   );
 }
@@ -253,11 +286,10 @@ function SettingsView({ settings, onSaved }: { settings: ZeroOneSettings; onSave
       const saved = await window.zeroOne.saveSettings({ ...draft, openZeroToken: token || undefined });
       setToken("");
       onSaved(saved);
-      setMessage("Settings saved. Secrets remain encrypted for this Windows user.");
+      setMessage("Settings saved. Secrets remain protected by secure storage for this operating-system account.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to save settings.");
-    } finally {
-      setSaving(false);
+    } finally {      setSaving(false);
     }
   };
 
@@ -281,28 +313,29 @@ function SettingsView({ settings, onSaved }: { settings: ZeroOneSettings; onSave
           <div className="settings-heading"><div><p>LOCAL AI</p><h2>OpenZero copilot</h2></div><span>{draft.hasOpenZeroToken ? "Token stored securely" : "Token required"}</span></div>
           <div className="settings-grid">
             {field("model", "Default model", "Use an installed OpenZero/Ollama model alias.")}
-            <label className="setting-field"><span>OpenZero API token</span><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder={draft.hasOpenZeroToken ? "•••••••••••••••• (leave blank to keep)" : "Paste oz_ token"} autoComplete="off" /><small>Encrypted with Electron safeStorage under your Windows account.</small></label>
+            <label className="setting-field"><span>OpenZero API token</span><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder={draft.hasOpenZeroToken ? "•••••••••••••••• (leave blank to keep)" : "Paste oz_ token"} autoComplete="off" /><small>Encrypted with the operating system's secure credential storage. Insecure Linux fallback storage is rejected.</small></label>
           </div>
           {draft.hasOpenZeroToken && <label className="check-row danger"><input type="checkbox" checked={Boolean(draft.clearOpenZeroToken)} onChange={(event) => setDraft({ ...draft, clearOpenZeroToken: event.target.checked })} /><span>Remove the stored OpenZero token when I save</span></label>}
-        </section>
-        <section className="settings-section glass-card">
-          <div className="settings-heading"><div><p>WINDOWS</p><h2>Desktop behavior</h2></div><span>Privacy-first defaults</span></div>
+        </section>        <section className="settings-section glass-card">
+          <div className="settings-heading"><div><p>DESKTOP</p><h2>App behavior</h2></div><span>Privacy-first defaults</span></div>
           <label className="check-row"><input type="checkbox" checked={draft.mediaEnabled} onChange={(event) => setDraft({ ...draft, mediaEnabled: event.target.checked })} /><span><strong>Enable camera and microphone for CallChat</strong><small>All other embedded services remain denied access.</small></span></label>
-          <label className="check-row"><input type="checkbox" checked={draft.launchAtLogin} onChange={(event) => setDraft({ ...draft, launchAtLogin: event.target.checked })} /><span><strong>Launch ZERO ONE when I sign in</strong><small>Can be changed at any time.</small></span></label>
+          <label className="check-row"><input type="checkbox" checked={draft.launchAtLogin} onChange={(event) => setDraft({ ...draft, launchAtLogin: event.target.checked })} /><span><strong>Launch ZERO ONE when I sign in</strong><small>Uses the current operating system account and can be changed at any time.</small></span></label>
         </section>
-        <div className="settings-footer"><span>{message}</span><button className="primary-action" disabled={saving}>{saving ? "Saving…" : "Save secure settings"}</button></div>
+        <div className="settings-footer"><span role="status" aria-live="polite">{message}</span><button className="primary-action" disabled={saving}>{saving ? "Saving…" : "Save secure settings"}</button></div>
       </form>
     </div>
-  );
-}
+  );}
 
 function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOpenSettings: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialAssistant);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
+  const streamRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [messages, busy]);
+  useEffect(() => {
+    const stream = streamRef.current;
+    if (stream) stream.scrollTop = stream.scrollHeight;
+  }, [messages, busy]);
 
   const send = async () => {
     const text = input.trim();
@@ -329,10 +362,9 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
     <aside className="copilot">
       <div className="copilot-header"><div className="copilot-symbol">Ø<span /></div><div><p>OPENZERO COPILOT</p><h3>Zero</h3></div><span className={`copilot-state ${settings.hasOpenZeroToken ? "ready" : "locked"}`}>{settings.hasOpenZeroToken ? "READY" : "LOCKED"}</span></div>
       <div className="copilot-context"><span>MODEL</span><strong>{settings.model}</strong></div>
-      <div className="chat-stream">
+      <div className="chat-stream" ref={streamRef}>
         {messages.map((message, index) => <div key={index} className={`chat-message ${message.role}`}><span>{message.role === "assistant" ? "Ø" : "YOU"}</span><p>{message.content}</p></div>)}
         {busy && <div className="thinking"><i /><i /><i /></div>}
-        <div ref={endRef} />
       </div>
       {!settings.hasOpenZeroToken && <button className="token-prompt" onClick={onOpenSettings}><Icon name="shield" size={16} /> Connect local token</button>}
       <div className="chat-compose"><textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={keyDown} placeholder="Ask your local intelligence…" rows={2} /><button onClick={send} disabled={busy || !input.trim()} aria-label="Send"><Icon name="send" size={18} /></button><small>Enter to send · Shift Enter for line break</small></div>
@@ -342,33 +374,49 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
 
 function CommandPalette({ onClose, onNavigate }: { onClose: () => void; onNavigate: (view: View) => void }) {
   const [query, setQuery] = useState("");
+  const paletteRef = useRef<HTMLDivElement>(null);
+  const trapFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(paletteRef.current?.querySelectorAll<HTMLElement>('input,button,[href],[tabindex]:not([tabindex="-1"])') || []);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  };
   const actions = useMemo(() => [
     { label: "Open command center", hint: "Dashboard", view: "home" as View },
-    { label: "Inspect 16-agent lattice", hint: "Autonomy", view: "agents" as View },
+    { label: "Open ZSEC Shield", hint: "Deterministic endpoint security", view: "shield" as View },    { label: "Inspect 16-agent lattice", hint: "Autonomy", view: "agents" as View },
     ...SERVICES.map((service) => ({ label: `Open ${service.name}`, hint: service.eyebrow, view: `service:${service.id}` as View })),
     { label: "Open secure settings", hint: "Configuration", view: "settings" as View },
   ].filter((action) => `${action.label} ${action.hint}`.toLowerCase().includes(query.toLowerCase())), [query]);
   return (
     <div className="palette-backdrop" onMouseDown={onClose}>
-      <div className="command-palette" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="palette-input"><Icon name="search" /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search ZERO ONE…" /><kbd>ESC</kbd></div>
-        <div className="palette-results">{actions.map((action) => <button key={action.label} onClick={() => { onNavigate(action.view); onClose(); }}><span>{action.label}<small>{action.hint}</small></span><strong>↗</strong></button>)}</div>
+      <div ref={paletteRef} className="command-palette" role="dialog" aria-modal="true" aria-label="ZERO ONE command palette" onKeyDown={trapFocus} onMouseDown={(event) => event.stopPropagation()}>
+        <div className="palette-input"><Icon name="search" /><input autoFocus aria-label="Search commands" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search ZERO ONE…" /><kbd>ESC</kbd></div>
+        <div className="palette-results">{actions.length ? actions.map((action) => <button key={action.label} onClick={() => { onNavigate(action.view); onClose(); }}><span>{action.label}<small>{action.hint}</small></span><strong>↗</strong></button>) : <p className="palette-empty" role="status">No matching commands</p>}</div>
       </div>
     </div>
-  );
-}
+  );}
 
 export default function App() {
   const [view, setView] = useState<View>("home");
   const [settings, setSettings] = useState<ZeroOneSettings | null>(null);
   const [probes, setProbes] = useState<ServiceProbe[]>([]);
   const [system, setSystem] = useState<SystemSnapshot | null>(null);
+  const [zsec, setZsec] = useState<ZsecSnapshot | null>(null);
   const [palette, setPalette] = useState(false);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
+  const closePalette = useCallback(() => {
+    setPalette(false);
+    window.requestAnimationFrame(() => searchButtonRef.current?.focus());
+  }, []);
 
   const refresh = useCallback(async () => {
-    const [serviceState, machine] = await Promise.all([window.zeroOne.probeServices(), window.zeroOne.getSystemSnapshot()]);
+    const [serviceState, machine, zsecState] = await Promise.all([window.zeroOne.probeServices(), window.zeroOne.getSystemSnapshot(), window.zeroOne.getZsecStatus()]);
     setProbes(serviceState);
     setSystem(machine);
+    setZsec(zsecState);
   }, []);
 
   useEffect(() => {
@@ -381,29 +429,31 @@ export default function App() {
   useEffect(() => {
     const listener = (event: globalThis.KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setPalette(true); }
-      if (event.key === "Escape") setPalette(false);
+      if (event.key === "Escape" && palette) closePalette();
     };
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
-  }, []);
+  }, [closePalette, palette]);
 
   if (!settings) return <div className="boot-screen"><div className="boot-mark">Ø</div><p>INITIALIZING ZERO ONE</p><span /></div>;
 
   const activeService = view.startsWith("service:") ? serviceById(view.split(":")[1] as ServiceId) : null;
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">Skip to main content</a>
       <Sidebar view={view} onNavigate={setView} />
       <main className="main-stage">
-        <Topbar view={view} probes={probes} system={system} onRefresh={refresh} onSearch={() => setPalette(true)} />
-        <div className="content-frame">
-          {view === "home" && <Dashboard settings={settings} probes={probes} system={system} onOpen={(id) => setView(`service:${id}`)} />}
+        <Topbar view={view} probes={probes} system={system} onRefresh={refresh} onSearch={() => setPalette(true)} searchRef={searchButtonRef} />
+        <div className="content-frame" id="main-content">
+          {view === "home" && <Dashboard settings={settings} probes={probes} system={system} zsec={zsec} onOpen={(id) => setView(`service:${id}`)} onOpenShield={() => setView("shield")} />}
+          {view === "shield" && <ZsecView snapshot={zsec} />}
           {view === "agents" && <AgentLattice settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onOpenZero={() => setView("service:openzero")} />}
           {view === "settings" && <SettingsView settings={settings} onSaved={(saved) => { setSettings(saved); refresh(); }} />}
           {activeService && <ServiceWorkspace service={activeService} settings={settings} probe={probes.find((probe) => probe.name === activeService.id)} />}
         </div>
       </main>
       <Copilot settings={settings} onOpenSettings={() => setView("settings")} />
-      {palette && <CommandPalette onClose={() => setPalette(false)} onNavigate={setView} />}
+      {palette && <CommandPalette onClose={closePalette} onNavigate={setView} />}
     </div>
   );
 }

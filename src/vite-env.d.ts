@@ -14,6 +14,18 @@ interface ZeroOneSettings {
   clearOpenZeroToken?: boolean;
 }
 
+interface ZsecSnapshot {
+  installed: boolean;
+  state: "idle" | "ready" | "attention" | "not-installed" | "unavailable";
+  version?: string;
+  platform: string;
+  definitions?: string;
+  lastScan?: string;
+  findings?: number;
+  quarantine?: number;
+  message: string;
+}
+
 interface ServiceProbe {
   name: string;
   state: "online" | "degraded" | "offline";
@@ -44,6 +56,7 @@ interface Window {
     chat(request: { model: string; messages: Array<{ role: "user" | "assistant" | "system"; content: string }> }): Promise<{ content: string; model: string }>;
     openExternal(url: string): Promise<boolean>;
     exportDiagnostics(): Promise<{ saved: boolean; path?: string }>;
+    getZsecStatus(): Promise<ZsecSnapshot>;
   };
 }
 

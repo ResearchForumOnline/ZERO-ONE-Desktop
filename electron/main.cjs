@@ -1,4 +1,5 @@
 const { app, BrowserWindow, dialog, ipcMain, safeStorage, session, shell } = require("electron");
+const { execFile } = require("node:child_process");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
@@ -16,10 +17,12 @@ const DEFAULT_SETTINGS = Object.freeze({
 
 const ALLOWED_ORIGINS = new Set([
   "https://mail.zmail.my",
+  "https://webmail.zmail.my",
   "https://zmail.my",
   "https://www.zmail.talktoai.org",
   "https://zerothink.talktoai.org",
   "https://openzero.talktoai.org",
+  "https://talktoai.org",
   "https://callchat.org",
   "https://www.callchat.org",
   "http://127.0.0.1:1024",
@@ -43,14 +46,37 @@ function isAllowedUrl(value) {
   }
 }
 
+function isCallChatOrigin(value) {
+  try {
+    const origin = new URL(value).origin;
+    return origin === "https://callchat.org" || origin === "https://www.callchat.org";
+  } catch {
+    return false;
+  }
+}
+
+function credentialStorageIsSecure() {
+  if (!safeStorage.isEncryptionAvailable()) return false;
+  const backend = safeStorage.getSelectedStorageBackend?.();
+  return process.platform !== "linux" || backend !== "basic_text";
+}
+
+function isTrustedIpcSender(event) {
+  return Boolean(mainWindow && event?.sender === mainWindow.webContents && event?.senderFrame === event.sender.mainFrame);
+}
+
+function requireTrustedIpcSender(event) {
+  if (!isTrustedIpcSender(event)) throw new Error("Rejected IPC call from an untrusted renderer.");
+}
+
 function configurePermissionPolicy(targetSession) {
   if (!targetSession || configuredPermissionSessions.has(targetSession)) return;
   configuredPermissionSessions.add(targetSession);
   targetSession.setPermissionCheckHandler((_webContents, permission, requestingOrigin) => {
-    return permission === "media" && runtimeSettings.mediaEnabled && /^https:\/\/(www\.)?callchat\.org$/.test(requestingOrigin);
+    return permission === "media" && runtimeSettings.mediaEnabled && isCallChatOrigin(requestingOrigin);
   });
   targetSession.setPermissionRequestHandler((_webContents, permission, callback, details) => {
-    const allowed = permission === "media" && runtimeSettings.mediaEnabled && /^https:\/\/(www\.)?callchat\.org/.test(details.requestingUrl || "");
+    const allowed = permission === "media" && runtimeSettings.mediaEnabled && isCallChatOrigin(details.requestingUrl || "");
     callback(allowed);
   });
 }
@@ -86,7 +112,7 @@ async function loadSettingsInternal() {
 }
 
 function decryptToken(settings) {
-  if (!settings.openZeroTokenEncrypted || !safeStorage.isEncryptionAvailable()) return "";
+  if (!settings.openZeroTokenEncrypted || !credentialStorageIsSecure()) return "";
   try {
     return safeStorage.decryptString(Buffer.from(settings.openZeroTokenEncrypted, "base64"));
   } catch {
@@ -116,8 +142,8 @@ async function saveSettingsInternal(input) {
   if (input.clearOpenZeroToken) {
     delete next.openZeroTokenEncrypted;
   } else if (typeof input.openZeroToken === "string" && input.openZeroToken.trim()) {
-    if (!safeStorage.isEncryptionAvailable()) {
-      throw new Error("Windows credential encryption is unavailable; the token was not saved.");
+    if (!credentialStorageIsSecure()) {
+      throw new Error("Secure operating-system credential storage is unavailable; the token was not saved.");
     }
     next.openZeroTokenEncrypted = safeStorage.encryptString(input.openZeroToken.trim()).toString("base64");
   }
@@ -142,7 +168,7 @@ async function probe(name, url) {
     });
     return {
       name,
-      state: response.status < 500 ? "online" : "degraded",
+      state: response.ok ? "online" : "degraded",
       status: response.status,
       latencyMs: Date.now() - started,
       url,
@@ -166,8 +192,8 @@ async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1540,
     height: 960,
-    minWidth: 1120,
-    minHeight: 720,
+    minWidth: 1000,
+    minHeight: 680,
     show: false,
     backgroundColor: "#07090f",
     title: "ZERO ONE",
@@ -203,7 +229,7 @@ app.on("web-contents-created", (_event, contents) => {
   });
 
   contents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("https://")) shell.openExternal(url);
+    if (url.startsWith("https://") && isAllowedUrl(url)) shell.openExternal(url);
     return { action: "deny" };
   });
 
@@ -226,14 +252,18 @@ app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
-ipcMain.handle("app:info", () => ({
+ipcMain.handle("app:info", (event) => {
+  requireTrustedIpcSender(event);
+  return ({
   name: "ZERO ONE",
   version: app.getVersion(),
   platform: process.platform,
   packaged: app.isPackaged,
-}));
+  });
+});
 
-ipcMain.handle("system:snapshot", () => {
+ipcMain.handle("system:snapshot", (event) => {
+  requireTrustedIpcSender(event);
   const total = os.totalmem();
   const free = os.freemem();
   return {
@@ -248,10 +278,94 @@ ipcMain.handle("system:snapshot", () => {
   };
 });
 
-ipcMain.handle("settings:load", async () => publicSettings(await loadSettingsInternal()));
-ipcMain.handle("settings:save", async (_event, input) => saveSettingsInternal(input || {}));
+function zsecCandidates() {
+  if (process.platform === "win32") {
+    return [
+      path.join(process.env.LOCALAPPDATA || "", "Programs", "ZSEC Shield", "zsec-shield.exe"),
+      path.join(process.env.ProgramFiles || "C:\\Program Files", "ZSEC Shield", "zsec-shield.exe"),
+    ];
+  }
+  if (process.platform === "darwin") {
+    return ["/Applications/ZSEC Shield.app/Contents/MacOS/zsec-shield", "/usr/local/bin/zsec-shield"];
+  }
+  return ["/usr/local/bin/zsec-shield", "/usr/bin/zsec-shield"];
+}
 
-ipcMain.handle("services:probe", async () => {
+async function existingZsecBinary() {
+  for (const candidate of zsecCandidates()) {
+    if (!candidate) continue;
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {
+      // Continue through fixed, platform-owned install locations only.
+    }
+  }
+  return null;
+}
+
+function runZsecStatus(binary) {
+  return new Promise((resolve) => {
+    execFile(binary, ["status", "--json"], { timeout: 6000, windowsHide: true, maxBuffer: 256 * 1024 }, (error, stdout) => {
+      if (error) {
+        resolve({ installed: true, state: "unavailable", platform: process.platform, message: "ZSEC Shield is installed but did not return a valid local status." });
+        return;
+      }
+      try {
+        const payload = JSON.parse(String(stdout || "{}"));
+        if (payload.schema !== "zsec.shield.status.v1" || payload.contract_version !== 1) {
+          throw new Error("Unsupported ZSEC status contract");
+        }
+        const findings = Number(payload.findings);
+        const quarantine = Number(payload.quarantine_count);
+        if (!Number.isSafeInteger(findings) || findings < 0 || !Number.isSafeInteger(quarantine) || quarantine < 0) {
+          throw new Error("Invalid ZSEC status counters");
+        }
+        const lastScan = payload.last_scan == null ? undefined : String(payload.last_scan).slice(0, 80);
+        if (lastScan && Number.isNaN(Date.parse(lastScan))) throw new Error("Invalid ZSEC scan timestamp");
+        const state = !lastScan ? "idle" : findings > 0 ? "attention" : "ready";
+        resolve({
+          installed: true,
+          state,
+          version: String(payload.version || "unknown").slice(0, 40),
+          platform: String(payload.platform || process.platform).slice(0, 80),
+          definitions: String(payload.definitions || "not reported").slice(0, 80),
+          lastScan,
+          findings,
+          quarantine,
+          message: !lastScan
+            ? "ZSEC Shield is installed. Run an on-demand scan to create local evidence."
+            : findings > 0
+              ? "Review the configured-rule matches from the last local scan."
+              : "The last on-demand scan reported no configured-rule matches.",
+        });
+      } catch {
+        resolve({ installed: true, state: "unavailable", platform: process.platform, message: "ZSEC Shield returned malformed status data." });
+      }
+    });
+  });
+}
+
+ipcMain.handle("zsec:status", async (event) => {
+  requireTrustedIpcSender(event);
+  const binary = await existingZsecBinary();
+  if (!binary) {
+    return { installed: false, state: "not-installed", platform: process.platform, findings: 0, quarantine: 0, message: "Install ZSEC Shield to enable deterministic endpoint scanning." };
+  }
+  return runZsecStatus(binary);
+});
+
+ipcMain.handle("settings:load", async (event) => {
+  requireTrustedIpcSender(event);
+  return publicSettings(await loadSettingsInternal());
+});
+ipcMain.handle("settings:save", async (event, input) => {
+  requireTrustedIpcSender(event);
+  return saveSettingsInternal(input || {});
+});
+
+ipcMain.handle("services:probe", async (event) => {
+  requireTrustedIpcSender(event);
   const settings = await loadSettingsInternal();
   return Promise.all([
     probe("zmail", settings.zmailUrl),
@@ -261,7 +375,8 @@ ipcMain.handle("services:probe", async () => {
   ]);
 });
 
-ipcMain.handle("openzero:chat", async (_event, request) => {
+ipcMain.handle("openzero:chat", async (event, request) => {
+  requireTrustedIpcSender(event);
   const settings = await loadSettingsInternal();
   const token = decryptToken(settings);
   if (!token) throw new Error("Add your OpenZero API token in Settings before using the copilot.");
@@ -296,13 +411,15 @@ ipcMain.handle("openzero:chat", async (_event, request) => {
   }
 });
 
-ipcMain.handle("shell:open-external", async (_event, url) => {
+ipcMain.handle("shell:open-external", async (event, url) => {
+  requireTrustedIpcSender(event);
   if (!isAllowedUrl(url)) throw new Error("That destination is outside the ZERO ONE allowlist.");
   await shell.openExternal(url);
   return true;
 });
 
-ipcMain.handle("diagnostics:export", async () => {
+ipcMain.handle("diagnostics:export", async (event) => {
+  requireTrustedIpcSender(event);
   const settings = publicSettings(await loadSettingsInternal());
   const services = await Promise.all([
     probe("zmail", settings.zmailUrl),

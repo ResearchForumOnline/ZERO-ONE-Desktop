@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld("zeroOne", {
   chat: (request) => ipcRenderer.invoke("openzero:chat", request),
   openExternal: (url) => ipcRenderer.invoke("shell:open-external", url),
   exportDiagnostics: () => ipcRenderer.invoke("diagnostics:export"),
+  getZsecStatus: () => ipcRenderer.invoke("zsec:status"),
 });
