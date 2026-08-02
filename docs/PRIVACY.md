@@ -20,8 +20,16 @@ Media is disabled by default. If the user enables it, access is restricted to th
 
 ## ZSEC Shield preview
 
-The desktop reads only a bounded local status summary: engine version, platform label, definition label, last-scan timestamp, configured-rule match count and quarantine count. It does not upload file names, paths, hashes, samples or reports.
+On Windows, the preview package bundles the full ZSEC Shield 0.1.0 x86_64 onedir runtime. The user must press the scan button and choose exactly one folder through the operating-system picker. The desktop invokes the fixed runtime with the selected path and bounded arguments. It does not start a background scan, automatic deletion or automatic quarantine.
 
-The separate ZSEC runtime scans only paths explicitly supplied to its command line in this preview. Its reports may contain local paths, hashes, match metadata and operational errors. Quarantine is opt-in and recoverable. Signed definition updates download declarative data-only rules; they do not accept commands or scripts.
+The reviewed bridge does not upload file names, paths, hashes, samples or reports. The trusted renderer receives only aggregate counts and a bounded outcome. The bundled runtime manifest declares no telemetry and no real-time protection, but this must still be confirmed against the exact signed package and a clean-profile network trace before an absolute public claim. Local CLI reports may contain paths, hashes, configured-rule matches and operational errors. The separate CLI supports opt-in recoverable quarantine, but the desktop scan button does not request it.
+
+The desktop also reads a bounded local status summary: engine version, platform label, definition label, last-scan timestamp, configured-rule match count and quarantine count. The preview contains no production rule-feed trust key. A future signed definition update channel would download declarative data-only rules; it must not accept commands or scripts and must be added to this disclosure before activation.
+
+macOS, Linux and Windows arm64 runtime/package behaviour has not been host-verified and must not inherit the Windows x64 disclosure without native testing.
 
 Before any cloud lookup, telemetry, crash reporting or sample submission is added, this disclosure, consent flow, retention schedule and deletion controls must be updated first.
+
+## Store disclosure gate
+
+This local draft is not a sufficient Microsoft or Apple privacy URL. The final public policy must also cover the actual data practices of ZMail, ZeroThink, OpenZero and CallChat as reached through the submitted app. Do not select "no data collected" in a store portal until the exact production build, connected services, server retention and integrated partners have been audited.

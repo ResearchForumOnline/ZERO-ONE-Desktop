@@ -174,9 +174,26 @@ function Dashboard({ settings, probes, system, zsec, onOpen, onOpenShield }: { s
   );
 }
 
-function ZsecView({ snapshot }: { snapshot: ZsecSnapshot | null }) {
+function ZsecView({ snapshot, onRefresh }: { snapshot: ZsecSnapshot | null; onRefresh: () => Promise<void> }) {
+  const [scanResult, setScanResult] = useState<ZsecScanResult | null>(null);
+  const [scanning, setScanning] = useState(false);
   const state = snapshot?.state || "unavailable";
   const lastScan = snapshot?.lastScan ? new Date(snapshot.lastScan).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "Not yet recorded";
+
+  const startScan = async () => {
+    setScanning(true);
+    setScanResult(null);
+    try {
+      const result = await window.zeroOne.scanWithZsec();
+      setScanResult(result);
+      if (!result.cancelled) await onRefresh();
+    } catch {
+      setScanResult({ cancelled: false, outcome: "incomplete", errors: 1, message: "The local scan could not start. Refresh status and try again." });
+    } finally {
+      setScanning(false);
+    }
+  };
+
   return (
     <div className="view-scroll zsec-view">
       <section className="zsec-hero glass-card">
@@ -184,29 +201,63 @@ function ZsecView({ snapshot }: { snapshot: ZsecSnapshot | null }) {
         <div className="zsec-copy">
           <p className="section-kicker">NO AI · DETERMINISTIC CONTROLS · LOCAL EVIDENCE</p>
           <h2>Programmatic endpoint defence,<br /><em>without the black box.</em></h2>
-          <p>This preview reads a separately installed ZSEC Shield runtime. Its deterministic design uses explicit signatures, hashes, bounded rules, data-only definitions, recoverable quarantine, and auditable JSON evidence.</p>
+          <p>ZSEC Shield performs explicit, on-demand checks on the folder you choose. Scanning stays on this machine and reports bounded rule matches without automatically deleting or quarantining anything.</p>
           <div className="zsec-state-row" aria-live="polite"><span className={`zsec-state ${state}`}>{state.replace("-", " ")}</span><span>{snapshot?.message || "Checking the local ZSEC Shield runtime."}</span></div>
         </div>
       </section>
+
+      <section className="zsec-start glass-card" aria-labelledby="zsec-start-title">
+        <div className="zsec-start-copy">
+          <p className="section-kicker">SIMPLE, CONSENT-BASED SCANNING</p>
+          <h3 id="zsec-start-title">One folder. One clear result.</h3>
+          <ol className="zsec-steps">
+            <li><span>1</span><div><strong>Choose</strong><small>Select one folder yourself.</small></div></li>
+            <li><span>2</span><div><strong>Scan locally</strong><small>ZSEC hashes files and applies configured rules.</small></div></li>
+            <li><span>3</span><div><strong>Review</strong><small>Nothing is removed automatically.</small></div></li>
+          </ol>
+        </div>
+        <div className="zsec-controls">
+          {snapshot?.installed ? (
+            <>
+              <button className="primary-action zsec-primary" onClick={startScan} disabled={scanning} aria-busy={scanning}>{scanning ? "Scanning…" : "Choose folder and scan"}</button>
+              <button className="secondary-action" onClick={onRefresh} disabled={scanning}>Refresh status</button>
+            </>
+          ) : (
+            <>
+              <button className="primary-action zsec-primary" onClick={() => window.zeroOne.openExternal("https://talktoai.org/zsec/#shield")}>Get ZSEC Shield</button>
+              <button className="secondary-action" onClick={() => window.zeroOne.openExternal("https://github.com/ResearchForumOnline/ZSEC-Shield")}>View source</button>
+            </>
+          )}
+          <p>No background scan, deletion, upload, or quarantine is started by this button.</p>
+        </div>
+        {scanResult && (
+          <div className={`zsec-result ${scanResult.outcome === "configured_rule_matches_detected" ? "attention" : scanResult.outcome === "incomplete" ? "incomplete" : "clear"}`} role="status" aria-live="polite">
+            <strong>{scanResult.cancelled ? "Scan cancelled" : scanResult.outcome === "configured_rule_matches_detected" ? "Review recommended" : scanResult.outcome === "incomplete" ? "Scan incomplete" : "Scan complete"}</strong>
+            <p>{scanResult.message}</p>
+            {!scanResult.cancelled && typeof scanResult.filesHashed === "number" && <small>{scanResult.filesHashed.toLocaleString()} files · {formatBytes(scanResult.bytesHashed || 0)} read · {scanResult.errors || 0} errors</small>}
+          </div>
+        )}
+      </section>
+
       <section className="zsec-stats" aria-label="ZSEC Shield status">
-        <article><span>ENGINE</span><strong>{snapshot?.installed ? snapshot.version || "Installed" : "Not installed"}</strong><small>Fixed local binary locations only</small></article>
-        <article><span>DEFINITIONS</span><strong>{snapshot?.definitions || "Awaiting install"}</strong><small>Data-only definitions; signed production channel is a release gate</small></article>
-        <article><span>LAST SCAN</span><strong>{lastScan}</strong><small>Rendered from the local CLI status contract</small></article>
-        <article><span>FINDINGS</span><strong className={(snapshot?.findings || 0) > 0 ? "danger" : "safe"}>{snapshot?.lastScan ? snapshot.findings ?? 0 : "—"}</strong><small>{snapshot?.quarantine ?? 0} recoverable quarantine items</small></article>
+        <article><span>ENGINE</span><strong>{snapshot?.installed ? snapshot.version || "Installed" : "Not installed"}</strong><small>Bundled runtime first; fixed system locations second</small></article>
+        <article><span>DEFINITIONS</span><strong>{snapshot?.definitions || "Awaiting install"}</strong><small>Built-in data-only rules; production update signing remains a release gate</small></article>
+        <article><span>LAST SCAN</span><strong>{lastScan}</strong><small>Rendered from the versioned local CLI status contract</small></article>
+        <article><span>RULE MATCHES</span><strong className={(snapshot?.findings || 0) > 0 ? "danger" : "safe"}>{snapshot?.lastScan ? snapshot.findings ?? 0 : "—"}</strong><small>{snapshot?.quarantine ?? 0} recoverable quarantine items</small></article>
       </section>
       <section className="zsec-platforms">
         {[
-          ["WINDOWS 10 / 11", "Preview target: Defender posture, startup inventory, on-demand filesystem scan, update health"],
-          ["macOS", "Preview target: Gatekeeper/XProtect posture, launch-item inventory, user-selected filesystem scan"],
-          ["LINUX", "Preview target: package posture, service inventory, filesystem scan, data-only advisory feed"],
+          ["WINDOWS 10 / 11", "On-demand selected-folder scanning and deterministic local evidence"],
+          ["macOS", "On-demand selected-folder scanning; notarization is required for public release"],
+          ["LINUX", "On-demand scanning plus package, service, and advisory inspection"],
         ].map(([name, detail], index) => <article key={name}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{name}</h3><p>{detail}</p></div><strong>PREVIEW</strong></article>)}
       </section>
       <section className="zsec-boundary glass-card">
-        <Icon name="shield" size={25} /><div><strong>Truthful protection boundary</strong><p>This UI does not claim kernel-level real-time interception, independent antivirus certification, or complete malware prevention. Those remain release gates until the platform drivers, signing identities, and independent lab evidence exist.</p></div>      </section>
+        <Icon name="shield" size={25} /><div><strong>Truthful protection boundary</strong><p>ZSEC Desktop Preview is an on-demand security companion. It does not claim kernel-level real-time interception, independent antivirus certification, or complete malware prevention. Keep the operating system’s built-in protection enabled.</p></div>
+      </section>
     </div>
   );
 }
-
 function Metric({ label, value, tone = "white" }: { label: string; value: string; tone?: string }) {
   return <div className="hero-metric"><span>{label}</span><strong className={tone}>{value}</strong></div>;
 }
@@ -446,7 +497,7 @@ export default function App() {
         <Topbar view={view} probes={probes} system={system} onRefresh={refresh} onSearch={() => setPalette(true)} searchRef={searchButtonRef} />
         <div className="content-frame" id="main-content">
           {view === "home" && <Dashboard settings={settings} probes={probes} system={system} zsec={zsec} onOpen={(id) => setView(`service:${id}`)} onOpenShield={() => setView("shield")} />}
-          {view === "shield" && <ZsecView snapshot={zsec} />}
+          {view === "shield" && <ZsecView snapshot={zsec} onRefresh={refresh} />}
           {view === "agents" && <AgentLattice settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onOpenZero={() => setView("service:openzero")} />}
           {view === "settings" && <SettingsView settings={settings} onSaved={(saved) => { setSettings(saved); refresh(); }} />}
           {activeService && <ServiceWorkspace service={activeService} settings={settings} probe={probes.find((probe) => probe.name === activeService.id)} />}

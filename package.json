@@ -1,6 +1,6 @@
 {
   "name": "zero-one-desktop",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "ZERO ONE desktop command center for ZMail, ZeroThink, OpenZero, CallChat, and the local ZSEC Shield preview.",
   "author": "QUANTUMENCRYPTION1 LTD",
@@ -50,6 +50,13 @@
       "assets/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "vendor/zsec-shield",
+        "to": "zsec-shield",
+        "filter": ["**/*"]
+      }
+    ],
     "asar": true,
     "compression": "maximum",
     "win": {
@@ -57,7 +64,8 @@
         {
           "target": "nsis",
           "arch": [
-            "x64"
+            "x64",
+            "arm64"
           ]
         }
       ],
@@ -85,8 +93,8 @@
       "icon": "assets/zero-one-icon.png"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "ZERO ONE",

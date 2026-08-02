@@ -26,6 +26,16 @@ interface ZsecSnapshot {
   message: string;
 }
 
+interface ZsecScanResult {
+  cancelled: boolean;
+  outcome?: "no_configured_rule_matches" | "configured_rule_matches_detected" | "incomplete";
+  filesHashed?: number;
+  bytesHashed?: number;
+  findings?: number;
+  errors?: number;
+  message: string;
+}
+
 interface ServiceProbe {
   name: string;
   state: "online" | "degraded" | "offline";
@@ -57,6 +67,7 @@ interface Window {
     openExternal(url: string): Promise<boolean>;
     exportDiagnostics(): Promise<{ saved: boolean; path?: string }>;
     getZsecStatus(): Promise<ZsecSnapshot>;
+    scanWithZsec(): Promise<ZsecScanResult>;
   };
 }
 
