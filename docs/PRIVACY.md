@@ -36,7 +36,9 @@ The current NSIS configuration deliberately uses `deleteAppDataOnUninstall: fals
 
 ## Platform limits
 
-Windows x64 is the only configured 0.3.1 package target. macOS, Linux, and Windows arm64 behavior must not inherit the Windows disclosure until matching native payloads, secure storage, permissions, signing, and host tests exist.
+ZERO ONE 0.4.0 publishes preview packages for Windows 10/11 x64, macOS Apple silicon and Linux x64. Each package carries the matching native ZSEC Shield runtime. Linux refuses to save an OpenZero token when Electron exposes only the insecure `basic_text` backend. Windows arm64 and Intel macOS are not published targets.
+
+The 0.4.0 packages are not yet publisher-signed, notarized or Store-approved. Distribution status does not change the data-handling boundary described above.
 
 ## Public policy gate
 

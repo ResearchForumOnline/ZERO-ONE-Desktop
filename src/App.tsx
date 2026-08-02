@@ -184,6 +184,7 @@ function ZsecView({ snapshot, onRefresh }: { snapshot: ZsecSnapshot | null; onRe
   const [scanResult, setScanResult] = useState<ZsecScanResult | null>(null);
   const [scanning, setScanning] = useState(false);
   const state = snapshot?.state || "unavailable";
+  const platformLabel = snapshot?.platform === "darwin" ? "MACOS APPLE SILICON" : snapshot?.platform === "linux" ? "LINUX X64" : "WINDOWS 10 / 11 X64";
   const lastScan = snapshot?.lastScan ? new Date(snapshot.lastScan).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "Not yet recorded";
 
   const startScan = async () => {
@@ -253,8 +254,8 @@ function ZsecView({ snapshot, onRefresh }: { snapshot: ZsecSnapshot | null; onRe
       </section>
       <section className="zsec-platforms">
         {[
-          ["WINDOWS 10 / 11 X64", "Bundled ZSEC 0.1.2 selected-folder scan; unsigned internal candidate", "INTERNAL"],
-          ["OTHER PLATFORMS", "Not shipped in ZERO ONE 0.3.1; native payload, signing, and host tests required", "NOT SHIPPED"],
+          [platformLabel, "Bundled ZSEC 0.1.2 selected-folder scanning with local evidence and no silent background scan", "BUNDLED"],
+          ["RELEASE CHANNEL", "Installable preview packages are published on the authenticated GitHub release with SHA-256 checksums", "PUBLIC PREVIEW"],
         ].map(([name, detail, availability], index) => <article key={name}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{name}</h3><p>{detail}</p></div><strong>{availability}</strong></article>)}
       </section>
       <section className="zsec-boundary glass-card">

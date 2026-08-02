@@ -1,0 +1,144 @@
+name: installable-release
+
+on:
+  pull_request:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-14, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.14.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+
+  windows:
+    needs: verify
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.14.0
+          cache: npm
+      - run: npm ci
+      - name: Verify immutable ZSEC release attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release verify v0.1.2 --repo ResearchForumOnline/ZSEC-Shield
+      - name: Stage pinned Windows ZSEC runtime
+        shell: pwsh
+        run: ./scripts/stage-zsec-vendor.ps1
+      - run: npm run dist:win
+      - name: Smoke packaged Windows application
+        shell: pwsh
+        run: ./scripts/smoke-packaged-windows.ps1 -AppPath "release/win-unpacked/ZERO ONE.exe"
+      - name: Confirm installer is intentionally unsigned
+        shell: pwsh
+        run: |
+          $signature = Get-AuthenticodeSignature "release/ZERO-ONE-0.4.0-win-x64.exe"
+          if ($signature.Status -ne "NotSigned") { throw "Unexpected Windows signature state: $($signature.Status)" }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: zero-one-windows-x64
+          path: |
+            release/ZERO-ONE-0.4.0-win-x64.exe
+            release/ZERO-ONE-0.4.0-win-x64.exe.blockmap
+          if-no-files-found: error
+
+  macos:
+    needs: verify
+    runs-on: macos-14
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.14.0
+          cache: npm
+      - run: npm ci
+      - run: npm run stage:zsec:native
+      - run: npm run dist:mac
+      - name: Verify bundled macOS ZSEC runtime
+        run: |
+          test "$(release/mac-arm64/ZERO ONE.app/Contents/Resources/zsec-shield/zsec-shield --version)" = "zsec-shield 0.1.2"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: zero-one-macos-arm64
+          path: |
+            release/ZERO-ONE-0.4.0-mac-*.dmg
+            release/ZERO-ONE-0.4.0-mac-*.zip
+          if-no-files-found: error
+
+  linux:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.14.0
+          cache: npm
+      - run: npm ci
+      - run: npm run stage:zsec:native
+      - run: npm run dist:linux
+      - name: Verify bundled Linux ZSEC runtime
+        run: |
+          test "$(release/linux-unpacked/resources/zsec-shield/zsec-shield --version)" = "zsec-shield 0.1.2"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: zero-one-linux-x64
+          path: |
+            release/ZERO-ONE-0.4.0-linux-*.AppImage
+            release/ZERO-ONE-0.4.0-linux-*.deb
+          if-no-files-found: error
+
+  publish:
+    if: github.ref_type == 'tag'
+    needs: [windows, macos, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Generate release checksums
+        working-directory: release-assets
+        run: sha256sum * > SHA256SUMS.txt
+      - name: Publish installable preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release-assets/* \
+            --verify-tag \
+            --prerelease \
+            --title "ZERO ONE 0.4.0 Installable Preview" \
+            --notes-file store/RELEASE_NOTES_0.4.0.md

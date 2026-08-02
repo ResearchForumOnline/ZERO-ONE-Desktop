@@ -1,6 +1,6 @@
 {
   "name": "zero-one-desktop",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "description": "ZERO ONE desktop command center for ZMail, ZeroThink, OpenZero, CallChat, and the local ZSEC Shield preview.",
   "author": "QUANTUMENCRYPTION1 LTD",
@@ -13,8 +13,14 @@
     "check": "npm run test && npm run build",
     "pack:win": "npm run check && npm run verify:zsec && electron-builder --win dir --x64",
     "dist:win": "npm run check && npm run verify:zsec && electron-builder --win nsis --x64",
+    "pack:mac": "npm run check && npm run verify:zsec:native && electron-builder --mac dir --arm64",
+    "dist:mac": "npm run check && npm run verify:zsec:native && electron-builder --mac dmg zip --arm64",
+    "pack:linux": "npm run check && npm run verify:zsec:native && electron-builder --linux dir --x64",
+    "dist:linux": "npm run check && npm run verify:zsec:native && electron-builder --linux AppImage deb --x64",
     "stage:zsec": "pwsh -NoProfile -File scripts/stage-zsec-vendor.ps1",
-    "verify:zsec": "node build/zsec-vendor-verifier.cjs vendor/zsec-shield vendor/zsec-shield.lock.json"
+    "stage:zsec:native": "node scripts/stage-native-zsec.mjs",
+    "verify:zsec": "node build/zsec-vendor-verifier.cjs vendor/zsec-shield vendor/zsec-shield.lock.json",
+    "verify:zsec:native": "node build/zsec-native-verifier.cjs vendor/zsec-shield vendor/zsec-shield-provenance.json"
   },
   "dependencies": {
     "react": "19.2.8",
@@ -57,7 +63,7 @@
         ]
       },
       {
-        "from": "vendor/zsec-shield.lock.json",
+        "from": "vendor/zsec-shield-provenance.json",
         "to": "zsec-shield-provenance.json"
       }
     ],
@@ -82,6 +88,40 @@
       "createStartMenuShortcut": true,
       "shortcutName": "ZERO ONE",
       "deleteAppDataOnUninstall": false
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["arm64"]
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "assets/zero-one-icon.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        }
+      ],
+      "category": "Utility",
+      "icon": "assets/zero-one-icon.png",
+      "maintainer": "QUANTUMENCRYPTION1 LTD <shaf@talktoai.org>",
+      "synopsis": "Private desktop command center for the TalkToAI ecosystem"
     },
     "beforePack": "build/beforePack.cjs"
   },

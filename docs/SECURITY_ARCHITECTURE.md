@@ -20,7 +20,7 @@ The public repository contains only the documented ZMath compatibility boundary.
 
 ## ZSEC supply-chain boundary
 
-ZERO ONE 0.3.1 consumes only ZSEC Shield 0.1.2 from immutable public release ID `363682670`, Windows asset ID `498488611`, and source revision `78efb1186c50efeeedf68bc14044cbc019fc0e8e`.
+ZERO ONE 0.4.0 consumes only ZSEC Shield 0.1.2 from immutable public release ID `363682670` and source revision `78efb1186c50efeeedf68bc14044cbc019fc0e8e`. Windows x64, macOS arm64 and Linux x64 packages each stage the matching authenticated native asset, verify its pinned archive and manifest identities, and smoke the native entrypoint before packaging.
 
 The private lock is not trusted by itself. The verifier embeds the complete expected lock identity—including release/tag objects, archive SHA-256, native-manifest SHA-256, entrypoint SHA-256, architecture, source revision, file count, and contracts—and rejects any rewritten lock. The stager additionally verifies live immutable-release metadata, the GitHub release-integrity attestation, safe ZIP structure, exact bidirectional manifest inventory, every file size/hash, required licences, and AMD64 headers for every EXE/DLL/PYD.
 

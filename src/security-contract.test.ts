@@ -52,7 +52,7 @@ describe("desktop security contract", () => {
     expect(appSource).not.toContain("4 ready");
     expect(appSource).not.toContain("SOVEREIGN DIGITAL OPERATING SYSTEM");
     expect(appSource).not.toContain("inference stays on your node");
-    expect(appSource).toContain("NOT SHIPPED");
+    expect(appSource).toContain("PUBLIC PREVIEW");
     expect(main).not.toContain('url.startsWith("file:")');
   });
 
@@ -163,17 +163,20 @@ describe("desktop security contract", () => {
   it("pins an immutable, exact-architecture ZSEC payload and fails packaging closed", () => {
     expect(vendorLock).toMatchObject({
       schema: "zero-one.zsec-vendor-lock.v1",
-      consumer_version: "0.3.1",
+      consumer_version: "0.4.0",
       release: { id: 363682670, tag: "v0.1.2", immutable: true, release_attestation_verified: true },
       asset: { id: 498488611, size: 12392156, sha256: "62ade4111206e6b0b083c60dd2ccd1b7cbc83452e4067d71ea99ac76364dd13d" },
       manifest: { version: "0.1.2", architecture: "x86_64", source_tree_state: "clean" },
     });
-    expect(packageJson.version).toBe("0.3.1");
+    expect(packageJson.version).toBe("0.4.0");
     expect(packageJson.build.beforePack).toBe("build/beforePack.cjs");
     expect(packageJson.build.win.target[0].arch).toEqual(["x64"]);
-    expect(packageJson.scripts["dist:mac"]).toBeUndefined();
-    expect(packageJson.scripts["dist:linux"]).toBeUndefined();
+    expect(packageJson.scripts["dist:mac"]).toContain("--mac dmg zip --arm64");
+    expect(packageJson.scripts["dist:linux"]).toContain("--linux AppImage deb --x64");
+    expect(packageJson.scripts["verify:zsec:native"]).toContain("zsec-native-verifier.cjs");
     expect(beforePack).toContain("context.packager.appInfo.version");
+    expect(beforePack).toContain('context.electronPlatformName === "darwin"');
+    expect(beforePack).toContain('context.electronPlatformName === "linux"');
     expect(beforePack).not.toContain("context.packager.metadata");
     expect(vendorVerifier).toContain("native manifest digest does not match the lock");
     expect(vendorVerifier).toContain("non-AMD64 PE file");

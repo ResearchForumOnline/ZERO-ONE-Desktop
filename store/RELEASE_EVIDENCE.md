@@ -1,5 +1,22 @@
 # ZERO ONE local release evidence
 
+## 0.4.0 installable public preview
+
+Status: **cross-platform package candidate; public prerelease only after native CI succeeds**.
+
+Configured targets are Windows 10/11 x64 (NSIS), macOS Apple silicon (DMG/ZIP), and Linux x64 (AppImage/DEB). Each target bundles a matching immutable ZSEC Shield 0.1.2 runtime and verifies its platform, architecture, source revision, manifest, file hashes and entrypoint before packaging.
+
+Local Windows validation on 2 August 2026:
+
+| Artifact | Bytes | SHA-256 | Publisher signature |
+|---|---:|---|---|
+| `ZERO-ONE-0.4.0-win-x64.exe` | 110,830,400 | `36210f11d145c66b7349ade2a5b81de76355da5ae143bbb6b65e45c8ca8dfb46` | NotSigned |
+| `ZERO-ONE-0.4.0-win-x64.exe.blockmap` | 117,268 | `35b1734bd4bf7dffbf2a9b1eeb787020ccb8699ab9bea5be02f7f09146ee7960` | Data file |
+
+Passed locally: 14 tests, TypeScript, production Vite build, exact 89-file/60-PE ZSEC verification, packaged application launch, DOM/preload bridge, clean selected-folder scan, fail-closed incomplete scan, silent install exit 0, installed version 0.4.0 registration, Start Menu shortcut, desktop shortcut, and live installed-app inspection showing four reachable services and bundled ZSEC installed.
+
+macOS and Linux artifact hashes remain CI-generated evidence and must not be copied into this file until the tag workflow publishes the exact bytes. None of the 0.4.0 packages is currently publisher-signed, notarized or Store-approved.
+
 ## 0.3.1 internal candidate — evidence pending
 
 Status: **not a final release artifact; not submitted, approved, or public**.

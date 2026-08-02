@@ -9,7 +9,7 @@ Status terms: **Present** means the repository contains a usable source item; **
 | Product name | Select a name already reserved in Partner Center | 2–30 characters in App Store Connect | AppStream `<name>` | **Draft:** `ZERO ONE`; reservation/availability is **Portal** |
 | Publisher | Partner Center verified publisher and signing subject must be consistent | Apple developer seller identity | Package maintainer/vendor | **Present in package:** `QUANTUMENCRYPTION1 LTD`; account/signing match is **Portal** |
 | Product identifier | Partner Center identity; EXE package URL/version configured separately | Bundle ID must match the uploaded build | Reverse-DNS desktop/AppStream ID | **Draft:** `org.talktoai.zeroone`; Microsoft identity is **Portal** |
-| Version | Installer controls Win32 version | Build version and version string in uploaded binary | Package/AppStream release version | **Present in source:** `0.3.1`; final signed-artifact consistency is **Missing** |
+| Version | Installer controls Win32 version | Build version and version string in uploaded binary | Package/AppStream release version | **Present in source:** `0.4.0`; final signed-artifact consistency is **Missing** |
 | Category | Choose the closest Partner Center category | Primary category should match the build; current build declares Productivity | Valid desktop/AppStream category | **Draft:** Productivity; Linux package currently declares Utility |
 | Short text | Short description optional, max 1,000 characters | Subtitle max 30 characters | One-sentence AppStream summary | **Draft:** see `LISTING_COPY.md` |
 | Long description | Required, max 10,000 characters | Required, plain text, max 4,000 characters | AppStream description; Flathub recommends concise readable prose | **Draft:** see `LISTING_COPY.md` |
@@ -29,7 +29,7 @@ Status terms: **Present** means the repository contains a usable source item; **
 
 | Evidence | Microsoft Store | Apple | Linux direct / Flathub | ZERO ONE status |
 |---|---|---|---|---|
-| Native build | Standalone Windows x64 is the only 0.3.1 target; verify the final signed candidate | Not configured for 0.3.1 | Not configured for 0.3.1 | Unsigned Windows x64 candidate exists; final signed candidate and clean-machine evidence are missing |
+| Native build | Windows x64 NSIS preview | macOS arm64 DMG/ZIP preview | Linux x64 AppImage/DEB preview | Native CI and matching ZSEC payload verification configured; publisher signing and Store evidence remain missing |
 | Signature | Installer and every shipped PE trusted-signed for MSI/EXE route | Sign all code/helpers, hardened runtime, notarize and staple direct build | Sign artifacts and DEB repository metadata | **Missing on all release channels** |
 | Immutable delivery | Version-specific HTTPS installer URL; submitted bytes must never change | Notarized immutable DMG/ZIP or App Store upload | Versioned artifacts, hashes, signed repository metadata | **Missing** |
 | Install behaviour | Silent standalone installer; verify install, launch, uninstall and update | Gatekeeper/notarization and clean-machine tests | Package-manager/AppImage install, update and removal tests | Prior unsigned x64 install/uninstall evidence exists; final signed candidate, clean VM, update and rollback remain pending; uninstall preserves app data by configuration |
