@@ -1,6 +1,6 @@
 {
   "name": "zero-one-desktop",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "ZERO ONE desktop command center for ZMail, ZeroThink, OpenZero, CallChat, and the local ZSEC Shield preview.",
   "author": "QUANTUMENCRYPTION1 LTD",
@@ -11,12 +11,10 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "check": "npm run test && npm run build",
-    "pack:win": "npm run check && electron-builder --win dir",
-    "dist:win": "npm run check && electron-builder --win nsis",
-    "pack:mac": "npm run check && electron-builder --mac dir",
-    "dist:mac": "npm run check && electron-builder --mac dmg zip",
-    "pack:linux": "npm run check && electron-builder --linux dir",
-    "dist:linux": "npm run check && electron-builder --linux AppImage deb"
+    "pack:win": "npm run check && npm run verify:zsec && electron-builder --win dir --x64",
+    "dist:win": "npm run check && npm run verify:zsec && electron-builder --win nsis --x64",
+    "stage:zsec": "pwsh -NoProfile -File scripts/stage-zsec-vendor.ps1",
+    "verify:zsec": "node build/zsec-vendor-verifier.cjs vendor/zsec-shield vendor/zsec-shield.lock.json"
   },
   "dependencies": {
     "react": "19.2.8",
@@ -54,7 +52,13 @@
       {
         "from": "vendor/zsec-shield",
         "to": "zsec-shield",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "vendor/zsec-shield.lock.json",
+        "to": "zsec-shield-provenance.json"
       }
     ],
     "asar": true,
@@ -64,33 +68,12 @@
         {
           "target": "nsis",
           "arch": [
-            "x64",
-            "arm64"
+            "x64"
           ]
         }
       ],
       "icon": "assets/zero-one-icon.png",
       "requestedExecutionLevel": "asInvoker"
-    },
-    "mac": {
-      "target": [
-        { "target": "dmg", "arch": ["x64", "arm64"] },
-        { "target": "zip", "arch": ["x64", "arm64"] }
-      ],
-      "category": "public.app-category.productivity",
-      "icon": "assets/zero-one-icon.png",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
-    },
-    "linux": {
-      "target": [
-        { "target": "AppImage", "arch": ["x64", "arm64"] },
-        { "target": "deb", "arch": ["x64", "arm64"] }
-      ],
-      "category": "Utility",
-      "icon": "assets/zero-one-icon.png"
     },
     "nsis": {
       "oneClick": true,
@@ -99,7 +82,8 @@
       "createStartMenuShortcut": true,
       "shortcutName": "ZERO ONE",
       "deleteAppDataOnUninstall": false
-    }
+    },
+    "beforePack": "build/beforePack.cjs"
   },
   "type": "module"
 }

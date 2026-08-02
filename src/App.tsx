@@ -7,7 +7,7 @@ type ChatMessage = { role: "user" | "assistant"; content: string };
 const initialAssistant: ChatMessage[] = [
   {
     role: "assistant",
-    content: "ZERO ONE is online. Connect your OpenZero API token in Settings and I can reason across your command center while inference stays on your node.",
+    content: "ZERO ONE is online. Connect your OpenZero API token in Settings and I can use the OpenZero endpoint you configured without sending actions to other workspaces.",
   },
 ];
 
@@ -34,7 +34,11 @@ function Icon({ name, size = 20 }: { name: keyof typeof iconPaths; size?: number
 }
 
 function formatBytes(bytes: number) {
-  return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** unitIndex;
+  return `${value.toFixed(unitIndex === 0 || value >= 10 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
 function formatUptime(seconds: number) {
@@ -114,14 +118,16 @@ function Topbar({ view, probes, system, onRefresh, onSearch, searchRef }: { view
 
 function Dashboard({ settings, probes, system, zsec, onOpen, onOpenShield }: { settings: ZeroOneSettings; probes: ServiceProbe[]; system: SystemSnapshot | null; zsec: ZsecSnapshot | null; onOpen: (id: ServiceId) => void; onOpenShield: () => void }) {
   const openZero = probes.find((probe) => probe.name === "openzero");
+  const openZeroReady = openZero?.state === "online";
+  const endpointValue = zsec?.state === "ready" ? "LAST SCAN CLEAR" : zsec?.state === "attention" ? "REVIEW" : zsec?.state === "idle" ? "INSTALLED" : zsec?.state === "not-installed" ? "NOT INSTALLED" : "UNAVAILABLE";
   return (
     <div className="view-scroll dashboard">
       <section className="hero-panel">
         <div className="hero-grid" />
         <div className="hero-copy">
-          <div className="hero-kicker"><span /> SOVEREIGN DIGITAL OPERATING SYSTEM</div>
-          <h2>Your intelligence.<br /><em>Your conversations.</em><br />One sovereign command.</h2>
-          <p>Mail, research, local AI, agents, calls, and deterministic endpoint security—composed into one fast desktop experience.</p>
+          <div className="hero-kicker"><span /> PRIVATE DESKTOP COMMAND CENTER</div>
+          <h2>Your workspaces.<br /><em>Your configured AI.</em><br />One desktop command.</h2>
+          <p>Mail, research, configured AI, agent controls, calls, and explicit on-demand security scans—composed into one fast desktop experience.</p>
           <div className="hero-actions">
             <button className="primary-action" onClick={() => onOpen("openzero")}><span>Enter OpenZero</span><span>↗</span></button>
             <button className="secondary-action shield-action" onClick={onOpenShield}><Icon name="shield" size={17} /> Open ZSEC Shield</button>
@@ -131,14 +137,14 @@ function Dashboard({ settings, probes, system, zsec, onOpen, onOpenShield }: { s
           <div className="core-ring ring-one" />
           <div className="core-ring ring-two" />
           <div className="core-ring ring-three" />
-          <div className="core-center"><strong>16</strong><span>AGENTS</span></div>
+          <div className="core-center"><strong>{openZeroReady ? 1 : 0}</strong><span>ENDPOINT</span></div>
           {[0, 1, 2, 3, 4, 5].map((index) => <i key={index} style={{ "--i": index } as React.CSSProperties} />)}
         </div>
         <div className="hero-metrics">
-          <Metric label="Local runtime" value={openZero?.state === "online" ? "ACTIVE" : "STANDBY"} tone={openZero?.state === "online" ? "green" : "amber"} />
+          <Metric label="OpenZero endpoint" value={openZeroReady ? "ONLINE" : "OFFLINE"} tone={openZeroReady ? "green" : "amber"} />
           <Metric label="Memory" value={system ? `${system.memoryPercent}%` : "—"} />
-          <Metric label="Privacy" value="USER-CONTROLLED" tone="cyan" />
-          <Metric label="Endpoint" value={zsec?.state === "ready" ? "NO RULE MATCHES" : zsec?.state === "attention" ? "REVIEW" : zsec?.state === "idle" ? "INSTALLED" : "READY TO INSTALL"} tone={zsec?.state === "ready" ? "green" : "amber"} />
+          <Metric label="Sessions" value="SEPARATE" tone="cyan" />
+          <Metric label="ZSEC evidence" value={endpointValue} tone={zsec?.state === "ready" ? "green" : "amber"} />
         </div>
       </section>
       <div className="section-heading">
@@ -153,11 +159,11 @@ function Dashboard({ settings, probes, system, zsec, onOpen, onOpenShield }: { s
 
       <section className="lower-grid">
         <div className="glass-card lattice-card">
-          <div className="card-title-row"><div><p>AUTONOMY</p><h3>Agent lattice</h3></div><span className="mode-badge">ULTRA / 16</span></div>
+          <div className="card-title-row"><div><p>AUTONOMY</p><h3>Agent slots</h3></div><span className="mode-badge">{openZeroReady ? "ENDPOINT ONLINE" : "ENDPOINT OFFLINE"}</span></div>
           <div className="mini-agent-grid">
-            {Array.from({ length: 16 }, (_, index) => <span key={index} className={index < 4 ? "active" : ""}><i />{String(index + 1).padStart(2, "0")}</span>)}
+            {Array.from({ length: 16 }, (_, index) => <span key={index} className={openZeroReady && index === 0 ? "active" : ""}><i />{String(index + 1).padStart(2, "0")}</span>)}
           </div>
-          <div className="lattice-footer"><span><i className="green" />4 ready</span><span><i />12 sleeping</span><button onClick={() => onOpen("openzero")}>Manage runtime →</button></div>
+          <div className="lattice-footer"><span><i className={openZeroReady ? "green" : ""} />{openZeroReady ? "Endpoint reachable" : "Endpoint unavailable"}</span><span><i />Slots are UI capacity, not worker telemetry</span><button onClick={() => onOpen("openzero")}>Open runtime →</button></div>
         </div>
         <div className="glass-card activity-card">
           <div className="card-title-row"><div><p>SYSTEM</p><h3>Machine intelligence</h3></div><Icon name="pulse" /></div>
@@ -243,14 +249,13 @@ function ZsecView({ snapshot, onRefresh }: { snapshot: ZsecSnapshot | null; onRe
         <article><span>ENGINE</span><strong>{snapshot?.installed ? snapshot.version || "Installed" : "Not installed"}</strong><small>Bundled runtime first; fixed system locations second</small></article>
         <article><span>DEFINITIONS</span><strong>{snapshot?.definitions || "Awaiting install"}</strong><small>Built-in data-only rules; production update signing remains a release gate</small></article>
         <article><span>LAST SCAN</span><strong>{lastScan}</strong><small>Rendered from the versioned local CLI status contract</small></article>
-        <article><span>RULE MATCHES</span><strong className={(snapshot?.findings || 0) > 0 ? "danger" : "safe"}>{snapshot?.lastScan ? snapshot.findings ?? 0 : "—"}</strong><small>{snapshot?.quarantine ?? 0} recoverable quarantine items</small></article>
+        <article><span>RULE MATCHES</span><strong className={(snapshot?.findings || 0) > 0 ? "danger" : "safe"}>{snapshot?.lastScan ? snapshot.findings ?? 0 : "—"}</strong><small>{typeof snapshot?.filesHashed === "number" ? `${snapshot.filesHashed.toLocaleString()} files · ${formatBytes(snapshot.bytesHashed || 0)} read` : "No verified scan counters"} · {snapshot?.errors ?? 0} errors · {snapshot?.quarantine ?? 0} quarantine items</small></article>
       </section>
       <section className="zsec-platforms">
         {[
-          ["WINDOWS 10 / 11", "On-demand selected-folder scanning and deterministic local evidence"],
-          ["macOS", "On-demand selected-folder scanning; notarization is required for public release"],
-          ["LINUX", "On-demand scanning plus package, service, and advisory inspection"],
-        ].map(([name, detail], index) => <article key={name}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{name}</h3><p>{detail}</p></div><strong>PREVIEW</strong></article>)}
+          ["WINDOWS 10 / 11 X64", "Bundled ZSEC 0.1.2 selected-folder scan; unsigned internal candidate", "INTERNAL"],
+          ["OTHER PLATFORMS", "Not shipped in ZERO ONE 0.3.1; native payload, signing, and host tests required", "NOT SHIPPED"],
+        ].map(([name, detail, availability], index) => <article key={name}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{name}</h3><p>{detail}</p></div><strong>{availability}</strong></article>)}
       </section>
       <section className="zsec-boundary glass-card">
         <Icon name="shield" size={25} /><div><strong>Truthful protection boundary</strong><p>ZSEC Desktop Preview is an on-demand security companion. It does not claim kernel-level real-time interception, independent antivirus certification, or complete malware prevention. Keep the operating system’s built-in protection enabled.</p></div>
@@ -289,7 +294,7 @@ function ServiceWorkspace({ service, settings, probe }: { service: ServiceDefini
         <div className="permission-banner"><Icon name="call" size={18} /><span>Camera and microphone are locked. Enable CallChat media in Settings when you want to make a call.</span></div>
       )}
       {probe?.state === "offline" && service.id === "openzero" && (
-        <div className="runtime-banner"><span className="warning-symbol">!</span><div><strong>Local OpenZero is not responding</strong><p>Start the OpenZero node on port 1024, or use its public project page from Settings.</p></div></div>
+        <div className="runtime-banner"><span className="warning-symbol">!</span><div><strong>The configured OpenZero endpoint is not responding</strong><p>Start the loopback node on port 1024 or review the approved endpoint in Settings.</p></div></div>
       )}
       <webview className="product-webview" src={url} partition={`persist:zero-one-${service.id}`} />
     </section>
@@ -300,8 +305,8 @@ function AgentLattice({ settings, openZeroProbe, onOpenZero }: { settings: ZeroO
   return (
     <div className="view-scroll agent-view">
       <section className="agent-hero glass-card">
-        <div><p className="section-kicker">SOVEREIGN ORCHESTRATION</p><h2>Sixteen minds.<br /><em>One objective.</em></h2><p>ZERO ONE visualizes the OpenZero autonomy pool without pretending that idle workers are running. Launch and inspect real work inside OpenZero.</p></div>
-        <div className="agent-runtime"><StatusDot state={openZeroProbe?.state} /><span>OPENZERO RUNTIME</span><strong>{openZeroProbe?.state || "CHECKING"}</strong><small>{settings.model}</small></div>
+        <div><p className="section-kicker">BOUNDED ORCHESTRATION</p><h2>Sixteen slots.<br /><em>One objective.</em></h2><p>ZERO ONE shows one observed OpenZero endpoint and fifteen unreserved logical slots. Launch and inspect actual work inside OpenZero.</p></div>
+        <div className="agent-runtime"><StatusDot state={openZeroProbe?.state} /><span>OPENZERO ENDPOINT</span><strong>{openZeroProbe?.state || "CHECKING"}</strong><small>{settings.model}</small></div>
       </section>
       <section className="agent-deck">
         {Array.from({ length: 16 }, (_, index) => {
@@ -309,7 +314,7 @@ function AgentLattice({ settings, openZeroProbe, onOpenZero }: { settings: ZeroO
           return (
             <article key={index} className={`agent-tile ${active ? "active" : ""}`}>
               <div className="agent-orb"><span>{String(index + 1).padStart(2, "0")}</span><i /></div>
-              <p>WORKER {String(index + 1).padStart(2, "0")}</p>
+              <p>SLOT {String(index + 1).padStart(2, "0")}</p>
               <strong>{active ? "READY" : "SLEEPING"}</strong>
               <small>{active ? "Awaiting objective" : "Zero resources reserved"}</small>
             </article>
@@ -344,6 +349,16 @@ function SettingsView({ settings, onSaved }: { settings: ZeroOneSettings; onSave
     }
   };
 
+  const clearLocalData = async () => {
+    setMessage("");
+    try {
+      const result = await window.zeroOne.clearLocalData();
+      if (!result.cleared) setMessage("Local-data clearing cancelled.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to clear local data.");
+    }
+  };
+
   const field = (key: keyof ZeroOneSettings, label: string, help: string) => (
     <label className="setting-field"><span>{label}</span><input value={String(draft[key] || "")} onChange={(event) => setDraft({ ...draft, [key]: event.target.value })} /><small>{help}</small></label>
   );
@@ -354,14 +369,14 @@ function SettingsView({ settings, onSaved }: { settings: ZeroOneSettings; onSave
         <section className="settings-section glass-card">
           <div className="settings-heading"><div><p>CONNECTIONS</p><h2>Owned services</h2></div><span>Only approved ZERO ONE origins are accepted</span></div>
           <div className="settings-grid">
-            {field("openZeroUrl", "OpenZero local node", "Default: loopback port 1024. The API is never exposed by this app.")}
+            {field("openZeroUrl", "OpenZero model endpoint", "Default: loopback port 1024. Approved local and public OpenZero origins are supported.")}
             {field("zeroThinkUrl", "ZeroThink Studio", "Your signed-in cognitive workspace.")}
             {field("zmailUrl", "ZMail Workspace", "Your secure webmail and zSign workspace.")}
             {field("callChatUrl", "CallChat", "Voice and video workspace.")}
           </div>
         </section>
         <section className="settings-section glass-card">
-          <div className="settings-heading"><div><p>LOCAL AI</p><h2>OpenZero copilot</h2></div><span>{draft.hasOpenZeroToken ? "Token stored securely" : "Token required"}</span></div>
+          <div className="settings-heading"><div><p>OPENZERO AI</p><h2>OpenZero copilot</h2></div><span>{draft.hasOpenZeroToken ? "Token stored securely" : "Token required"}</span></div>
           <div className="settings-grid">
             {field("model", "Default model", "Use an installed OpenZero/Ollama model alias.")}
             <label className="setting-field"><span>OpenZero API token</span><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder={draft.hasOpenZeroToken ? "•••••••••••••••• (leave blank to keep)" : "Paste oz_ token"} autoComplete="off" /><small>Encrypted with the operating system's secure credential storage. Insecure Linux fallback storage is rejected.</small></label>
@@ -370,7 +385,7 @@ function SettingsView({ settings, onSaved }: { settings: ZeroOneSettings; onSave
         </section>        <section className="settings-section glass-card">
           <div className="settings-heading"><div><p>DESKTOP</p><h2>App behavior</h2></div><span>Privacy-first defaults</span></div>
           <label className="check-row"><input type="checkbox" checked={draft.mediaEnabled} onChange={(event) => setDraft({ ...draft, mediaEnabled: event.target.checked })} /><span><strong>Enable camera and microphone for CallChat</strong><small>All other embedded services remain denied access.</small></span></label>
-          <label className="check-row"><input type="checkbox" checked={draft.launchAtLogin} onChange={(event) => setDraft({ ...draft, launchAtLogin: event.target.checked })} /><span><strong>Launch ZERO ONE when I sign in</strong><small>Uses the current operating system account and can be changed at any time.</small></span></label>
+          <label className="check-row"><input type="checkbox" checked={draft.launchAtLogin} onChange={(event) => setDraft({ ...draft, launchAtLogin: event.target.checked })} /><span><strong>Launch ZERO ONE when I sign in</strong><small>Uses the current operating system account and can be changed at any time.</small></span></label><button type="button" className="secondary-action data-clear-action" onClick={clearLocalData}>Clear desktop data</button><small className="data-clear-note">Removes this app's settings, encrypted OpenZero token, and embedded workspace cookies/storage after confirmation. Server-side data and saved diagnostics are not deleted.</small>
         </section>
         <div className="settings-footer"><span role="status" aria-live="polite">{message}</span><button className="primary-action" disabled={saving}>{saving ? "Saving…" : "Save secure settings"}</button></div>
       </form>
@@ -399,7 +414,7 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
       const response = await window.zeroOne.chat({ model: settings.model, messages: next.map(({ role, content }) => ({ role, content })) });
       setMessages((current) => [...current, { role: "assistant", content: response.content }]);
     } catch (error) {
-      setMessages((current) => [...current, { role: "assistant", content: error instanceof Error ? error.message : "The local copilot is unavailable." }]);
+      setMessages((current) => [...current, { role: "assistant", content: error instanceof Error ? error.message : "The configured OpenZero model is unavailable." }]);
     } finally {
       setBusy(false);
     }
@@ -418,7 +433,8 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
         {busy && <div className="thinking"><i /><i /><i /></div>}
       </div>
       {!settings.hasOpenZeroToken && <button className="token-prompt" onClick={onOpenSettings}><Icon name="shield" size={16} /> Connect local token</button>}
-      <div className="chat-compose"><textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={keyDown} placeholder="Ask your local intelligence…" rows={2} /><button onClick={send} disabled={busy || !input.trim()} aria-label="Send"><Icon name="send" size={18} /></button><small>Enter to send · Shift Enter for line break</small></div>
+      <div className="copilot-report"><button type="button" onClick={() => window.zeroOne.openExternal("https://talktoai.org/report-ai/")}>Report AI output</button><span>Opens privacy-aware support guidance</span></div>
+      <div className="chat-compose"><textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={keyDown} placeholder="Ask your configured OpenZero model…" rows={2} /><button onClick={send} disabled={busy || !input.trim()} aria-label="Send"><Icon name="send" size={18} /></button><small>Enter to send · Shift Enter for line break</small></div>
     </aside>
   );
 }

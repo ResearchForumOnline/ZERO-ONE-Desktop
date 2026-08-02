@@ -18,8 +18,8 @@ module.exports = async function afterPack(context) {
     [FuseV1Options.EnableNodeCliInspectArguments]: false,
     [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
     [FuseV1Options.OnlyLoadAppFromAsar]: true,
-    [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot]: true,
-    [FuseV1Options.GrantFileProtocolExtraPrivileges]: false,
+    [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot]: false,
+    [FuseV1Options.GrantFileProtocolExtraPrivileges]: true,
     [FuseV1Options.WasmTrapHandlers]: true,
   });
 };

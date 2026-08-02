@@ -6,10 +6,10 @@ Status: **draft — reconcile with the exact signed build and replace all placeh
 
 - Product name: `ZERO ONE`
 - Publisher: `QUANTUMENCRYPTION1 LTD`
-- Version: `0.3.0`
+- Version: `0.3.1`
 - Suggested category: Productivity
 - Secondary Apple category: Utilities
-- Privacy URL: `[PRIVACY_URL]`
+- Privacy URL: `https://talktoai.org/privacy`
 - Support URL: `[SUPPORT_URL]`
 - Product URL: `[PRODUCT_URL]`
 - Licence terms: `[EULA_OR_LICENCE_URL]`
@@ -24,7 +24,7 @@ Status: **draft — reconcile with the exact signed build and replace all placeh
 
 > ZERO ONE brings four user-configured workspaces into one desktop command center: ZMail, ZeroThink, OpenZero and CallChat.
 >
-> Open each service in its own isolated desktop session, check service reachability, work with a configured OpenZero model, and export a bounded local diagnostics report. Camera and microphone access are disabled by default and can be enabled only for the CallChat origin.
+> Open each service in its own isolated persistent desktop session, check the user-configured OpenZero endpoint, work with a configured model, and export a bounded local diagnostics report. While the interface is open, ZERO ONE automatically checks the four configured services every 30 seconds. Camera and microphone access are disabled by default and can be enabled only for the CallChat origin.
 >
 > On supported Windows builds, you can choose one folder and start an explicit local scan through the bundled ZSEC Shield preview runtime. The panel reports aggregate local results and status without starting a background scan, upload, automatic deletion or automatic quarantine.
 >
@@ -33,8 +33,8 @@ Status: **draft — reconcile with the exact signed build and replace all placeh
 ### Product features
 
 1. Four connected workspaces in one desktop command center
-2. Separate persistent sessions for each connected service
-3. Local OpenZero reachability and configured-model access
+2. Separate persistent sessions for each connected service, with an in-app clear-data control
+3. User-configured OpenZero reachability and configured-model access
 4. Camera and microphone access disabled by default
 5. User-initiated diagnostics with secrets and content excluded
 6. Explicit local scan after choosing one folder through the operating-system picker
@@ -42,7 +42,7 @@ Status: **draft — reconcile with the exact signed build and replace all placeh
 ### Keywords
 
 1. `workspace hub`
-2. `local models`
+2. `configured AI`
 3. `communication tools`
 4. `research workspace`
 5. `mail and chat`
@@ -51,7 +51,7 @@ Status: **draft — reconcile with the exact signed build and replace all placeh
 
 ### What's new
 
-> Preview candidate 0.3.0 adds a simpler one-folder ZSEC scan flow, a bundled Windows x86_64 runtime, versioned status/scan contracts, accessibility improvements and hardened desktop boundaries.
+> Internal candidate 0.3.1 adds a fail-closed one-folder ZSEC scan flow, an exactly pinned Windows x86_64 runtime, versioned status/scan contracts, clearer accessibility styling, hardened desktop boundaries, and a visible AI-output reporting route. Windows x64 is the only configured target. This candidate is not yet signed, submitted, approved, or publicly released.
 
 ## Apple macOS
 
@@ -69,7 +69,7 @@ Use the first two Microsoft-description paragraphs only after a native macOS bui
 
 ### Keywords
 
-> workspace,local models,communication,research,mail,chat,security
+> workspace,configured AI,communication,research,mail,chat,security
 
 ### App Review notes draft
 
@@ -93,8 +93,8 @@ Use the first two Microsoft-description paragraphs only after a native macOS bui
 
 ### Direct-download release note
 
-> ZERO ONE 0.3.0 adds an explicit selected-folder ZSEC scan preview on supported packages containing a matching native runtime. Use only an artifact built for your architecture and verify its publisher signature and SHA-256 digest.
+> ZERO ONE 0.3.1 adds an explicit selected-folder ZSEC scan preview on supported packages containing a matching native runtime. No macOS or Linux 0.3.1 package exists. Use only a future published artifact built for your architecture and verify its publisher signature and SHA-256 digest.
 
 ## Prohibited wording until separately evidenced
 
-Do not use: `antivirus`, `complete protection`, `real-time protection`, `ransomware protection`, `zero-day protection`, `certified`, `Microsoft approved`, `Apple approved`, `telemetry-free`, `zero data collection`, `fully local`, detection percentages, or claims that macOS/Linux packages are available before signed artifacts are published and host-tested.
+Do not use: `antivirus`, `complete protection`, `real-time protection`, `ransomware protection`, `zero-day protection`, `certified`, `Microsoft approved`, `Apple approved`, `telemetry-free`, `zero data collection`, `fully local`, detection percentages, or claims that macOS/Linux packages are available before signed artifacts are published and host-tested. Do not enter this copy in a Store until trusted signing, the EULA/customer licence, AI safety/governance, and final signed-candidate testing are complete.

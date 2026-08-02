@@ -5,7 +5,7 @@ No final submit, publish, availability, pricing, legal acceptance or public repr
 ## Global release gate
 
 - [ ] Freeze the exact source commit, version and platform feature matrix.
-- [ ] Choose and publish a licence/EULA; remove the unresolved `UNLICENSED` public-release state through the normal product process.
+- [ ] Replace `EULA_DRAFT.md` with independently reviewed, approved and published proprietary EULA/customer terms; `UNLICENSED` prevents npm publication but is not customer terms, and the draft must never be packaged or presented for acceptance.
 - [ ] Complete Matrix/Element, connected-service, icon, font and other third-party rights review.
 - [ ] Publish stable product, privacy, support, security and vulnerability-disclosure URLs.
 - [ ] Complete the connected-service privacy/data-retention audit and obtain legal approval.
@@ -15,6 +15,8 @@ No final submit, publish, availability, pricing, legal acceptance or public repr
 - [ ] Test install, first run, upgrade, rollback, offline behaviour and clean uninstall.
 - [ ] Test keyboard-only operation, focus order, screen reader, 200% scaling, high contrast and reduced motion.
 - [ ] Verify that every public statement matches the exact binary and production service state.
+- [ ] Document and test live-generative-AI safety controls, moderation/escalation, governance ownership, abuse handling and incident response; the report link alone is insufficient.
+- [x] Expose the visible AI-output reporting route at `https://talktoai.org/report-ai/`.
 - [ ] Create least-privilege, non-expiring reviewer accounts; store credentials only in private portal fields.
 - [ ] Capture platform-native screenshots from the exact signed candidate using synthetic/demo data.
 - [ ] Keep ZSEC wording to on-demand scanner/status preview; verify that missing or stale status is never labelled protected.
@@ -26,11 +28,13 @@ No final submit, publish, availability, pricing, legal acceptance or public repr
 
 - [ ] Reserve `ZERO ONE` and verify the Partner Center publisher identity.
 - [ ] Confirm whether to continue with signed NSIS EXE or create MSIX; document the decision.
-- [x] Produce and temp-install/test the Windows x64 candidate.
-- [ ] Produce and clean-machine test Windows arm64 with a native runtime or proven x86_64 emulation path; publish each approved artifact at a unique immutable HTTPS URL.
+- [x] Produce and temp-install/test an earlier unsigned Windows x64 candidate; do not treat it as final 0.3.1 evidence.
+- [ ] Keep 0.3.1 Windows x64 only; do not submit or advertise Windows arm64, macOS or Linux packages.
 - [ ] Authenticode-sign the installer and every shipped PE, including ZSEC EXE, DLL and PYD files, with a trusted certificate matching the publisher.
+- [ ] Preserve the immutable upstream ZSEC manifest/lock, then generate an authenticated post-sign manifest mapping each upstream hash to the deployed signed hash, signer and trusted timestamp.
 - [ ] Confirm installer is standalone and its submitted install command is silent; retain command/output evidence.
 - [ ] Confirm clean Windows 10 and 11 install, launch, upgrade and uninstall.
+- [ ] Verify clear-data and uninstall retention on the exact signed candidate; document that the current uninstaller preserves application data unless the user clears it first.
 - [ ] Run Windows App Certification Kit where applicable and retain the report.
 - [ ] Enter description, applicable licence terms, at least one screenshot and the required 300×300 Store logo.
 - [ ] Prefer at least four current desktop screenshots and supply accurate captions.
