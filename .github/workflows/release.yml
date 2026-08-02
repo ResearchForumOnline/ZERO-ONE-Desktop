@@ -82,7 +82,7 @@ jobs:
       - run: npm run dist:mac
       - name: Verify bundled macOS ZSEC runtime
         run: |
-          test "$(release/mac-arm64/ZERO ONE.app/Contents/Resources/zsec-shield/zsec-shield --version)" = "zsec-shield 0.1.2"
+          test "$("release/mac-arm64/ZERO ONE.app/Contents/Resources/zsec-shield/zsec-shield" --version)" = "zsec-shield 0.1.2"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: zero-one-macos-arm64

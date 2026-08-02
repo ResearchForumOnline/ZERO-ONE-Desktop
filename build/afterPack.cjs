@@ -3,11 +3,12 @@ const { flipFuses, FuseVersion, FuseV1Options } = require("@electron/fuses");
 
 module.exports = async function afterPack(context) {
   const product = context.packager.appInfo.productFilename;
+  const linuxExecutable = context.packager.executableName;
   const executable = context.electronPlatformName === "win32"
     ? path.join(context.appOutDir, `${product}.exe`)
     : context.electronPlatformName === "darwin"
       ? path.join(context.appOutDir, `${product}.app`, "Contents", "MacOS", product)
-      : path.join(context.appOutDir, product);
+      : path.join(context.appOutDir, linuxExecutable);
 
   await flipFuses(executable, {
     version: FuseVersion.V1,

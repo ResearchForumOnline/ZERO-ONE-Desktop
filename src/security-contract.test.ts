@@ -207,5 +207,6 @@ describe("desktop security contract", () => {
     expect(fuses).toContain("[FuseV1Options.OnlyLoadAppFromAsar]: true");
     expect(fuses).toContain("[FuseV1Options.LoadBrowserProcessSpecificV8Snapshot]: false");
     expect(fuses).toContain("[FuseV1Options.GrantFileProtocolExtraPrivileges]: true");
+    expect(fuses).toContain("context.packager.executableName");
   });
 });
