@@ -401,6 +401,58 @@ ipcMain.handle("zsec:scan-selected", async (event) => {
   return runZsecScan(binary, selection.filePaths[0]);
 });
 
+function readBitLockerStatus() {
+  if (process.platform !== "win32") {
+    return Promise.resolve({ state: "unsupported", message: "Disk-encryption guidance is currently available for Windows 10 and 11 only." });
+  }
+  const script = [
+    "$ErrorActionPreference='Stop'",
+    "$v=Get-BitLockerVolume -MountPoint $env:SystemDrive",
+    "[pscustomobject]@{ProtectionStatus=[string]$v.ProtectionStatus;VolumeStatus=[string]$v.VolumeStatus;EncryptionPercentage=[int]$v.EncryptionPercentage}|ConvertTo-Json -Compress",
+  ].join(";");
+  return new Promise((resolve) => {
+    execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { timeout: 8000, windowsHide: true, maxBuffer: 64 * 1024 }, (error, stdout) => {
+      if (error) {
+        resolve({ state: "unavailable", message: "Windows did not expose a readable BitLocker status. Open Device encryption to review it directly." });
+        return;
+      }
+      try {
+        const status = JSON.parse(String(stdout || "{}"));
+        const enabled = status.ProtectionStatus === "On";
+        resolve({
+          state: enabled ? "protected" : "off",
+          volumeStatus: String(status.VolumeStatus || "Unknown"),
+          encryptionPercentage: Number.isFinite(status.EncryptionPercentage) ? status.EncryptionPercentage : undefined,
+          message: enabled ? "Windows BitLocker protection is on for the system drive." : "Windows BitLocker protection is not currently on for the system drive.",
+        });
+      } catch {
+        resolve({ state: "unavailable", message: "Windows returned an unreadable BitLocker status. No setting was changed." });
+      }
+    });
+  });
+}
+
+ipcMain.handle("zmath:security-status", async (event) => {
+  requireTrustedIpcSender(event);
+  const disk = await readBitLockerStatus();
+  return {
+    transport: { state: "protected", message: "Owned remote workspaces require HTTPS; loopback OpenZero traffic is restricted to this machine." },
+    credentials: {
+      state: credentialStorageIsSecure() ? "protected" : "unavailable",
+      message: credentialStorageIsSecure() ? "OpenZero tokens use operating-system secure storage." : "Secure credential storage is unavailable, so ZERO ONE refuses to save tokens.",
+    },
+    disk,
+    engine: { state: "interface-only", message: "The public app exposes a versioned ZMath Secure interface; experimental proprietary cipher research is not embedded or claimed as active encryption." },
+  };
+});
+
+ipcMain.handle("zmath:open-disk-encryption-settings", async (event) => {
+  requireTrustedIpcSender(event);
+  if (process.platform !== "win32") return false;
+  await shell.openExternal("ms-settings:deviceencryption");
+  return true;
+});
+
 ipcMain.handle("settings:load", async (event) => {
   requireTrustedIpcSender(event);
   return publicSettings(await loadSettingsInternal());

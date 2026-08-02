@@ -1,69 +1,64 @@
-# ZERO ONE Desktop
+# ZERO ONE
 
-ZERO ONE is a proprietary desktop command center for OpenZero, ZeroThink, ZMail, CallChat, and an evidence-bound ZSEC Shield preview. Version 0.3.1 is deliberately limited to Windows x64 while native payloads, signing, and host validation for other platforms remain unfinished.
+<p align="center">
+  <img src="assets/zero-one-icon.png" width="112" alt="ZERO ONE orbit mark">
+</p>
 
-Connected workspaces:
+<p align="center"><strong>One private desktop command center for OpenZero, ZeroThink, ZMail, CallChat, ZSEC Shield, and ZMath Secure.</strong></p>
 
-- **OpenZero** — a user-configured allowed model endpoint, agent orchestration, tools, voice, and browser control.
-- **ZeroThink** — research, reasoning, knowledge, and quantum workspaces.
-- **ZMail** — secure mail, Workspace, ZNotes, Calendar, Campaigns, and zSign.
-- **CallChat** — Matrix messaging plus MatrixRTC/LiveKit voice and video.
-- **ZSEC Shield preview** — an explicit user-selected-folder scan and versioned local status surface.
+<p align="center">
+  <a href="https://talktoai.org/ZeroOne/">Website</a> ·
+  <a href="docs/SECURITY_ARCHITECTURE.md">Security</a> ·
+  <a href="docs/PRIVACY.md">Privacy</a> ·
+  <a href="CONTRIBUTING.md">Contribute</a>
+</p>
 
-The app is a separate desktop policy boundary. It does not copy production backends, expose remote pages to Node.js, merge product credentials, or silently pass private content between services.
+![ZERO ONE command center](store/screenshots/01-command-center.png)
 
-## Verified preview boundary
+ZERO ONE is an open-source Electron desktop shell for the TalkToAI ecosystem. It keeps connected products in isolated workspace sessions, talks to a user-configured OpenZero endpoint, and surfaces explicit local security controls without pretending an AI response or a UI badge is proof of protection.
 
-- React/TypeScript command center, command palette, responsive 1000-pixel minimum layout, and higher-contrast dark-theme text.
-- Four isolated persistent Electron webview partitions with no preload, no Node integration, and an owned-origin navigation allowlist.
-- Health detection and an OpenAI-compatible chat client for the user-configured allowed OpenZero endpoint, defaulting to `openzerogemma:latest`.
-- OpenZero tokens encrypted with Electron `safeStorage`; insecure Linux `basic_text` fallback storage is rejected.
-- A 16-slot orchestration view that reports measured endpoint reachability without inventing worker-pool telemetry.
-- CallChat camera and microphone denied by default and restricted to the exact CallChat origin when enabled.
-- Redacted diagnostics export and no generic renderer filesystem, process, shell, or HTTP-proxy primitive.
-- Windows x64 bundles ZSEC Shield 0.1.2 from its exact immutable GitHub release. Packaging verifies the complete 89-file manifest, all hashes, 60 AMD64 PE files, required licences, source revision, and status/scan contracts.
-- ZSEC status contract v2 fails closed: only an exact clean outcome with zero findings and zero errors can display `LAST SCAN CLEAR`. Incomplete, legacy, malformed, or contradictory evidence never displays clean.
-- Packaged smoke covers launch, DOM, preload IPC, ZSEC identity, clean scan, and persisted incomplete scan.
+## What is here
 
-ZSEC remains on-demand only: no real-time driver, background monitoring, automatic deletion, automatic quarantine, sample upload, or certified detection claim.
+- Four isolated workspaces with strict owned-origin navigation.
+- OpenZero chat with the default `openzerogemma:latest` model alias.
+- A 16-slot agent control surface that reports real endpoint reachability, not invented worker telemetry.
+- OS-protected credential storage; insecure Linux fallback storage is refused.
+- ZSEC Shield selected-folder scanning with bounded, versioned evidence.
+- ZMath Secure status for HTTPS/loopback transport, credential storage, and optional Windows BitLocker.
+- Redacted diagnostics and consent-based camera/microphone access.
 
-## Development and validation
+![ZSEC Shield selected-folder scanning](store/screenshots/02-zsec-shield.png)
+
+## Start locally
+
+Requirements: Windows 10/11 x64, Node.js 22+, and npm.
 
 ```powershell
+git clone https://github.com/ResearchForumOnline/ZERO-ONE-Desktop.git
+cd ZERO-ONE-Desktop
 npm ci
 npm run check
+npm run dev
 ```
 
-A fresh private checkout does not contain ignored ZSEC binaries. Stage the exact public dependency before Windows packaging:
+`npm run dev` uses preview data until the Electron bridge is available. An OpenZero token is optional for exploring the interface and required only for copilot requests.
 
-```powershell
-npm run stage:zsec
-npm run verify:zsec
-npm run pack:win
-npm run dist:win
-```
+## Open-core boundary
 
-The stager downloads only the locked v0.1.2 Windows x86_64 asset, checks the immutable release and attestation boundary, rejects unsafe ZIP entries, verifies every extracted file, and runs local contract smokes before moving it into `vendor/zsec-shield`. Packaging independently repeats the embedded identity and inventory checks.
+The desktop shell, security contracts, tests, and build configuration in this repository are Apache-2.0 licensed and can be inspected, changed, and redistributed under that licence.
 
-Release documentation:
+Unpublished ZMath research, experimental cipher implementations, production secrets, signing keys, server infrastructure, and private datasets are **not in this repository or its release artifacts**. A public client cannot contain code that is genuinely impossible to inspect or modify. ZERO ONE therefore exposes a documented compatibility boundary while actual connection security uses established TLS and operating-system cryptography. See [the ZMath Secure boundary](docs/ZMATH_SECURE_BOUNDARY.md).
 
-- `docs/SECURITY_ARCHITECTURE.md`
-- `docs/PRIVACY.md`
-- `docs/STORE_READINESS.md`
-- `store/README.md`
-- `store/SOURCE_POLICY.md`
+## Disk encryption
 
-## Security boundaries
+ZERO ONE reads Windows BitLocker status and can open the official Device encryption settings. It never silently enables encryption, stores a recovery key, or replaces BitLocker with a custom cipher. Initial encryption can take time; modern hardware usually has modest overhead, while older or storage-heavy systems may notice more.
 
-- `nodeIntegration: false`, `contextIsolation: true`, and Chromium sandboxing remain enabled.
-- Remote services receive no preload or desktop IPC and use separate persistent partitions.
-- IPC calls are accepted only from the main local renderer and its main frame.
-- Packaged Electron binaries disable RunAsNode, `NODE_OPTIONS`, CLI inspection, and the unavailable browser-specific V8 snapshot; ASAR-only loading and embedded-ASAR integrity remain enabled.
-- File-protocol privileges remain enabled only because the trusted packaged renderer currently uses `loadFile`; remote service webviews are separate HTTPS contexts with no preload.
-- AI output never sends mail, messages, calls, or reports automatically.
+## Security and release status
 
-## Source and release boundary
+Version 0.3.1 is a source-available public preview for Windows x64. The repository is open source; public installer distribution is still blocked on trusted code signing and final clean-machine evidence. ZSEC Shield is an on-demand companion, not certified antivirus or real-time malware prevention.
 
-ZERO ONE source and CI stay private. ZSEC Shield is a deliberately public Apache-2.0 dependency whose licence and third-party notices ship in the bundle. A private repository prevents accidental source publication but cannot make Electron JavaScript impossible to inspect; credentials and signing secrets must never be compiled into the client.
+Security architecture and the remaining release gates are documented in [`docs/`](docs/). Please report vulnerabilities privately using GitHub's security advisory flow instead of a public issue.
 
-Version 0.3.1 remains an unsigned internal candidate, not a public Store release and not a certified antivirus. Windows x64 is the only configured package target. Public distribution remains blocked on trusted signing of the installer and every shipped PE, an approved EULA/customer licence, AI safety and governance controls beyond the reporting link, a final signed candidate and clean Windows 10/11 testing, a verified support route, exact privacy/report disclosure reconciliation, immutable signed app hosting/update metadata, connected-service disclosure review, and Store approval.
+## Licence
+
+Apache License 2.0. ZERO ONE names, logos, and product identity are not granted for confusing or impersonating distributions; see [TRADEMARKS.md](TRADEMARKS.md).

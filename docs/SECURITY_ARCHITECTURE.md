@@ -10,6 +10,14 @@ Camera and microphone access is denied unless the user enables CallChat media. P
 
 OpenZero credentials are encrypted with Electron `safeStorage`. When Linux reports the insecure `basic_text` backend, credential storage is refused. Tokens are used only in the main process and are never returned to the renderer or included in diagnostics.
 
+## ZMath Secure platform layer
+
+ZMath Secure is a visible policy and compatibility layer, not a claim that an unpublished cipher is active. Remote owned products require HTTPS; the only allowed HTTP model target is a loopback OpenZero endpoint on this machine. The renderer can request a bounded status object but receives no generic PowerShell or shell primitive.
+
+On Windows, the main process invokes a fixed, non-interactive `Get-BitLockerVolume` status query with no renderer-controlled arguments, an eight-second timeout, and a 64 KiB output cap. The opt-in action opens the fixed `ms-settings:deviceencryption` page. ZERO ONE does not enable BitLocker, handle recovery keys, or implement full-disk encryption itself.
+
+The public repository contains only the documented ZMath compatibility boundary. Unpublished research and experimental cipher implementations remain outside Git history and release artifacts. Standard TLS and operating-system cryptography remain active even when no proprietary engine exists.
+
 ## ZSEC supply-chain boundary
 
 ZERO ONE 0.3.1 consumes only ZSEC Shield 0.1.2 from immutable public release ID `363682670`, Windows asset ID `498488611`, and source revision `78efb1186c50efeeedf68bc14044cbc019fc0e8e`.

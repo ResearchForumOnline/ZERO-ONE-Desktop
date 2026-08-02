@@ -12,4 +12,6 @@ contextBridge.exposeInMainWorld("zeroOne", {
   exportDiagnostics: () => ipcRenderer.invoke("diagnostics:export"),
   getZsecStatus: () => ipcRenderer.invoke("zsec:status"),
   scanWithZsec: () => ipcRenderer.invoke("zsec:scan-selected"),
+  getZmathSecurityStatus: () => ipcRenderer.invoke("zmath:security-status"),
+  openDiskEncryptionSettings: () => ipcRenderer.invoke("zmath:open-disk-encryption-settings"),
 });

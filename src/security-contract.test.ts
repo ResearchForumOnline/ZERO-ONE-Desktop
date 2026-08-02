@@ -73,6 +73,17 @@ describe("desktop security contract", () => {
     expect(main).toContain('backend !== "basic_text"');
   });
 
+  it("keeps ZMath Secure on fixed platform protections and explicit disk consent", () => {
+    expect(main).toContain('ipcMain.handle("zmath:security-status"');
+    expect(main).toContain('Get-BitLockerVolume -MountPoint $env:SystemDrive');
+    expect(main).toContain('timeout: 8000');
+    expect(main).toContain('maxBuffer: 64 * 1024');
+    expect(main).toContain('shell.openExternal("ms-settings:deviceencryption")');
+    expect(appSource).toContain("never enables or changes disk encryption silently");
+    expect(appSource).toContain("established TLS and operating-system cryptography");
+    expect(main).not.toContain("Enable-BitLocker");
+  });
+
   it("maps only an exact successful status-v2 scan to ready", () => {
     expect(parseZsecStatusPayload(baseStatus)).toMatchObject({
       state: "ready",
