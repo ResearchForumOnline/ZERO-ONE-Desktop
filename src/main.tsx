@@ -30,6 +30,7 @@ if (!window.zeroOne && import.meta.env.DEV) {
     openExternal: async () => true,
     exportDiagnostics: async () => ({ saved: false }),
     getZsecStatus: async () => ({ installed: true, state: "ready", version: "0.1.0-preview", platform: "Windows 11", definitions: "2026.08.01.1", lastScan: new Date(Date.now() - 36 * 60 * 1000).toISOString(), findings: 0, quarantine: 0, message: "No findings were reported by the last local scan." }),
+    scanWithZsec: async () => ({ cancelled: false, outcome: "no_configured_rule_matches", filesHashed: 1842, bytesHashed: 248000000, findings: 0, errors: 0, message: "Scan complete: 1,842 files checked and no configured-rule matches detected." }),
   };
 }
 ReactDOM.createRoot(document.getElementById("root")!).render(

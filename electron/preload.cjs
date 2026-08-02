@@ -10,4 +10,5 @@ contextBridge.exposeInMainWorld("zeroOne", {
   openExternal: (url) => ipcRenderer.invoke("shell:open-external", url),
   exportDiagnostics: () => ipcRenderer.invoke("diagnostics:export"),
   getZsecStatus: () => ipcRenderer.invoke("zsec:status"),
+  scanWithZsec: () => ipcRenderer.invoke("zsec:scan-selected"),
 });

@@ -3,6 +3,8 @@ const { execFile } = require("node:child_process");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
+const { fileURLToPath } = require("node:url");
+const { parseZsecScanReport } = require("./zsec-contract.cjs");
 
 const DEFAULT_SETTINGS = Object.freeze({
   zmailUrl: "https://webmail.zmail.my/?_task=workspace",
@@ -23,6 +25,7 @@ const ALLOWED_ORIGINS = new Set([
   "https://zerothink.talktoai.org",
   "https://openzero.talktoai.org",
   "https://talktoai.org",
+  "https://github.com",
   "https://callchat.org",
   "https://www.callchat.org",
   "http://127.0.0.1:1024",
@@ -46,6 +49,20 @@ function isAllowedUrl(value) {
   }
 }
 
+function isLocalAppUrl(value) {
+  try {
+    const url = new URL(value);
+    if (!app.isPackaged) {
+      const devOrigin = new URL(process.env.ZERO_ONE_DEV_URL || "http://127.0.0.1:5173").origin;
+      return url.origin === devOrigin;
+    }
+    if (url.protocol !== "file:") return false;
+    const rendererPath = path.resolve(path.join(__dirname, "..", "dist", "index.html"));
+    return path.resolve(fileURLToPath(url)) === rendererPath;
+  } catch {
+    return false;
+  }
+}
 function isCallChatOrigin(value) {
   try {
     const origin = new URL(value).origin;
@@ -234,7 +251,7 @@ app.on("web-contents-created", (_event, contents) => {
   });
 
   contents.on("will-navigate", (event, url) => {
-    const localApp = url.startsWith("file:") || url.startsWith("http://127.0.0.1:5173");
+    const localApp = isLocalAppUrl(url);
     if (!localApp && !isAllowedUrl(url)) event.preventDefault();
   });
 });
@@ -279,16 +296,19 @@ ipcMain.handle("system:snapshot", (event) => {
 });
 
 function zsecCandidates() {
+  const bundledName = process.platform === "win32" ? "zsec-shield.exe" : "zsec-shield";
+  const bundled = path.join(process.resourcesPath, "zsec-shield", bundledName);
   if (process.platform === "win32") {
     return [
+      bundled,
       path.join(process.env.LOCALAPPDATA || "", "Programs", "ZSEC Shield", "zsec-shield.exe"),
       path.join(process.env.ProgramFiles || "C:\\Program Files", "ZSEC Shield", "zsec-shield.exe"),
     ];
   }
   if (process.platform === "darwin") {
-    return ["/Applications/ZSEC Shield.app/Contents/MacOS/zsec-shield", "/usr/local/bin/zsec-shield"];
+    return [bundled, "/Applications/ZSEC Shield.app/Contents/MacOS/zsec-shield", "/usr/local/bin/zsec-shield"];
   }
-  return ["/usr/local/bin/zsec-shield", "/usr/bin/zsec-shield"];
+  return [bundled, "/usr/local/bin/zsec-shield", "/usr/bin/zsec-shield"];
 }
 
 async function existingZsecBinary() {
@@ -353,6 +373,53 @@ ipcMain.handle("zsec:status", async (event) => {
     return { installed: false, state: "not-installed", platform: process.platform, findings: 0, quarantine: 0, message: "Install ZSEC Shield to enable deterministic endpoint scanning." };
   }
   return runZsecStatus(binary);
+});
+
+function runZsecScan(binary, selectedPath) {
+  return new Promise((resolve) => {
+    execFile(binary, ["check", selectedPath, "--json"], { timeout: 10 * 60 * 1000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 }, (error, stdout) => {
+      try {
+        const result = parseZsecScanReport(stdout);
+        const { outcome } = result;
+        resolve({
+          ...result,
+          message: outcome === "configured_rule_matches_detected"
+            ? `${result.findings} configured-rule match${result.findings === 1 ? "" : "es"} detected. Open the ZSEC evidence report before deciding what to do.`
+            : outcome === "no_configured_rule_matches"
+              ? `Scan complete: ${result.filesHashed} file${result.filesHashed === 1 ? "" : "s"} checked and no configured-rule matches detected.`
+              : `Scan completed with ${result.errors} error${result.errors === 1 ? "" : "s"}. Review the local ZSEC report.`,
+        });
+      } catch {
+        const timedOut = error?.killed || error?.signal;
+        resolve({
+          cancelled: false,
+          outcome: "incomplete",
+          filesHashed: 0,
+          bytesHashed: 0,
+          findings: 0,
+          errors: 1,
+          message: timedOut ? "The local scan reached the ten-minute safety limit." : "ZSEC Shield did not return a valid local scan report.",
+        });
+      }
+    });
+  });
+}
+
+ipcMain.handle("zsec:scan-selected", async (event) => {
+  requireTrustedIpcSender(event);
+  const binary = await existingZsecBinary();
+  if (!binary) {
+    return { cancelled: false, outcome: "incomplete", findings: 0, filesHashed: 0, bytesHashed: 0, errors: 1, message: "ZSEC Shield is not installed. Use Get ZSEC Shield to install the deterministic scanner first." };
+  }
+  const selection = await dialog.showOpenDialog(mainWindow, {
+    title: "Choose one folder to scan locally",
+    buttonLabel: "Scan this folder",
+    properties: ["openDirectory", "dontAddToRecent"],
+  });
+  if (selection.canceled || selection.filePaths.length !== 1) {
+    return { cancelled: true, message: "No folder was selected." };
+  }
+  return runZsecScan(binary, selection.filePaths[0]);
 });
 
 ipcMain.handle("settings:load", async (event) => {

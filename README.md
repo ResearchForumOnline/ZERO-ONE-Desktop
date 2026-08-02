@@ -8,7 +8,7 @@ Connected workspaces:
 - **ZeroThink** - research, reasoning, knowledge, and quantum workspaces.
 - **ZMail** - secure mail, Workspace, ZNotes, Calendar, Campaigns, and zSign.
 - **CallChat** - Matrix messaging plus MatrixRTC/LiveKit voice and video.
-- **ZSEC Shield preview** - a local, versioned status bridge for the separately installed deterministic on-demand scanner.
+- **ZSEC Shield preview** - an explicit, user-selected-folder scan and versioned status surface backed by the bundled Windows preview runtime.
 
 The app is a separate desktop policy boundary. It does not copy production backends, expose remote pages to Node.js, merge product credentials, or silently pass private content between services.
 
@@ -21,7 +21,8 @@ The app is a separate desktop policy boundary. It does not copy production backe
 - OpenZero tokens encrypted with Electron `safeStorage`; insecure Linux `basic_text` fallback storage is rejected.
 - 16-slot agent lattice that distinguishes a ready worker from sleeping logical slots.
 - Live service and machine health.
-- ZSEC Shield status contract v1 with explicit on-demand/real-time limitations.
+- ZSEC Shield status and scan contracts with a user-selected folder picker, bounded local results, and explicit on-demand/real-time limitations.
+- The verified Windows candidate bundles the full ZSEC Shield 0.1.0 PyInstaller onedir runtime for x86_64. It has no Authenticode signature, no real-time protection, and no bundled production trust key.
 - CallChat camera/microphone denied by default and limited to the exact CallChat origin when enabled.
 - Redacted diagnostics export.
 - Hardened Electron fuses and Windows NSIS, macOS DMG/ZIP, and Linux AppImage/DEB package definitions.
@@ -63,6 +64,7 @@ Release documentation:
 - `docs/STORE_READINESS.md`
 - `docs/SECURITY_ARCHITECTURE.md`
 - `docs/PRIVACY.md`
+- `store/README.md` and the store metadata/asset pack it indexes
 
 ## Security boundaries
 
@@ -79,4 +81,4 @@ Release documentation:
 
 ## Release boundary
 
-Version 0.2.0 is an unsigned preview candidate, not a public-store release and not a certified antivirus. Public distribution still requires publisher signing identities, immutable hosted installers, native clean-machine testing, accessibility evidence, privacy/support URLs, Matrix/Element licensing review, ZSEC binary signing and installer integration, signed app-update metadata, notarization on macOS, and store review. ZSEC does not claim kernel interception, real-time protection, independent detection certification, or complete malware prevention.
+Version 0.3.0 is an unsigned preview candidate, not a public-store release and not a certified antivirus. The Windows x64 one-click installer, bundled ZSEC scan contract, silent install and clean uninstall are locally verified; Windows arm64, macOS and Linux artifacts remain unverified. Public distribution still requires publisher signing identities, an approved licence/EULA, immutable hosted installers, native clean-machine and accessibility testing, public privacy/support URLs, Matrix/Element rights review, production ZSEC trust keys, signed update metadata, notarization on macOS, and store review. ZSEC does not claim kernel interception, real-time protection, independent detection certification, or complete malware prevention.
