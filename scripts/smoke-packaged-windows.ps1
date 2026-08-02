@@ -158,6 +158,21 @@ try {
     if (-not $resolvedSmoke.StartsWith($tempBasePath, [StringComparison]::OrdinalIgnoreCase)) {
       throw "Refusing unsafe smoke-test cleanup."
     }
-    Remove-Item -LiteralPath $resolvedSmoke -Recurse -Force
+    Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+      Where-Object { $_.CommandLine -and $_.CommandLine.Contains($resolvedSmoke, [StringComparison]::OrdinalIgnoreCase) } |
+      ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    $removed = $false
+    for ($attempt = 1; $attempt -le 12; $attempt++) {
+      try {
+        Remove-Item -LiteralPath $resolvedSmoke -Recurse -Force -ErrorAction Stop
+        $removed = $true
+        break
+      } catch {
+        if ($attempt -lt 12) { Start-Sleep -Milliseconds 250 }
+      }
+    }
+    if (-not $removed -and (Test-Path -LiteralPath $resolvedSmoke)) {
+      Write-Warning "The smoke passed, but Windows still held a disposable profile file: $resolvedSmoke"
+    }
   }
 }
