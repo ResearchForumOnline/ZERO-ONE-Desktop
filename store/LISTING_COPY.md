@@ -6,7 +6,7 @@ Status: **draft — reconcile with the exact signed build and replace all placeh
 
 - Product name: `ZERO ONE`
 - Publisher: `QUANTUMENCRYPTION1 LTD`
-- Version: `0.3.1`
+- Version: `0.4.0`
 - Suggested category: Productivity
 - Secondary Apple category: Utilities
 - Privacy URL: `https://talktoai.org/privacy`
@@ -51,7 +51,7 @@ Status: **draft — reconcile with the exact signed build and replace all placeh
 
 ### What's new
 
-> Internal candidate 0.3.1 adds a fail-closed one-folder ZSEC scan flow, an exactly pinned Windows x86_64 runtime, versioned status/scan contracts, clearer accessibility styling, hardened desktop boundaries, and a visible AI-output reporting route. Windows x64 is the only configured target. This candidate is not yet signed, submitted, approved, or publicly released.
+> Public preview 0.4.0 adds a fail-closed one-folder ZSEC scan flow, matching pinned native runtimes for Windows x64, macOS arm64 and Linux x64, versioned status/scan contracts, clearer accessibility styling, hardened desktop boundaries and a visible AI-output reporting route. The packages are not yet publisher-signed, submitted, approved or Store-listed.
 
 ## Apple macOS
 
@@ -93,7 +93,7 @@ Use the first two Microsoft-description paragraphs only after a native macOS bui
 
 ### Direct-download release note
 
-> ZERO ONE 0.3.1 adds an explicit selected-folder ZSEC scan preview on supported packages containing a matching native runtime. No macOS or Linux 0.3.1 package exists. Use only a future published artifact built for your architecture and verify its publisher signature and SHA-256 digest.
+> ZERO ONE 0.4.0 adds an explicit selected-folder ZSEC scan preview with matching native runtimes for Windows x64, macOS arm64 and Linux x64. Download only the package built for your architecture from the authenticated GitHub release and verify its SHA-256 digest. Publisher signatures remain pending.
 
 ## Prohibited wording until separately evidenced
 

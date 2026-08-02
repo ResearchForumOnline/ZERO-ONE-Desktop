@@ -1,17 +1,25 @@
 # ZERO ONE Store-readiness gate
 
-Status: **security-tested unsigned internal candidate; not submitted or approved by any Store**.
+Status: **installable unsigned public preview; not submitted or approved by any Store**.
+
+## ZERO ONE 0.4.0 public preview
+
+- Windows 10/11 x64: one-click NSIS installer, bundled native ZSEC, packaged and installed-app smoke tested.
+- macOS Apple silicon: DMG and ZIP built on macOS CI with the pinned native ZSEC runtime.
+- Linux x64: AppImage and DEB built on Linux CI with the pinned native ZSEC runtime.
+- A tag-triggered, pinned GitHub workflow publishes packages plus one `SHA256SUMS.txt` only after all platform verification and packaging jobs pass.
+- These packages deliberately remain prereleases until trusted Windows signing, Apple Developer ID/notarization and Linux repository signing are available.
 
 ## Verified source and package boundary
 
 - Thirteen desktop security/contract tests, TypeScript checking, and production Vite build pass on Windows.
-- Windows x64 is the only configured package target.
-- Packaging fails unless ZERO ONE is version 0.3.1 and the exact ZSEC 0.1.2 private identity, 89-file manifest, hashes, licences, source revision, and 60 AMD64 PEs verify.
+- Windows x64, macOS arm64 and Linux x64 are configured preview package targets.
+- Packaging fails unless ZERO ONE is version 0.4.0 and the matching ZSEC 0.1.2 asset, manifest, hashes, licences, source revision and native architecture verify.
 - ZSEC status v2 and scan v1 parsers reject malformed, legacy, contradictory, and exit-code-mismatched evidence.
 - Packaged smoke exercises launch, DOM, preload IPC, bundled ZSEC version, clean scan, and persisted incomplete scan.
 - An earlier unsigned one-click NSIS candidate installed silently to the current-user application directory and removed its install directory plus shortcuts on clean uninstall; repeat this on the exact final signed candidate.
 - Remote webviews have separate partitions, no preload, sandboxing, and an owned-origin allowlist. CallChat media is denied by default.
-- Exact final-candidate hashes, PE signature inventory, screenshots, install/uninstall evidence, and known limitations must be recorded in `store/RELEASE_EVIDENCE.md`; the 0.3.1 fields remain pending until one signed candidate is frozen and tested.
+- Exact final-candidate hashes, signature inventory, screenshots, install/uninstall evidence and known limitations must be recorded in `store/RELEASE_EVIDENCE.md`; signing and Store evidence remain pending.
 
 ## Public dependency state
 
@@ -23,7 +31,7 @@ The upstream workflow for the next release now pins every Action to a reviewed f
 
 | Gate | Windows x64 | macOS | Linux |
 |---|---|---|---|
-| Native package | Built and functionally smoke-tested | Not configured for 0.3.1 | Not configured for 0.3.1 |
+| Native package | Built and functionally smoke-tested | DMG/ZIP built and native payload verified in CI | AppImage/DEB built and native payload verified in CI |
 | Publisher signature | Missing on installer and multiple shipped PEs | Developer ID/notarization absent | Package/repository signing absent |
 | Store identity | Partner Center product/publisher identity not verified in this release | App Store Connect identity not verified | Distribution accounts not configured |
 | Compliance | Clean Windows 10/11, WACK where applicable, Narrator, High Contrast, keyboard-only, 200% scale, and reduced-motion evidence pending | Native sandbox/notarization/VoiceOver design pending | Native package-manager/Orca/confinement design pending |
@@ -52,7 +60,7 @@ Microsoft Store policy requires a means for users to report inappropriate live g
 
 ## Other platforms
 
-Do not advertise macOS, Linux, or Windows arm64 packages for 0.3.1. Each needs a matching native ZSEC decision, target-host packaging, signing, permissions/sandbox design, secure-storage tests, accessibility evidence, and clean install/update/removal validation.
+Advertise only the configured 0.4.0 targets: Windows x64, macOS arm64 and Linux x64. Windows arm64 and Intel macOS remain unsupported. Public-preview availability must not be described as publisher signing, notarization, Store approval or certification.
 
 ## Claims boundary
 

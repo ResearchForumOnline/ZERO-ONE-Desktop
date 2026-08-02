@@ -8,4 +8,5 @@ coverage/
 .env.*
 !.env.example
 vendor/zsec-shield/
+vendor/zsec-shield-provenance.json
 .cache-npm/

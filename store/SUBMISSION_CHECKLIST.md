@@ -28,8 +28,8 @@ No final submit, publish, availability, pricing, legal acceptance or public repr
 
 - [ ] Reserve `ZERO ONE` and verify the Partner Center publisher identity.
 - [ ] Confirm whether to continue with signed NSIS EXE or create MSIX; document the decision.
-- [x] Produce and temp-install/test an earlier unsigned Windows x64 candidate; do not treat it as final 0.3.1 evidence.
-- [ ] Keep 0.3.1 Windows x64 only; do not submit or advertise Windows arm64, macOS or Linux packages.
+- [x] Produce, install and smoke-test the exact unsigned 0.4.0 Windows x64 preview candidate.
+- [x] Limit advertised 0.4.0 targets to Windows x64, macOS arm64 and Linux x64; do not advertise Windows arm64 or Intel macOS.
 - [ ] Authenticode-sign the installer and every shipped PE, including ZSEC EXE, DLL and PYD files, with a trusted certificate matching the publisher.
 - [ ] Preserve the immutable upstream ZSEC manifest/lock, then generate an authenticated post-sign manifest mapping each upstream hash to the deployed signed hash, signer and trusted timestamp.
 - [ ] Confirm installer is standalone and its submitted install command is silent; retain command/output evidence.
