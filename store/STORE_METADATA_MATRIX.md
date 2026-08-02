@@ -47,7 +47,7 @@ Status terms: **Present** means the repository contains a usable source item; **
 | Base icon | Separate Store logo required for MSI/EXE; package assets depend on route | Current HIG layout size is 1024×1024; direct Electron release should use reviewed `.icns`/native icon output | Prefer SVG; otherwise at least 256×256 PNG for Flathub | Only 1000×1000 ARGB PNG exists; **insufficient as final set** |
 | Main Store logo | 300×300 PNG, under 50 MB | Extracted from uploaded build | Installed desktop icon named to match app ID | **Missing** |
 | Poster/promotional art | 2:3 poster recommended; 720×1080 or 1440×2160; optional 16:9 promotional art where offered | Optional app preview; no poster requirement for Mac listing | Optional website/repository hero | **Missing** |
-| Screenshots | 1 required; 4 recommended; max 10 desktop PNGs, at least 1366×768 | 1–10 images, no alpha; Mac uses accepted 16:10 size | AppStream captures/captions; first is default | Two 1280×720 Windows preview captures exist; below Microsoft minimum and not portal-ready |
+| Screenshots | 1 required; 4 recommended; max 10 desktop PNGs, at least 1366×768 | 1–10 images, no alpha; Mac uses accepted 16:10 size | AppStream captures/captions; first is default | Two 1366×768 Windows preview captures meet Microsoft minimum dimensions; exact signed-candidate and macOS/Linux captures remain |
 | Captions | Up to 200 characters each | Product-page copy must match capture; captions are not a separate Mac field | One concise sentence per screenshot, no final full stop recommended by Flathub | **Draft:** see `SCREENSHOT_REQUIREMENTS.md` |
 
 ## Channel decision

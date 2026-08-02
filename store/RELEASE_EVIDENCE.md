@@ -33,4 +33,4 @@ The installer, main app and bundled ZSEC executable are unsigned. The candidate 
 - `store/screenshots/01-command-center.png`
 - `store/screenshots/02-zsec-shield.png`
 
-These 1280×720 preview captures document the reviewed UI but do not meet Microsoft’s minimum listing dimensions and are not macOS/Linux evidence.
+These 1366×768 preview captures meet Microsoft’s minimum dimensions and document the reviewed UI. They are development-preview evidence, not exact signed-candidate, macOS, or Linux evidence.
