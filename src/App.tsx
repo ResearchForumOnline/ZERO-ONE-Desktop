@@ -331,8 +331,10 @@ function SettingsView({ settings, onSaved }: { settings: ZeroOneSettings; onSave
   const [token, setToken] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [zmath, setZmath] = useState<ZmathSecurityStatus | null>(null);
 
   useEffect(() => setDraft(settings), [settings]);
+  useEffect(() => { window.zeroOne.getZmathSecurityStatus().then(setZmath); }, []);
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
@@ -382,7 +384,21 @@ function SettingsView({ settings, onSaved }: { settings: ZeroOneSettings; onSave
             <label className="setting-field"><span>OpenZero API token</span><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder={draft.hasOpenZeroToken ? "•••••••••••••••• (leave blank to keep)" : "Paste oz_ token"} autoComplete="off" /><small>Encrypted with the operating system's secure credential storage. Insecure Linux fallback storage is rejected.</small></label>
           </div>
           {draft.hasOpenZeroToken && <label className="check-row danger"><input type="checkbox" checked={Boolean(draft.clearOpenZeroToken)} onChange={(event) => setDraft({ ...draft, clearOpenZeroToken: event.target.checked })} /><span>Remove the stored OpenZero token when I save</span></label>}
-        </section>        <section className="settings-section glass-card">
+        </section>
+        <section className="settings-section glass-card">
+          <div className="settings-heading"><div><p>ZMATH SECURE</p><h2>Automatic protection</h2></div><span>Secure defaults · no configuration required</span></div>
+          <div className="zmath-grid">
+            <article><span className={`zmath-status ${zmath?.transport.state || "checking"}`}>{zmath?.transport.state || "checking"}</span><strong>Connection guard</strong><p>{zmath?.transport.message || "Checking transport policy…"}</p></article>
+            <article><span className={`zmath-status ${zmath?.credentials.state || "checking"}`}>{zmath?.credentials.state || "checking"}</span><strong>Credential vault</strong><p>{zmath?.credentials.message || "Checking operating-system secure storage…"}</p></article>
+            <article><span className={`zmath-status ${zmath?.disk.state || "checking"}`}>{zmath?.disk.state || "checking"}</span><strong>System disk</strong><p>{zmath?.disk.message || "Reading Windows disk-encryption status…"}</p></article>
+          </div>
+          <div className="zmath-disk-action">
+            <div><strong>Optional full-disk encryption</strong><p>ZERO ONE never enables or changes disk encryption silently. Windows manages BitLocker and its recovery key. Initial encryption can take time; modern hardware usually has modest overhead, while older or storage-heavy systems may notice more.</p></div>
+            <button type="button" className="secondary-action" onClick={() => window.zeroOne.openDiskEncryptionSettings()}>Open Windows encryption settings</button>
+          </div>
+          <p className="zmath-boundary">ZMath Secure is the product security policy and compatibility layer. This open-source client uses established TLS and operating-system cryptography. Experimental proprietary ZMath cipher research is not embedded in this repository and is not represented as active protection.</p>
+        </section>
+        <section className="settings-section glass-card">
           <div className="settings-heading"><div><p>DESKTOP</p><h2>App behavior</h2></div><span>Privacy-first defaults</span></div>
           <label className="check-row"><input type="checkbox" checked={draft.mediaEnabled} onChange={(event) => setDraft({ ...draft, mediaEnabled: event.target.checked })} /><span><strong>Enable camera and microphone for CallChat</strong><small>All other embedded services remain denied access.</small></span></label>
           <label className="check-row"><input type="checkbox" checked={draft.launchAtLogin} onChange={(event) => setDraft({ ...draft, launchAtLogin: event.target.checked })} /><span><strong>Launch ZERO ONE when I sign in</strong><small>Uses the current operating system account and can be changed at any time.</small></span></label><button type="button" className="secondary-action data-clear-action" onClick={clearLocalData}>Clear desktop data</button><small className="data-clear-note">Removes this app's settings, encrypted OpenZero token, and embedded workspace cookies/storage after confirmation. Server-side data and saved diagnostics are not deleted.</small>

@@ -4,7 +4,7 @@
   "private": true,
   "description": "ZERO ONE desktop command center for ZMail, ZeroThink, OpenZero, CallChat, and the local ZSEC Shield preview.",
   "author": "QUANTUMENCRYPTION1 LTD",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",

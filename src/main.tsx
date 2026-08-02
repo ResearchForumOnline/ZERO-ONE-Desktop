@@ -32,6 +32,13 @@ if (!window.zeroOne && import.meta.env.DEV) {
     exportDiagnostics: async () => ({ saved: false }),
     getZsecStatus: async () => ({ installed: true, state: "ready", version: "0.1.2-preview", platform: "Windows 11", definitions: "built-in:0.1.2;feed:absent", lastScan: new Date(Date.now() - 36 * 60 * 1000).toISOString(), outcome: "no_configured_rule_matches", errors: 0, filesHashed: 1842, bytesHashed: 248000000, findings: 0, quarantine: 0, message: "The last on-demand scan reported no configured-rule matches." }),
     scanWithZsec: async () => ({ cancelled: false, outcome: "no_configured_rule_matches", filesHashed: 1842, bytesHashed: 248000000, findings: 0, errors: 0, message: "Scan complete: 1,842 files checked and no configured-rule matches detected." }),
+    getZmathSecurityStatus: async () => ({
+      transport: { state: "protected", message: "Owned remote workspaces require HTTPS; loopback OpenZero traffic is restricted to this machine." },
+      credentials: { state: "protected", message: "OpenZero tokens use operating-system secure storage." },
+      disk: { state: "off", message: "Windows BitLocker protection is not currently on for the system drive." },
+      engine: { state: "interface-only", message: "The public app exposes a versioned ZMath Secure interface; experimental proprietary cipher research is not embedded or claimed as active encryption." },
+    }),
+    openDiskEncryptionSettings: async () => false,
   };
 }
 ReactDOM.createRoot(document.getElementById("root")!).render(

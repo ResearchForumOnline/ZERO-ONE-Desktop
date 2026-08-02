@@ -60,6 +60,13 @@ interface SystemSnapshot {
   uptimeSeconds: number;
 }
 
+interface ZmathSecurityStatus {
+  transport: { state: "protected"; message: string };
+  credentials: { state: "protected" | "unavailable"; message: string };
+  disk: { state: "protected" | "off" | "unavailable" | "unsupported"; message: string; volumeStatus?: string; encryptionPercentage?: number };
+  engine: { state: "interface-only"; message: string };
+}
+
 interface Window {
   zeroOne: {
     getAppInfo(): Promise<{ name: string; version: string; platform: string; packaged: boolean }>;
@@ -73,6 +80,8 @@ interface Window {
     exportDiagnostics(): Promise<{ saved: boolean; path?: string }>;
     getZsecStatus(): Promise<ZsecSnapshot>;
     scanWithZsec(): Promise<ZsecScanResult>;
+    getZmathSecurityStatus(): Promise<ZmathSecurityStatus>;
+    openDiskEncryptionSettings(): Promise<boolean>;
   };
 }
 
