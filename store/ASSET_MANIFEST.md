@@ -14,7 +14,7 @@ The source icon could not be visually inspected through the workspace image view
 |---|---|---|---|
 | MS-ICON-01 | `store/assets/microsoft/store-logo-300.png` | 300×300 PNG, under 50 MB | Missing |
 | MS-ART-01 | `store/assets/microsoft/poster-720x1080.png` | 720×1080 PNG; 1440×2160 alternative | Missing |
-| MS-SHOT-01..04 | See `SCREENSHOT_REQUIREMENTS.md` | 1920×1080 PNG proposed; minimum official size 1366×768 | Two reviewed 1280×720 previews exist; final portal captures missing |
+| MS-SHOT-01..04 | See `SCREENSHOT_REQUIREMENTS.md` | 1920×1080 PNG proposed; minimum official size 1366×768 | Two reviewed 1366×768 Windows preview captures meet the minimum dimensions; exact signed-candidate captures and two additional views remain |
 | APPLE-ICON-01 | Native Mac app icon source/output | Current guidance uses 1024×1024 layout; reviewed native icon output | Missing |
 | APPLE-SHOT-01..04 | See `SCREENSHOT_REQUIREMENTS.md` | 2880×1800 PNG/JPEG proposed, no alpha | Missing |
 | LINUX-ICON-01 | `org.talktoai.zeroone.svg` | Preferred SVG, correctly named and installed | Missing |

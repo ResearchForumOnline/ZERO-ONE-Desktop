@@ -1,6 +1,6 @@
 # Screenshot and visual-asset requirements
 
-Two reviewed 1280×720 Windows preview captures exist in store/screenshots/; they document UI quality but are below Microsoft's 1366×768 minimum and are not portal-ready. Capture final assets only from the exact signed candidate on its target operating system. Do not use Windows captures to represent macOS or Linux.
+Two reviewed 1366×768 Windows preview captures exist in store/screenshots/; they meet Microsoft's minimum dimensions and document UI quality. Capture final submission assets from the exact signed candidate on its target operating system, and add at least two more current views before submission. Do not use Windows captures to represent macOS or Linux.
 
 ## Capture set
 

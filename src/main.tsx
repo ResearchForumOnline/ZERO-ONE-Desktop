@@ -16,7 +16,7 @@ if (!window.zeroOne && import.meta.env.DEV) {
     hasOpenZeroToken: false,
   };
   window.zeroOne = {
-    getAppInfo: async () => ({ name: "ZERO ONE", version: "0.2.0-preview", platform: "win32", packaged: false }),
+    getAppInfo: async () => ({ name: "ZERO ONE", version: "0.3.0-preview", platform: "win32", packaged: false }),
     getSystemSnapshot: async () => ({ hostname: "ZERO-ONE-PREVIEW", platform: "Windows 11", cpu: "Preview CPU", cores: 16, memoryTotal: 32 * 1024 ** 3, memoryUsed: 11 * 1024 ** 3, memoryPercent: 34, uptimeSeconds: 420000 }),
     loadSettings: async () => previewSettings,
     saveSettings: async (settings) => Object.assign(previewSettings, settings),
