@@ -21,7 +21,11 @@ interface ZsecSnapshot {
   platform: string;
   definitions?: string;
   lastScan?: string;
+  outcome?: "no_configured_rule_matches" | "configured_rule_matches_detected" | "incomplete";
   findings?: number;
+  errors?: number;
+  filesHashed?: number;
+  bytesHashed?: number;
   quarantine?: number;
   message: string;
 }
@@ -62,6 +66,7 @@ interface Window {
     getSystemSnapshot(): Promise<SystemSnapshot>;
     loadSettings(): Promise<ZeroOneSettings>;
     saveSettings(settings: Partial<ZeroOneSettings>): Promise<ZeroOneSettings>;
+    clearLocalData(): Promise<{ cleared: boolean }>;
     probeServices(): Promise<ServiceProbe[]>;
     chat(request: { model: string; messages: Array<{ role: "user" | "assistant" | "system"; content: string }> }): Promise<{ content: string; model: string }>;
     openExternal(url: string): Promise<boolean>;

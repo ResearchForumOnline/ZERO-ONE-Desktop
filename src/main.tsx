@@ -16,10 +16,11 @@ if (!window.zeroOne && import.meta.env.DEV) {
     hasOpenZeroToken: false,
   };
   window.zeroOne = {
-    getAppInfo: async () => ({ name: "ZERO ONE", version: "0.3.0-preview", platform: "win32", packaged: false }),
+    getAppInfo: async () => ({ name: "ZERO ONE", version: "0.3.1-preview", platform: "win32", packaged: false }),
     getSystemSnapshot: async () => ({ hostname: "ZERO-ONE-PREVIEW", platform: "Windows 11", cpu: "Preview CPU", cores: 16, memoryTotal: 32 * 1024 ** 3, memoryUsed: 11 * 1024 ** 3, memoryPercent: 34, uptimeSeconds: 420000 }),
     loadSettings: async () => previewSettings,
     saveSettings: async (settings) => Object.assign(previewSettings, settings),
+    clearLocalData: async () => ({ cleared: false }),
     probeServices: async () => [
       { name: "openzero", state: "online", status: 200, latencyMs: 14, url: previewSettings.openZeroUrl },
       { name: "zerothink", state: "online", status: 200, latencyMs: 32, url: previewSettings.zeroThinkUrl },
@@ -29,7 +30,7 @@ if (!window.zeroOne && import.meta.env.DEV) {
     chat: async () => ({ content: "Preview mode keeps all actions local and disabled.", model: previewSettings.model }),
     openExternal: async () => true,
     exportDiagnostics: async () => ({ saved: false }),
-    getZsecStatus: async () => ({ installed: true, state: "ready", version: "0.1.0-preview", platform: "Windows 11", definitions: "2026.08.01.1", lastScan: new Date(Date.now() - 36 * 60 * 1000).toISOString(), findings: 0, quarantine: 0, message: "No findings were reported by the last local scan." }),
+    getZsecStatus: async () => ({ installed: true, state: "ready", version: "0.1.2-preview", platform: "Windows 11", definitions: "built-in:0.1.2;feed:absent", lastScan: new Date(Date.now() - 36 * 60 * 1000).toISOString(), outcome: "no_configured_rule_matches", errors: 0, filesHashed: 1842, bytesHashed: 248000000, findings: 0, quarantine: 0, message: "The last on-demand scan reported no configured-rule matches." }),
     scanWithZsec: async () => ({ cancelled: false, outcome: "no_configured_rule_matches", filesHashed: 1842, bytesHashed: 248000000, findings: 0, errors: 0, message: "Scan complete: 1,842 files checked and no configured-rule matches detected." }),
   };
 }

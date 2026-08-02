@@ -1,78 +1,61 @@
-# ZERO ONE store-readiness gate
+# ZERO ONE Store-readiness gate
 
-Status: validated unsigned preview candidate. It has not been submitted or approved by any store.
+Status: **security-tested unsigned internal candidate; not submitted or approved by any Store**.
 
-## Verified now
+## Verified source and package boundary
 
-- Eight desktop tests, TypeScript checking and the production Vite build pass on Windows.
-- A one-click Windows x64 NSIS installer was built, silently installed and cleanly uninstalled from a disposable path.
-- The candidate bundles the complete ZSEC Shield 0.1.0 Windows x86_64 PyInstaller onedir payload, including its `_internal` runtime.
-- The packaged ZSEC runtime returned `zsec.shield.report.v1`, hashed nine synthetic/store-metadata files, reported zero configured-rule matches and zero errors, and exited successfully.
-- The ZSEC bridge validates versioned status and scan contracts, scans only one folder explicitly chosen through the operating-system picker, uses a fixed argument vector and returns only aggregate results to the renderer.
-- BrowserWindow sandboxing, context isolation, Node isolation, exact packaged-renderer navigation and hardened Electron fuses are enabled.
-- Remote webviews have separate partitions, no preload and an owned-origin allowlist. CallChat media is denied by default and limited to its exact HTTPS origin when enabled.
-- Production dependency audit reports zero known vulnerabilities.
+- Thirteen desktop security/contract tests, TypeScript checking, and production Vite build pass on Windows.
+- Windows x64 is the only configured package target.
+- Packaging fails unless ZERO ONE is version 0.3.1 and the exact ZSEC 0.1.2 private identity, 89-file manifest, hashes, licences, source revision, and 60 AMD64 PEs verify.
+- ZSEC status v2 and scan v1 parsers reject malformed, legacy, contradictory, and exit-code-mismatched evidence.
+- Packaged smoke exercises launch, DOM, preload IPC, bundled ZSEC version, clean scan, and persisted incomplete scan.
+- An earlier unsigned one-click NSIS candidate installed silently to the current-user application directory and removed its install directory plus shortcuts on clean uninstall; repeat this on the exact final signed candidate.
+- Remote webviews have separate partitions, no preload, sandboxing, and an owned-origin allowlist. CallChat media is denied by default.
+- Exact final-candidate hashes, PE signature inventory, screenshots, install/uninstall evidence, and known limitations must be recorded in `store/RELEASE_EVIDENCE.md`; the 0.3.1 fields remain pending until one signed candidate is frozen and tested.
 
-## Current release evidence
+## Public dependency state
 
-| Item | Evidence |
-|---|---|
-| ZERO ONE version | `0.3.0` |
-| Windows installer | `ZERO-ONE-0.3.0-win-x64.exe` |
-| Installer SHA-256 | `43ed42df1d92232f87b979d3917c438228896d2e99561a4eca5a3c9e2ffa78a2` |
-| Bundled ZSEC version | `0.1.0` |
-| Bundled ZSEC EXE SHA-256 | `435f0a9e63490f213398c31095e29e77bf546e7be16ec081f2145ac69b21e4a1` |
-| Signature state | Installer, app EXE and ZSEC EXE are `NotSigned` |
-| Runtime policy | On-demand; no real-time protection; no telemetry; zero production trust keys |
+ZSEC Shield v0.1.2 is a public immutable prerelease with GitHub release-integrity attestation and an exact locked Windows x86_64 asset. It is on-demand, unsigned, has no real-time driver, and has no production rule-feed trust key. It is not an antivirus certification.
 
-These hashes identify the local candidate only. They are not a public release or publisher signature.
+The upstream workflow for the next release now pins every Action to a reviewed full commit and adds build provenance. This does not retroactively give v0.1.2 SLSA build provenance and does not alter its immutable bytes.
 
 ## Blocking release gates
 
-| Gate | Windows | macOS | Linux |
+| Gate | Windows x64 | macOS | Linux |
 |---|---|---|---|
-| Native package built on target OS | x64 candidate verified; arm64 definition present but unverified | Not verified | Not verified |
-| Publisher signature | Authenticode absent from installer and nested PEs | Developer ID absent | Package/repository signing absent |
-| Store identity | Partner Center session/identity unavailable | App Store Connect session/identity unavailable | Distribution accounts not configured |
-| Compliance test | Clean VM, WACK and Narrator/200% scaling pending | Notarization, Gatekeeper and VoiceOver pending | Clean VM, package-manager and Orca testing pending |
-| Legal metadata | Public endpoint-specific privacy/support URLs, approved licence/EULA and third-party rights review pending on all platforms |
-| ZSEC runtime | Bundled x86_64 payload verified but unsigned; arm64 combination unverified | No host-native payload staged | No host-native payload staged |
-| ZSEC rule trust | Zero production trust keys; signed production definition channel is not commissioned | Same | Same |
-| Updates | Signed app-update metadata and rollback channel are not implemented | Same | Same |
+| Native package | Built and functionally smoke-tested | Not configured for 0.3.1 | Not configured for 0.3.1 |
+| Publisher signature | Missing on installer and multiple shipped PEs | Developer ID/notarization absent | Package/repository signing absent |
+| Store identity | Partner Center product/publisher identity not verified in this release | App Store Connect identity not verified | Distribution accounts not configured |
+| Compliance | Clean Windows 10/11, WACK where applicable, Narrator, High Contrast, keyboard-only, 200% scale, and reduced-motion evidence pending | Native sandbox/notarization/VoiceOver design pending | Native package-manager/Orca/confinement design pending |
+| Legal/public metadata | Approved EULA/customer licence, exact connected-service privacy answers, verified support route, AI safety/governance evidence, and third-party rights review pending | Same | Same |
+| ZSEC | Exact payload verified but nested unsigned PEs block public trust | No matching signed native payload | No matching signed native payload |
+| Updates | Signed application update metadata, immutable public installer hosting, rollback, and incident revocation plan absent | Same | Same |
 
-Do not upload this unsigned EXE/MSI route to Microsoft Store or present it as signed, certified, complete antivirus or real-time protection.
+For the Microsoft MSI/EXE route, the installer and every installed PE must chain to a trusted root. An unsigned installer or one unsigned nested DLL/PYD is a hard blocker. A self-signed certificate does not solve this.
 
-## Windows release sequence
+Signing the verified upstream ZSEC files changes their bytes, so the immutable upstream v0.1.2 manifest and consumer lock must not be rewritten to describe post-signing files. A release build needs a separate authenticated post-sign manifest mapping each verified upstream hash to its deployed signed hash, signer identity, and trusted timestamp, followed by packaged and installed-candidate verification. Consuming a future fully signed upstream ZSEC release is the alternative. This provenance bridge is a release blocker.
 
-1. Sign in to Partner Center, reserve the exact identity and choose MSIX or the Store-listed signed EXE/MSI route.
-2. Obtain a trusted Authenticode or Microsoft Trusted Signing identity matching the public publisher.
-3. Reproducibly stage the complete ZSEC onedir runtime and sign every shipped PE, including EXE, DLL and PYD files.
-4. Build immutable x64 and arm64 artifacts; provide a native arm64 ZSEC runtime or prove the x86_64 runtime under the advertised emulation path.
-5. Verify install, launch, scan, update, rollback and clean uninstall on clean Windows 10 and 11 VMs; run WACK where applicable.
-6. Complete keyboard-only, 200% scaling, Narrator, High Contrast and reduced-motion evidence.
-7. Publish stable Privacy, Terms, Support and Security URLs and accurate connected-service disclosures.
-8. Record hashes, SBOM/provenance, package inventory and versioned status/scan contract tests, then submit.
+Microsoft Store policy requires a means for users to report inappropriate live generative-AI content and requires generated content to comply with all Store policies. ZERO ONE's visible `https://talktoai.org/report-ai/` link supplies the chosen reporting route. The link alone is not safety evidence: model/output controls, moderation and escalation rules, governance ownership, abuse testing, and incident response must be documented and tested against the final production configuration before submission.
 
-## macOS release sequence
+## Windows completion sequence
 
-1. Stage and test a host-native signed ZSEC payload or explicitly exclude ZSEC scanning.
-2. Build x64 and arm64 on macOS, review `.icns` artwork, helpers, purpose strings and entitlements.
-3. Sign with Developer ID, submit with `notarytool`, staple and validate offline Gatekeeper behaviour.
-4. Prefer a notarized direct-download build first. A later Mac App Store build must be final rather than preview, use App Sandbox/user-selected-file entitlements and provide app-like utility beyond a web wrapper.
-5. Do not claim real-time endpoint monitoring without an approved EndpointSecurity entitlement and user-approved system extension.
+1. Reserve and verify the exact Partner Center product/publisher identity and route.
+2. Approve and publish the proprietary EULA/customer licence and complete third-party rights review.
+3. Obtain a trusted Authenticode or Microsoft Trusted Signing identity.
+4. Verify the immutable upstream ZSEC payload, sign the installer and every shipped PE, then generate and authenticate the separate upstream-to-post-sign manifest; rebuild and verify every signature and mapping.
+5. Complete AI safety/governance review and production-output abuse tests; verify both the visible reporting route and the operational response path.
+6. Publish immutable version-specific HTTPS assets plus hashes, SBOM/provenance, signed update metadata, and rollback/revocation information.
+7. Test the exact final signed candidate: install, launch, local scan, connected workspaces, report route, update, rollback, and uninstall on clean Windows 10 and 11.
+8. Complete keyboard-only, Narrator, High Contrast, 200% scaling, reduced-motion, and final-candidate screenshot evidence.
+9. Reconcile live privacy/support/report pages and Store disclosure fields with the exact signed build.
+10. Upload, pass certification, submit with action-time confirmation, then independently verify the live Store install path. An upload or visible Submit button is not publication.
 
-## Linux release sequence
+## Other platforms
 
-1. Stage and test a matching native ZSEC payload for every advertised architecture or explicitly exclude scanning.
-2. Build AppImage and DEB on clean x64/arm64 Linux runners.
-3. Sign repository metadata with a dedicated offline-managed release key and publish an SBOM plus hashes.
-4. Test install, update, rollback, permissions and uninstall on supported distributions.
-5. Keep Flathub submission on hold pending licensing and policy review; host-wide scanning does not fit ordinary sandbox confinement.
+Do not advertise macOS, Linux, or Windows arm64 packages for 0.3.1. Each needs a matching native ZSEC decision, target-host packaging, signing, permissions/sandbox design, secure-storage tests, accessibility evidence, and clean install/update/removal validation.
 
-## Evidence required before the word antivirus
+## Claims boundary
 
-The desktop may say deterministic on-demand scanner or endpoint-security preview. It must not say complete antivirus, real-time protection, ransomware protection, zero-day protection, certified, Microsoft/Apple approved, or publish detection percentages until those exact capabilities are shipped, independently tested and supported.
+Allowed: desktop command center, deterministic on-demand selected-folder scanner, endpoint-security preview, aggregate local evidence.
 
-## Store metadata pack
-
-The `store/` directory contains draft listing copy, a platform metadata/assets matrix, privacy boundaries, screenshot requirements, an asset inventory and submission checklists. Placeholders remain intentionally unresolved until public URLs, support contacts, legal terms, publisher identities and final signed artifacts exist.
+Disallowed until shipped and independently supported: complete antivirus, real-time protection, ransomware protection, zero-day protection, certified/approved protection, telemetry-free absolute claims, detection percentages, or Microsoft/Apple approval.

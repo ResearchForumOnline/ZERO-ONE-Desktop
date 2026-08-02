@@ -6,8 +6,8 @@ describe("service catalog", () => {
     expect(SERVICES.map((service) => service.id).sort()).toEqual(["callchat", "openzero", "zerothink", "zmail"]);
   });
 
-  it("keeps OpenZero as the local-first runtime", () => {
-    expect(serviceById("openzero").capabilities).toContain("Local LLM");
-    expect(serviceById("openzero").capabilities).toContain("16 agents");
+  it("describes OpenZero as a configured endpoint without inventing pool telemetry", () => {
+    expect(serviceById("openzero").capabilities).toContain("Configured model");
+    expect(serviceById("openzero").capabilities).toContain("16 slots");
   });
 });

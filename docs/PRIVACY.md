@@ -1,35 +1,43 @@
-# ZERO ONE desktop privacy disclosure draft
+# ZERO ONE privacy boundary
 
-This draft must be published at a stable public URL and reviewed against the final binaries before store submission.
+This document describes the reviewed desktop source boundary. Store answers and public promises must still be reconciled with the exact signed binary and the live data practices of every connected service.
 
-## Local app data
+## Local desktop data
 
-ZERO ONE stores user-chosen service URLs, model alias, media preference and launch-at-login preference in its operating-system application-data directory. An OpenZero API token is stored only when secure operating-system encryption is available. The app rejects Linux `basic_text` fallback storage.
+ZERO ONE stores user-chosen service URLs, model alias, media preference, and launch-at-login preference in its operating-system application-data directory. An OpenZero API token is stored only when secure operating-system encryption is available. The app rejects Linux `basic_text` fallback storage.
 
-The local diagnostics export is user-initiated and contains app/platform versions, bounded machine facts, service reachability and non-secret settings. It excludes API tokens, cookies, email, documents, notes, chat/call content, prompts and model responses.
+The desktop does not merge service credentials. ZMail, ZeroThink, OpenZero, and CallChat keep separate persistent Electron partitions and remain governed by their own account, server, cookie, content, logging, retention, and privacy behavior. Those partitions retain cookies, cache, authentication state, and site storage across app restarts.
 
-## Connected services
+On launch and every 30 seconds while the main interface is mounted, the desktop sends one bounded HTTP `GET` probe to each configured ZMail, ZeroThink, OpenZero, and CallChat URL. A manual refresh and a diagnostics export also run the four probes. Each request follows redirects, uses a `ZERO-ONE/<version>` user agent, and times out after 6.5 seconds. The destination service can therefore receive the user's network address and request metadata even if its workspace is not opened.
 
-ZMail, ZeroThink, OpenZero Public and CallChat are remote services displayed in isolated webview partitions. Their requests, authentication, cookies and content are handled by those services under their own published privacy terms. ZERO ONE does not merge their credentials or silently transfer content between them.
+Camera and microphone are denied by default. When the user explicitly enables CallChat media, permission is limited to the exact CallChat HTTPS origin. Other embedded services remain denied.
 
-Local OpenZero requests are sent to the loopback URL selected by the user. If the user changes that URL to an allowlisted public OpenZero origin, prompts and responses follow that selected service boundary; the UI must continue to make that destination visible.
+## ZSEC selected-folder scans
 
-## Camera and microphone
+The Windows x64 package bundles ZSEC Shield 0.1.2 from an immutable public release. The user must press the scan button and choose exactly one folder through the operating-system picker. The desktop invokes a fixed runtime with bounded arguments. It does not start background scanning, sample upload, automatic deletion, or automatic quarantine.
 
-Media is disabled by default. If the user enables it, access is restricted to the exact CallChat HTTPS origin and remains subject to operating-system permission controls.
+The trusted renderer receives only aggregate outcome, files/bytes read, configured-rule match count, error count, engine/definition labels, scan timestamp, and quarantine count. Local ZSEC CLI reports may contain paths, hashes, matches, and operational errors; those reports stay under the user's local ZSEC state directory unless the user separately shares them.
 
-## ZSEC Shield preview
+The bundle declares on-demand mode, no telemetry, no real-time protection, and zero production feed trust keys. Before any cloud lookup, telemetry, crash reporting, sample submission, or signed definition feed is activated, disclosure, consent, retention, and deletion controls must be updated first.
 
-On Windows, the preview package bundles the full ZSEC Shield 0.1.0 x86_64 onedir runtime. The user must press the scan button and choose exactly one folder through the operating-system picker. The desktop invokes the fixed runtime with the selected path and bounded arguments. It does not start a background scan, automatic deletion or automatic quarantine.
+## Diagnostics and AI output
 
-The reviewed bridge does not upload file names, paths, hashes, samples or reports. The trusted renderer receives only aggregate counts and a bounded outcome. The bundled runtime manifest declares no telemetry and no real-time protection, but this must still be confirmed against the exact signed package and a clean-profile network trace before an absolute public claim. Local CLI reports may contain paths, hashes, configured-rule matches and operational errors. The separate CLI supports opt-in recoverable quarantine, but the desktop scan button does not request it.
+Diagnostics export is user-initiated. The JSON contains its generation time; app version and platform; operating-system release, logical-core count, and total memory bytes; and, for each of the four service probes, the service name, state, HTTP status, latency, and origin. An offline probe can also contain the fixed message `Timed out` or `Unavailable`. It records the configured service origins, media-enabled and launch-at-login booleans, and whether an OpenZero token exists.
 
-The desktop also reads a bounded local status summary: engine version, platform label, definition label, last-scan timestamp, configured-rule match count and quarantine count. The preview contains no production rule-feed trust key. A future signed definition update channel would download declarative data-only rules; it must not accept commands or scripts and must be added to this disclosure before activation.
+The export excludes the operating-system hostname, API-token value, URL credentials, URL paths, queries and fragments, cookies, mail, notes, chat/call content, prompts, and model responses. The user chooses the local JSON destination and controls how long that saved file is retained. ZERO ONE does not automatically upload or delete it. This schema and redaction boundary must be reconfirmed against the final signed package.
 
-macOS, Linux and Windows arm64 runtime/package behaviour has not been host-verified and must not inherit the Windows x64 disclosure without native testing.
+OpenZero model requests go to the user-configured allowed OpenZero endpoint. ZERO ONE does not automatically send model output as mail, chat, calls, or reports. The current interface links visibly to `https://talktoai.org/report-ai/`; users should not include passwords, tokens, private prompts, or unrelated personal data in a report. Reporting is one control only and does not replace model/output safety, moderation, governance, incident response, and policy-compliance testing required before Store submission.
 
-Before any cloud lookup, telemetry, crash reporting or sample submission is added, this disclosure, consent flow, retention schedule and deletion controls must be updated first.
+## Retention and deletion
 
-## Store disclosure gate
+`Clear desktop data` requires confirmation, clears storage, cache, and authentication cache for all four persistent service partitions, deletes the local settings file and encrypted OpenZero token, disables launch at login, and restarts ZERO ONE. It does not delete connected-service accounts or server-side data, ZSEC state/reports, or diagnostics JSON files the user saved elsewhere.
 
-This local draft is not a sufficient Microsoft or Apple privacy URL. The final public policy must also cover the actual data practices of ZMail, ZeroThink, OpenZero and CallChat as reached through the submitted app. Do not select "no data collected" in a store portal until the exact production build, connected services, server retention and integrated partners have been audited.
+The current NSIS configuration deliberately uses `deleteAppDataOnUninstall: false`. Uninstall removes program files and shortcuts but does not promise removal of ZERO ONE application data, service partitions, settings, or the encrypted token. Users should use `Clear desktop data` before uninstalling when they want those desktop-held settings and sessions removed. Final Store disclosures and uninstall testing must match the exact signed installer.
+
+## Platform limits
+
+Windows x64 is the only configured 0.3.1 package target. macOS, Linux, and Windows arm64 behavior must not inherit the Windows disclosure until matching native payloads, secure storage, permissions, signing, and host tests exist.
+
+## Public policy gate
+
+The public policy target is `https://talktoai.org/privacy`. Before Store submission it must explicitly cover ZERO ONE Desktop, connected ZMail/ZeroThink/OpenZero/CallChat surfaces, local ZSEC selected-folder processing, support/reporting contacts, controller identity, user rights, retention/deletion ownership, processors, transfers, and the exact production build. Do not select “no data collected” merely because the desktop shell itself minimizes data.

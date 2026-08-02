@@ -15,11 +15,11 @@ export const SERVICES: ServiceDefinition[] = [
   {
     id: "openzero",
     name: "OpenZero",
-    eyebrow: "LOCAL INTELLIGENCE",
-    description: "Private local models, autonomous runs, tools, voice, and browser control.",
+    eyebrow: "CONFIGURED INTELLIGENCE",
+    description: "Your configured OpenZero model endpoint, runs, tools, voice, and browser control.",
     accent: "#00ff85",
     glyph: "Ø",
-    capabilities: ["Local LLM", "16 agents", "Tool runtime"],
+    capabilities: ["Configured model", "16 slots", "Tool runtime"],
     settingKey: "openZeroUrl",
   },
   {

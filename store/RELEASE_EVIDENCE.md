@@ -1,4 +1,43 @@
-# ZERO ONE 0.3.0 local release evidence
+# ZERO ONE local release evidence
+
+## 0.3.1 internal candidate — evidence pending
+
+Status: **not a final release artifact; not submitted, approved, or public**.
+
+The 0.3.1 source is configured only for Windows x64. Thirteen desktop security/contract tests, TypeScript checking, production Vite build, the exact immutable ZSEC 0.1.2 inventory verifier, and packaged smoke are the required candidate gates. Do not copy artifact sizes, hashes, signatures, screenshots, install results, or PE counts from 0.3.0 or from an earlier 0.3.1 rebuild into this section.
+
+The final evidence row remains intentionally empty until one exact signed candidate is frozen and tested:
+
+| Artifact | Bytes | SHA-256 | Trusted signature | Source commit | Test record |
+|---|---:|---|---|---|---|
+| Final 0.3.1 Windows x64 installer | Pending | Pending | Pending | Pending | Pending |
+
+### Exact unsigned validation candidate — not for publication
+
+Built and tested: 2026-08-02 (Europe/London). These records prove the current private candidate runs; they are not substitutes for a signed final release.
+
+| Artifact | Bytes | SHA-256 | Signature |
+|---|---:|---|---|
+| `ZERO-ONE-0.3.1-win-x64.exe` | 110,829,105 | `2172a4683f2425d0f5801b4bc8a40a035c4654904e7f8d7a2dc8d64a6f41be47` | NotSigned |
+| `ZERO-ONE-0.3.1-win-x64.exe.blockmap` | 117,328 | `49516a0c4e09a6133df0251ca7142c20084ea2d9e80157225cd2bbcc5245b74a` | Not applicable |
+| unpacked `ZERO ONE.exe` | 225,674,240 | `33c872c7730150e7097d4aa04f79d9d16d75aa688cd8ac18c60b3d22fe2ac498` | NotSigned |
+| `app.asar` | 8,588,267 | `4e531fa1496646ad61e0de81e13ec94588e88b38e4a57a9231628d5a0d7ec854` | Embedded-ASAR integrity enabled; not a publisher signature |
+| bundled `zsec-shield.exe` | 2,082,501 | `6bc60026691fff00319e23c7ba9d49d1ab9f893715766177226062baa069d501` | NotSigned |
+| bundled ZSEC provenance | 1,657 | `1eebb5e212b33b62af6668a3280eb8403f097ed8b416789f0af38caffc020cdf` | Data file |
+
+Validation passed: 13/13 tests, TypeScript, production Vite build, exact ZSEC 0.1.2 inventory (89 files, 60 AMD64 PEs), Electron fuse verification, packaged launch/DOM/IPC, clean-scan `LAST SCAN CLEAR`, fail-closed incomplete scan, silent install, installed-app smoke, and silent uninstall with install directory and shortcuts removed. The installed main executable was byte-identical to the unpacked candidate.
+
+The PE inventory contains 71 files: 59 have valid Authenticode signatures and 12 are unsigned, including the installer, main app, bundled ZSEC executable, Electron DLLs, elevation helper, and two Python extensions. Public/Store distribution remains blocked. ASAR review found no source maps, environment/key files, or detected credential patterns, but distributed Electron JavaScript remains inspectable. The online advisory audit was not run because the environment blocked disclosure of private dependency metadata to npm; local production dependency-tree validation passed, so no online vulnerability-clean claim is made.
+
+Public/Store release remains blocked on all of the following:
+
+- trusted signing of the installer and every shipped PE;
+- a separate authenticated manifest mapping verified immutable upstream ZSEC hashes to deployed post-sign hashes, signer identities, and timestamps;
+- an approved and published EULA/customer licence;
+- live-generative-AI safety/governance, moderation, abuse and incident-response evidence beyond the visible reporting link;
+- clean Windows 10/11 install, launch, connected-service, ZSEC, accessibility, update/rollback, clear-data, uninstall-retention, and final screenshot testing of the exact signed bytes.
+
+## 0.3.0 historical local candidate
 
 Recorded: 2026-08-02 (Europe/London)
 Candidate directory: `C:\tmp\zero-one-0.3.0-final3-20260802`
@@ -33,4 +72,4 @@ The installer, main app and bundled ZSEC executable are unsigned. The candidate 
 - `store/screenshots/01-command-center.png`
 - `store/screenshots/02-zsec-shield.png`
 
-These 1366×768 preview captures meet Microsoft’s minimum dimensions and document the reviewed UI. They are development-preview evidence, not exact signed-candidate, macOS, or Linux evidence.
+These 1366×768 captures meet Microsoft's minimum dimensions and document the reviewed UI. They are development-preview evidence, not exact signed-candidate, macOS, or Linux evidence.

@@ -4,7 +4,8 @@ const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { fileURLToPath } = require("node:url");
-const { parseZsecScanReport } = require("./zsec-contract.cjs");
+const { parseZsecScanReport, parseZsecStatusPayload } = require("./zsec-contract.cjs");
+const { cleanConfiguredUrl, diagnosticOrigin, isAllowedUrl: urlIsAllowed } = require("./url-policy.cjs");
 
 const DEFAULT_SETTINGS = Object.freeze({
   zmailUrl: "https://webmail.zmail.my/?_task=workspace",
@@ -31,6 +32,7 @@ const ALLOWED_ORIGINS = new Set([
   "http://127.0.0.1:1024",
   "http://localhost:1024",
 ]);
+const PERSISTENT_PARTITIONS = Object.freeze(["openzero", "zerothink", "zmail", "callchat"].map((name) => `persist:zero-one-${name}`));
 
 let mainWindow;
 let runtimeSettings = { ...DEFAULT_SETTINGS };
@@ -41,12 +43,7 @@ function settingsPath() {
 }
 
 function isAllowedUrl(value) {
-  try {
-    const url = new URL(value);
-    return ALLOWED_ORIGINS.has(url.origin);
-  } catch {
-    return false;
-  }
+  return urlIsAllowed(value, ALLOWED_ORIGINS);
 }
 
 function isLocalAppUrl(value) {
@@ -99,8 +96,7 @@ function configurePermissionPolicy(targetSession) {
 }
 
 function cleanUrl(value, fallback) {
-  const candidate = String(value || "").trim();
-  return isAllowedUrl(candidate) ? candidate : fallback;
+  return cleanConfiguredUrl(value, fallback, ALLOWED_ORIGINS);
 }
 
 async function readSettingsFile() {
@@ -188,7 +184,7 @@ async function probe(name, url) {
       state: response.ok ? "online" : "degraded",
       status: response.status,
       latencyMs: Date.now() - started,
-      url,
+      url: diagnosticOrigin(url),
     };
   } catch (error) {
     return {
@@ -196,7 +192,7 @@ async function probe(name, url) {
       state: "offline",
       status: 0,
       latencyMs: Date.now() - started,
-      url,
+      url: diagnosticOrigin(url),
       message: error?.name === "AbortError" ? "Timed out" : "Unavailable",
     };
   } finally {
@@ -332,33 +328,7 @@ function runZsecStatus(binary) {
         return;
       }
       try {
-        const payload = JSON.parse(String(stdout || "{}"));
-        if (payload.schema !== "zsec.shield.status.v1" || payload.contract_version !== 1) {
-          throw new Error("Unsupported ZSEC status contract");
-        }
-        const findings = Number(payload.findings);
-        const quarantine = Number(payload.quarantine_count);
-        if (!Number.isSafeInteger(findings) || findings < 0 || !Number.isSafeInteger(quarantine) || quarantine < 0) {
-          throw new Error("Invalid ZSEC status counters");
-        }
-        const lastScan = payload.last_scan == null ? undefined : String(payload.last_scan).slice(0, 80);
-        if (lastScan && Number.isNaN(Date.parse(lastScan))) throw new Error("Invalid ZSEC scan timestamp");
-        const state = !lastScan ? "idle" : findings > 0 ? "attention" : "ready";
-        resolve({
-          installed: true,
-          state,
-          version: String(payload.version || "unknown").slice(0, 40),
-          platform: String(payload.platform || process.platform).slice(0, 80),
-          definitions: String(payload.definitions || "not reported").slice(0, 80),
-          lastScan,
-          findings,
-          quarantine,
-          message: !lastScan
-            ? "ZSEC Shield is installed. Run an on-demand scan to create local evidence."
-            : findings > 0
-              ? "Review the configured-rule matches from the last local scan."
-              : "The last on-demand scan reported no configured-rule matches.",
-        });
+        resolve(parseZsecStatusPayload(String(stdout || "{}"), process.platform));
       } catch {
         resolve({ installed: true, state: "unavailable", platform: process.platform, message: "ZSEC Shield returned malformed status data." });
       }
@@ -375,12 +345,21 @@ ipcMain.handle("zsec:status", async (event) => {
   return runZsecStatus(binary);
 });
 
+function isExpectedZsecScanExit(error, outcome) {
+  if (error?.killed || error?.signal) return false;
+  if (outcome === "no_configured_rule_matches") return !error;
+  if (outcome === "configured_rule_matches_detected") return error?.code === 1;
+  if (outcome === "incomplete") return error?.code === 2;
+  return false;
+}
+
 function runZsecScan(binary, selectedPath) {
   return new Promise((resolve) => {
     execFile(binary, ["check", selectedPath, "--json"], { timeout: 10 * 60 * 1000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 }, (error, stdout) => {
       try {
         const result = parseZsecScanReport(stdout);
         const { outcome } = result;
+        if (!isExpectedZsecScanExit(error, outcome)) throw new Error("ZSEC scan exit code does not match its report");
         resolve({
           ...result,
           message: outcome === "configured_rule_matches_detected"
@@ -429,6 +408,32 @@ ipcMain.handle("settings:load", async (event) => {
 ipcMain.handle("settings:save", async (event, input) => {
   requireTrustedIpcSender(event);
   return saveSettingsInternal(input || {});
+});
+
+ipcMain.handle("settings:clear-local-data", async (event) => {
+  requireTrustedIpcSender(event);
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: "warning",
+    title: "Clear ZERO ONE desktop data?",
+    message: "Remove local settings and embedded workspace sessions?",
+    detail: "This clears the encrypted OpenZero token plus local cookies and storage for ZMail, ZeroThink, OpenZero, and CallChat. It does not delete server-side accounts or diagnostics files you saved.",
+    buttons: ["Cancel", "Clear and restart"],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+  });
+  if (result.response !== 1) return { cleared: false };
+  for (const partition of PERSISTENT_PARTITIONS) {
+    const targetSession = session.fromPartition(partition);
+    await targetSession.clearStorageData();
+    await targetSession.clearCache();
+    await targetSession.clearAuthCache();
+  }
+  await fs.rm(settingsPath(), { force: true });
+  app.setLoginItemSettings({ openAtLogin: false, path: process.execPath });
+  runtimeSettings = { ...DEFAULT_SETTINGS };
+  setTimeout(() => { app.relaunch(); app.exit(0); }, 250);
+  return { cleared: true };
 });
 
 ipcMain.handle("services:probe", async (event) => {
@@ -503,10 +508,20 @@ ipcMain.handle("diagnostics:export", async (event) => {
   const report = {
     generatedAt: new Date().toISOString(),
     app: { version: app.getVersion(), platform: process.platform },
-    system: { hostname: os.hostname(), release: os.release(), cores: os.cpus().length, memoryTotal: os.totalmem() },
+    system: { release: os.release(), logicalCores: os.cpus().length, memoryTotalBytes: os.totalmem() },
     services,
-    settings,
-    privacy: "No API tokens, cookies, message bodies, mailbox data, or call data are included.",
+    settings: {
+      serviceOrigins: {
+        zmail: diagnosticOrigin(settings.zmailUrl),
+        zeroThink: diagnosticOrigin(settings.zeroThinkUrl),
+        openZero: diagnosticOrigin(settings.openZeroUrl),
+        callChat: diagnosticOrigin(settings.callChatUrl),
+      },
+      mediaEnabled: settings.mediaEnabled,
+      launchAtLogin: settings.launchAtLogin,
+      hasOpenZeroToken: settings.hasOpenZeroToken,
+    },
+    privacy: "No hostname, API tokens, URL credentials/queries/fragments, cookies, message bodies, mailbox data, prompts, model responses, or call data are included. The user chooses where to save this local file and controls its retention.",
   };
   await fs.writeFile(result.filePath, JSON.stringify(report, null, 2), "utf8");
   return { saved: true, path: result.filePath };
