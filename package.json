@@ -1,5 +1,6 @@
 {
   "name": "zero-one-desktop",
+  "desktopName": "zero-one.desktop",
   "version": "0.4.0",
   "private": true,
   "description": "ZERO ONE desktop command center for ZMail, ZeroThink, OpenZero, CallChat, and the local ZSEC Shield preview.",
@@ -11,12 +12,12 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "check": "npm run test && npm run build",
-    "pack:win": "npm run check && npm run verify:zsec && electron-builder --win dir --x64",
-    "dist:win": "npm run check && npm run verify:zsec && electron-builder --win nsis --x64",
-    "pack:mac": "npm run check && npm run verify:zsec:native && electron-builder --mac dir --arm64",
-    "dist:mac": "npm run check && npm run verify:zsec:native && electron-builder --mac dmg zip --arm64",
-    "pack:linux": "npm run check && npm run verify:zsec:native && electron-builder --linux dir --x64",
-    "dist:linux": "npm run check && npm run verify:zsec:native && electron-builder --linux AppImage deb --x64",
+    "pack:win": "npm run check && npm run verify:zsec && electron-builder --win dir --x64 --publish never",
+    "dist:win": "npm run check && npm run verify:zsec && electron-builder --win nsis --x64 --publish never",
+    "pack:mac": "npm run check && npm run verify:zsec:native && electron-builder --mac dir --arm64 --publish never",
+    "dist:mac": "npm run check && npm run verify:zsec:native && electron-builder --mac dmg zip --arm64 --publish never",
+    "pack:linux": "npm run check && npm run verify:zsec:native && electron-builder --linux dir --x64 --publish never",
+    "dist:linux": "npm run check && npm run verify:zsec:native && electron-builder --linux AppImage deb --x64 --publish never",
     "stage:zsec": "pwsh -NoProfile -File scripts/stage-zsec-vendor.ps1",
     "stage:zsec:native": "node scripts/stage-native-zsec.mjs",
     "verify:zsec": "node build/zsec-vendor-verifier.cjs vendor/zsec-shield vendor/zsec-shield.lock.json",
@@ -119,6 +120,7 @@
         }
       ],
       "category": "Utility",
+      "syncDesktopName": true,
       "icon": "assets/zero-one-icon.png",
       "maintainer": "QUANTUMENCRYPTION1 LTD <shaf@talktoai.org>",
       "synopsis": "Private desktop command center for the TalkToAI ecosystem"
