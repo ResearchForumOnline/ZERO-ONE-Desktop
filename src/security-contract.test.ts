@@ -173,6 +173,9 @@ describe("desktop security contract", () => {
     expect(packageJson.build.win.target[0].arch).toEqual(["x64"]);
     expect(packageJson.scripts["dist:mac"]).toContain("--mac dmg zip --arm64");
     expect(packageJson.scripts["dist:linux"]).toContain("--linux AppImage deb --x64");
+    expect(packageJson.scripts["dist:win"]).toContain("--publish never");
+    expect(packageJson.scripts["dist:mac"]).toContain("--publish never");
+    expect(packageJson.scripts["dist:linux"]).toContain("--publish never");
     expect(packageJson.scripts["verify:zsec:native"]).toContain("zsec-native-verifier.cjs");
     expect(beforePack).toContain("context.packager.appInfo.version");
     expect(beforePack).toContain('context.electronPlatformName === "darwin"');

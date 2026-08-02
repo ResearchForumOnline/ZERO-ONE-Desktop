@@ -25,8 +25,8 @@ Use the authenticated [ZERO ONE 0.4.0 release](https://github.com/ResearchForumO
 |---|---|---|
 | Windows 10/11 x64 | `ZERO-ONE-0.4.0-win-x64.exe` | Download, double-click and follow the one-click installer |
 | macOS Apple silicon | `ZERO-ONE-0.4.0-mac-arm64.dmg` | Open the disk image and drag ZERO ONE to Applications |
-| Linux x64 | `ZERO-ONE-0.4.0-linux-x64.AppImage` | Make executable and open |
-| Debian/Ubuntu x64 | `ZERO-ONE-0.4.0-linux-x64.deb` | Open with the software installer or use `sudo apt install ./ZERO-ONE-0.4.0-linux-x64.deb` |
+| Linux x64 | `ZERO-ONE-0.4.0-linux-x86_64.AppImage` | Make executable and open |
+| Debian/Ubuntu x64 | `ZERO-ONE-0.4.0-linux-amd64.deb` | Open with the software installer or use `sudo apt install ./ZERO-ONE-0.4.0-linux-amd64.deb` |
 
 The 0.4.0 packages are unsigned public previews. Windows SmartScreen or macOS Gatekeeper may show an unknown-publisher warning. Verify downloads against `SHA256SUMS.txt`; publisher signing and Store approval are still in progress.
 
