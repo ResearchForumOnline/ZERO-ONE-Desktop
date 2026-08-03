@@ -6,12 +6,23 @@ interface ZeroOneSettings {
   openZeroUrl: string;
   openZeroPublicUrl: string;
   callChatUrl: string;
+  assistantProvider: "openzero" | "openai" | "groq";
   model: string;
   mediaEnabled: boolean;
   launchAtLogin: boolean;
+  closeToTray: boolean;
+  onboardingCompleted: boolean;
   hasOpenZeroToken: boolean;
+  hasOpenAiKey: boolean;
+  hasGroqKey: boolean;
+  hasZeroThinkAccount: boolean;
+  zeroThinkEmail?: string;
   openZeroToken?: string;
+  openAiKey?: string;
+  groqKey?: string;
   clearOpenZeroToken?: boolean;
+  clearOpenAiKey?: boolean;
+  clearGroqKey?: boolean;
 }
 
 interface ZsecSnapshot {
@@ -70,12 +81,20 @@ interface ZmathSecurityStatus {
 interface Window {
   zeroOne: {
     getAppInfo(): Promise<{ name: string; version: string; platform: string; packaged: boolean }>;
+    getUserInterfaceScale(): Promise<number>;
+    setUserInterfaceScale(factor: number): Promise<number>;
+    startZeroThinkSignIn(): Promise<{ status: string; email: string; userCode: string; url?: string }>;
+    restoreZeroThinkSession(): Promise<{ status: string; email: string; url?: string; message?: string }>;
+    signOutZeroThink(): Promise<boolean>;
+    quitApp(): Promise<boolean>;
+    onAppNavigate(callback: (view: string) => void): () => void;
     getSystemSnapshot(): Promise<SystemSnapshot>;
     loadSettings(): Promise<ZeroOneSettings>;
     saveSettings(settings: Partial<ZeroOneSettings>): Promise<ZeroOneSettings>;
     clearLocalData(): Promise<{ cleared: boolean }>;
     probeServices(): Promise<ServiceProbe[]>;
-    chat(request: { model: string; messages: Array<{ role: "user" | "assistant" | "system"; content: string }> }): Promise<{ content: string; model: string }>;
+    connectOpenZeroDesktop(): Promise<{ settings: ZeroOneSettings; hint: string }>;
+    chat(request: { model: string; messages: Array<{ role: "user" | "assistant" | "system"; content: string }> }): Promise<{ content: string; model: string; provider?: string }>;
     openExternal(url: string): Promise<boolean>;
     exportDiagnostics(): Promise<{ saved: boolean; path?: string }>;
     getZsecStatus(): Promise<ZsecSnapshot>;

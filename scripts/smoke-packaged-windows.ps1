@@ -3,7 +3,9 @@ param(
   [string]$AppPath,
 
   [ValidateRange(5, 60)]
-  [int]$WaitSeconds = 12
+  [int]$WaitSeconds = 12,
+
+  [switch]$TestLocalChat
 )
 
 Set-StrictMode -Version Latest
@@ -110,6 +112,13 @@ try {
     throw "Packaged app rendered an unexpected DOM: $($dom | ConvertTo-Json -Compress)"
   }
 
+  if ($TestLocalChat) {
+    $chat = Invoke-CdpExpression -WebSocketUrl $page.webSocketDebuggerUrl -Expression 'window.zeroOne.chatLocalOpenZero({model:"qwen3:1.7b",messages:[{role:"user",content:"Reply with exactly: ZERO ONE FAST READY"}]}).then(value=>JSON.stringify(value))'
+    if ($chat.model -ne "qwen3:1.7b" -or $chat.content -notmatch "ZERO ONE FAST READY") {
+      throw "Packaged local Assistant chat failed: $($chat | ConvertTo-Json -Compress)"
+    }
+  }
+
   $idleSnapshot = Invoke-CdpExpression -WebSocketUrl $page.webSocketDebuggerUrl -Expression 'window.zeroOne.getZsecStatus().then(value=>JSON.stringify(value))'
   if (-not $idleSnapshot.installed -or $idleSnapshot.version -ne "0.1.2" -or $idleSnapshot.state -ne "idle") {
     throw "Packaged IPC did not identify the bundled ZSEC 0.1.2 idle runtime: $($idleSnapshot | ConvertTo-Json -Compress)"
@@ -144,7 +153,7 @@ try {
     throw "Packaged UI did not remove the clean label after incomplete evidence."
   }
 
-  Write-Output "Packaged launch, DOM, ZSEC identity, clean-scan, and fail-closed incomplete-scan smoke passed for PID $($process.Id)."
+  Write-Output "Packaged launch, DOM, ZSEC identity, clean-scan, fail-closed incomplete-scan$(if ($TestLocalChat) { ', and local Assistant chat' }) smoke passed for PID $($process.Id)."
 } finally {
   Remove-Item Env:ZERO_ONE_SMOKE_WS -ErrorAction SilentlyContinue
   Remove-Item Env:ZERO_ONE_SMOKE_EXPR -ErrorAction SilentlyContinue

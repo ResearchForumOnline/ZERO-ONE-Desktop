@@ -8,7 +8,7 @@ const { verifyNativeZsec } = require("./zsec-native-verifier.cjs");
 module.exports = async function beforePack(context) {
   const projectRoot = context.packager.projectDir;
   const packageVersion = context.packager.appInfo.version;
-  if (packageVersion !== "0.4.0") {
+  if (packageVersion !== "0.6.1") {
     throw new Error("ZERO ONE package version does not match the locked ZSEC consumer version.");
   }
 

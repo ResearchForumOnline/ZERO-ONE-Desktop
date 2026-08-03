@@ -2,6 +2,9 @@ node_modules/
 dist/
 release/
 release-audit/
+release-*/
+release-pr-assets/
+package-diagnostic/
 coverage/
 *.log
 .env

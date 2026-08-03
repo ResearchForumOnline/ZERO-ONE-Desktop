@@ -1,0 +1,146 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const root = resolve(import.meta.dirname, "..");
+const css = readFileSync(resolve(root, "src/styles.css"), "utf8");
+const main = readFileSync(resolve(root, "electron/main.cjs"), "utf8");
+const preload = readFileSync(resolve(root, "electron/preload.cjs"), "utf8");
+const app = readFileSync(resolve(root, "src/App.tsx"), "utf8");
+
+describe("responsive desktop shell", () => {
+  it("reflows the assistant below the workspace at constrained widths", () => {
+    expect(css).toContain("@media(max-width:1040px)");
+    expect(css).toMatch(/\.copilot\{grid-column:2;grid-row:2/);
+    expect(css).toContain("@media(max-width:720px)");
+    expect(css).toMatch(/\.sidebar\{grid-column:1;grid-row:1;overflow-x:auto/);
+    expect(css).toContain("@media(max-width:720px) and (max-height:620px)");
+    expect(css).toMatch(/grid-template-rows:56px minmax\(0,1fr\) 180px/);
+  });
+
+  it("keeps every primary content surface scrollable", () => {
+    expect(css).toMatch(/\.view-scroll\{height:100%;overflow-y:auto/);
+    expect(css).toMatch(/\.main-stage,.copilot,.content-frame,.view-scroll\{min-height:0\}/);
+    expect(css).toMatch(/\.content-frame>\.view-scroll\{position:absolute;inset:0;width:100%;height:auto;overflow-y:auto;overflow-x:hidden/);
+    expect(css).toContain(".view-scroll::-webkit-scrollbar-thumb");
+    expect(css).toMatch(/\.content-frame\{overflow:hidden\}/);
+  });
+
+  it("does not create an unused desktop grid row at short viewport heights", () => {
+    expect(css).not.toMatch(/@media\(max-height:620px\)\{\.app-shell\{/);
+    expect(css).toContain("@media(min-width:721px) and (max-width:1040px) and (max-height:620px)");
+    expect(css).toMatch(/\.app-shell\{height:100dvh;min-height:0;overflow:hidden\}/);
+  });
+
+  it("pins an embedded workspace to the full remaining service surface", () => {
+    expect(css).toMatch(/\.workspace-surface\{display:block;flex:1 1 0;min-width:0;min-height:0\}/);
+    expect(css).toMatch(/\.workspace-surface>\.product-webview\{position:absolute;inset:0;width:100%;height:100%;min-height:100%/);
+    expect(css).toMatch(/\.sidebar\{overflow-x:hidden\}/);
+  });
+
+  it("exposes bounded zoom to the renderer and embedded workspaces", () => {
+    expect(main).toContain("const ZOOM_LEVELS");
+    expect(main).toContain("webContents.getAllWebContents()");
+    expect(main).toContain('ipcMain.handle("ui:set-zoom"');
+    expect(preload).toContain('setUserInterfaceScale: (factor) => ipcRenderer.invoke("ui:set-zoom", factor)');
+  });
+
+  it("uses the ZeroThink CLI device flow through the system browser", () => {
+    expect(main).toContain('zeroThinkApi("device_start"');
+    expect(main).toContain('zeroThinkApi("device_poll"');
+    expect(main).toContain("shell.openExternal(started.verification_url)");
+    expect(main).toContain('session.fromPartition("persist:zero-one-zerothink")');
+    expect(main).toContain("desktop_session.php");
+    expect(main).toContain('credentials: "include"');
+    expect(main).toContain("targetSession.cookies.set");
+    expect(main).toContain('name: "PHPSESSID"');
+    expect(main).toContain('body: JSON.stringify({ action: "me" })');
+    expect(main).toContain('identity.status !== "success"');
+    expect(main).toContain('body: JSON.stringify({ access_token: accessToken })');
+    expect(main).toContain('const finalResponseUrl = String(studio.url || "")');
+    expect(main).toContain('finalResponseUrl ? new URL(finalResponseUrl) : null');
+    expect(main).toContain('finalUrl && (finalUrl.origin !== ZERO_THINK_ORIGIN || !finalUrl.pathname.startsWith("/studio"))');
+    expect(main).toContain('ipcMain.handle("zerothink:restore-session"');
+    expect(preload).toContain('restoreZeroThinkSession: () => ipcRenderer.invoke("zerothink:restore-session")');
+    expect(preload).toContain('signOutZeroThink: () => ipcRenderer.invoke("zerothink:sign-out")');
+  });
+
+  it("gives ZeroThink a responsive, honest task-space shell", () => {
+    expect(app).toContain('className="zerothink-dock"');
+    expect(app).toContain("Desktop session active");
+    expect(app).toContain("browser sign-in alone is not confirmation");
+    expect(app).toContain('accountState === "linked"');
+    expect(app).toContain("Optional CLI");
+    expect(css).toContain(".zerothink-layout.dock-collapsed");
+    expect(css).toContain("@media(max-width:560px)");
+  });
+
+  it("makes OpenZero the guided Assistant default with optional hosted providers", () => {
+    expect(main).toContain('assistantProvider: "openzero"');
+    expect(main).toContain('model: DEFAULT_LOCAL_MODEL');
+    expect(main).toContain('"https://api.openai.com/v1/chat/completions"');
+    expect(main).toContain('"https://api.groq.com/openai/v1/chat/completions"');
+    expect(main).toContain('decryptSecret(settings, "openAiKeyEncrypted")');
+    expect(main).toContain('decryptSecret(settings, "groqKeyEncrypted")');
+    expect(app).toContain("Local model recommended");
+    expect(app).toContain("Set up Assistant");
+    expect(app).toContain("Local Assistant model");
+    expect(app).toContain("Use my OpenZero server");
+    expect(app).toContain("Local Assistant mode needs no API key or token");
+    expect(app).toContain("Download local Qwen Assistant · ~1.4 GB");
+    expect(app).toContain('const LOCAL_OPENZERO_MODEL = "qwen3:1.7b"');
+    expect(app).toContain("chatLocalOpenZero");
+    expect(app).toContain("getLocalOpenZeroStatus");
+    expect(main).toContain('ipcMain.handle("openzero:connect-desktop"');
+    expect(main).toContain('new URL("/api/openzero/desktop-key", settings.openZeroUrl)');
+    expect(main).toContain('new URL("/v1/models", settings.openZeroUrl)');
+    expect(main).toContain('await provisionOpenZeroDesktop(runtimeSettings)');
+    expect(main).toContain('["127.0.0.1", "localhost", "::1"].includes(endpoint.hostname)');
+    expect(preload).toContain('connectOpenZeroDesktop: () => ipcRenderer.invoke("openzero:connect-desktop")');
+    expect(app).toContain('chooseProvider("groq")');
+    expect(app).toContain('chooseProvider("openai")');
+    expect(app).not.toContain("LOCKED");
+  });
+
+  it("embeds the configured full OpenZero panel and distinguishes connected surfaces", () => {
+    expect(app).toContain("const configuredUrl = serviceUrl(service, settings)");
+    expect(app).not.toContain('service.id === "openzero" ? settings.openZeroPublicUrl');
+    expect(app).toContain("Full OpenZero panel");
+    expect(app).toContain("The top-right drawer is fast everyday chat.");
+    expect(app).toContain("The Brave extension handles approved browser-tab actions.");
+    expect(app).toContain('field("openZeroUrl", "OpenZero full panel and API"');
+  });
+
+  it("keeps local model management on the fixed Ollama loopback API", () => {
+    expect(main).toContain('OLLAMA_LOCAL_ORIGIN');
+    expect(main).toContain('fetchLocalOllama("/api/version")');
+    expect(main).toContain('fetchLocalOllama("/api/tags")');
+    expect(main).toContain('fetchLocalOllama("/api/pull"');
+    expect(main).toContain('fetchLocalOllama("/api/chat"');
+    expect(main).toContain('think: false');
+    expect(main).toContain('num_predict: 128');
+    expect(main).toContain('keep_alive: "15m"');
+    expect(main).toContain('ipcMain.handle("openzero:local-pull-cancel"');
+    expect(preload).toContain('ipcRenderer.invoke("openzero:local-status")');
+    expect(main).toContain('shell.openExternal("https://ollama.com/download")');
+    expect(preload).toContain('ipcRenderer.on("openzero:local-pull-progress"');
+    expect(preload).toContain('ipcRenderer.removeListener("openzero:local-pull-progress"');
+    expect(main).toContain("sandbox: true");
+    expect(preload).not.toContain('require("node:crypto")');
+    expect(preload).not.toContain("globalThis.crypto.getRandomValues");
+    expect(main).toContain("const jobId = randomUUID()");
+  });
+
+  it("reveals the window after a normal installed launch", () => {
+    expect(main).toContain('mainWindow.once("ready-to-show", revealAfterNormalLaunch)');
+    expect(main).toContain('mainWindow.webContents.once("did-finish-load", revealAfterNormalLaunch)');
+    expect(main).toContain('!shouldStartHidden(process.argv)');
+  });
+
+  it("shows recovery instead of a blank renderer when the preload bridge is unavailable", () => {
+    expect(app).toContain("could not start its secure desktop bridge");
+    expect(app).toContain("if (!window.zeroOne?.loadSettings)");
+    expect(app).toContain("if (!window.zeroOne?.getUserInterfaceScale)");
+    expect(app).toContain("if (!window.zeroOne?.onAppNavigate) return");
+  });
+});

@@ -6,8 +6,9 @@ describe("service catalog", () => {
     expect(SERVICES.map((service) => service.id).sort()).toEqual(["callchat", "openzero", "zerothink", "zmail"]);
   });
 
-  it("describes OpenZero as a configured endpoint without inventing pool telemetry", () => {
-    expect(serviceById("openzero").capabilities).toContain("Configured model");
-    expect(serviceById("openzero").capabilities).toContain("16 slots");
+  it("describes OpenZero as the full runtime panel without inventing pool telemetry", () => {
+    expect(serviceById("openzero").capabilities).toContain("Full panel");
+    expect(serviceById("openzero").capabilities).toContain("Runs & tools");
+    expect(serviceById("openzero").capabilities).toContain("Tab Pilot");
   });
 });

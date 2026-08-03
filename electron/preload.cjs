@@ -2,11 +2,35 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("zeroOne", {
   getAppInfo: () => ipcRenderer.invoke("app:info"),
+  getUserInterfaceScale: () => ipcRenderer.invoke("ui:get-zoom"),
+  setUserInterfaceScale: (factor) => ipcRenderer.invoke("ui:set-zoom", factor),
+  startZeroThinkSignIn: () => ipcRenderer.invoke("zerothink:sign-in"),
+  restoreZeroThinkSession: () => ipcRenderer.invoke("zerothink:restore-session"),
+  signOutZeroThink: () => ipcRenderer.invoke("zerothink:sign-out"),
+  quitApp: () => ipcRenderer.invoke("app:quit"),
+  onAppNavigate: (callback) => {
+    const listener = (_event, view) => callback(view);
+    ipcRenderer.on("app:navigate", listener);
+    return () => ipcRenderer.removeListener("app:navigate", listener);
+  },
   getSystemSnapshot: () => ipcRenderer.invoke("system:snapshot"),
   loadSettings: () => ipcRenderer.invoke("settings:load"),
   saveSettings: (settings) => ipcRenderer.invoke("settings:save", settings),
   clearLocalData: () => ipcRenderer.invoke("settings:clear-local-data"),
   probeServices: () => ipcRenderer.invoke("services:probe"),
+  connectOpenZeroDesktop: () => ipcRenderer.invoke("openzero:connect-desktop"),
+  getLocalOpenZeroStatus: () => ipcRenderer.invoke("openzero:local-status"),
+  openOllamaDownload: () => ipcRenderer.invoke("openzero:open-ollama-download"),
+  pullLocalOpenZeroModel: async (model, onProgress) => {
+    const listener = (_event, progress) => {
+      if (typeof onProgress === "function") onProgress(progress);
+    };
+    ipcRenderer.on("openzero:local-pull-progress", listener);
+    try { return await ipcRenderer.invoke("openzero:local-pull", { model }); }
+    finally { ipcRenderer.removeListener("openzero:local-pull-progress", listener); }
+  },
+  cancelLocalOpenZeroModelPull: () => ipcRenderer.invoke("openzero:local-pull-cancel"),
+  chatLocalOpenZero: (request) => ipcRenderer.invoke("openzero:local-chat", request),
   chat: (request) => ipcRenderer.invoke("openzero:chat", request),
   openExternal: (url) => ipcRenderer.invoke("shell:open-external", url),
   exportDiagnostics: () => ipcRenderer.invoke("diagnostics:export"),

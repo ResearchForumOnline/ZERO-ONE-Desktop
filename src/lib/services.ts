@@ -15,11 +15,11 @@ export const SERVICES: ServiceDefinition[] = [
   {
     id: "openzero",
     name: "OpenZero",
-    eyebrow: "CONFIGURED INTELLIGENCE",
-    description: "Your configured OpenZero model endpoint, runs, tools, voice, and browser control.",
+    eyebrow: "FULL RUNTIME PANEL",
+    description: "The full OpenZero panel for models, runs, tools, voice, automation, and Tab Pilot controls.",
     accent: "#00ff85",
     glyph: "Ø",
-    capabilities: ["Configured model", "16 slots", "Tool runtime"],
+    capabilities: ["Full panel", "Runs & tools", "Tab Pilot"],
     settingKey: "openZeroUrl",
   },
   {

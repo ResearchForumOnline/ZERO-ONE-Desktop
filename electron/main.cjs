@@ -1,11 +1,17 @@
-const { app, BrowserWindow, dialog, ipcMain, safeStorage, session, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, safeStorage, session, shell, Tray, webContents } = require("electron");
 const { execFile } = require("node:child_process");
+const { randomUUID } = require("node:crypto");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { fileURLToPath } = require("node:url");
 const { parseZsecScanReport, parseZsecStatusPayload } = require("./zsec-contract.cjs");
 const { cleanConfiguredUrl, diagnosticOrigin, isAllowedUrl: urlIsAllowed } = require("./url-policy.cjs");
+const { loginItemOptions, shouldCloseToTray, shouldStartHidden } = require("./tray-lifecycle.cjs");
+const { latestPhpSessionId } = require("./zerothink-session.cjs");
+const { DEFAULT_LOCAL_MODEL, OLLAMA_LOCAL_ORIGIN, cleanChatMessages, cleanModelName, publicPullProgress } = require("./ollama-local.cjs");
+
+if (!app.requestSingleInstanceLock()) app.quit();
 
 const DEFAULT_SETTINGS = Object.freeze({
   zmailUrl: "https://webmail.zmail.my/?_task=workspace",
@@ -13,9 +19,14 @@ const DEFAULT_SETTINGS = Object.freeze({
   openZeroUrl: "http://127.0.0.1:1024/",
   openZeroPublicUrl: "https://openzero.talktoai.org/",
   callChatUrl: "https://callchat.org/app/",
-  model: "openzerogemma:latest",
+  assistantProvider: "openzero",
+  model: DEFAULT_LOCAL_MODEL,
   mediaEnabled: false,
   launchAtLogin: false,
+  closeToTray: true,
+  onboardingCompleted: false,
+  trayNoticeShown: false,
+  fastLocalModelMigrationCompleted: false,
 });
 
 const ALLOWED_ORIGINS = new Set([
@@ -27,6 +38,8 @@ const ALLOWED_ORIGINS = new Set([
   "https://openzero.talktoai.org",
   "https://talktoai.org",
   "https://github.com",
+  "https://platform.openai.com",
+  "https://console.groq.com",
   "https://callchat.org",
   "https://www.callchat.org",
   "http://127.0.0.1:1024",
@@ -35,8 +48,35 @@ const ALLOWED_ORIGINS = new Set([
 const PERSISTENT_PARTITIONS = Object.freeze(["openzero", "zerothink", "zmail", "callchat"].map((name) => `persist:zero-one-${name}`));
 
 let mainWindow;
+let tray;
+let isQuitting = false;
+let closeNoticeOpen = false;
 let runtimeSettings = { ...DEFAULT_SETTINGS };
 const configuredPermissionSessions = new WeakSet();
+const ZOOM_LEVELS = Object.freeze([0.75, 0.85, 1, 1.1, 1.25, 1.4, 1.5]);
+let currentZoomFactor = 1;
+const localModelPullControllers = new Map();
+
+function nearestZoomFactor(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return currentZoomFactor;
+  return ZOOM_LEVELS.reduce((closest, candidate) =>
+    Math.abs(candidate - numeric) < Math.abs(closest - numeric) ? candidate : closest,
+  ZOOM_LEVELS[0]);
+}
+
+function applyZoomFactor(value) {
+  currentZoomFactor = nearestZoomFactor(value);
+  for (const contents of webContents.getAllWebContents()) {
+    if (!contents.isDestroyed()) contents.setZoomFactor(currentZoomFactor);
+  }
+  return currentZoomFactor;
+}
+
+function stepZoom(direction) {
+  const index = ZOOM_LEVELS.indexOf(currentZoomFactor);
+  return applyZoomFactor(ZOOM_LEVELS[Math.max(0, Math.min(ZOOM_LEVELS.length - 1, index + direction))]);
+}
 
 function settingsPath() {
   return path.join(app.getPath("userData"), "zero-one-settings.json");
@@ -117,25 +157,37 @@ async function loadSettingsInternal() {
     openZeroUrl: cleanUrl(stored.openZeroUrl, DEFAULT_SETTINGS.openZeroUrl),
     openZeroPublicUrl: cleanUrl(stored.openZeroPublicUrl, DEFAULT_SETTINGS.openZeroPublicUrl),
     callChatUrl: cleanUrl(stored.callChatUrl, DEFAULT_SETTINGS.callChatUrl),
+    assistantProvider: ["openzero", "openai", "groq"].includes(stored.assistantProvider) ? stored.assistantProvider : DEFAULT_SETTINGS.assistantProvider,
     model: String(stored.model || DEFAULT_SETTINGS.model).slice(0, 160),
     mediaEnabled: Boolean(stored.mediaEnabled),
     launchAtLogin: Boolean(stored.launchAtLogin),
+    closeToTray: stored.closeToTray !== false,
+    onboardingCompleted: Boolean(stored.onboardingCompleted),
+    trayNoticeShown: Boolean(stored.trayNoticeShown),
+    fastLocalModelMigrationCompleted: Boolean(stored.fastLocalModelMigrationCompleted),
   };
   return runtimeSettings;
 }
 
-function decryptToken(settings) {
-  if (!settings.openZeroTokenEncrypted || !credentialStorageIsSecure()) return "";
+function decryptSecret(settings, key) {
+  if (!settings[key] || !credentialStorageIsSecure()) return "";
   try {
-    return safeStorage.decryptString(Buffer.from(settings.openZeroTokenEncrypted, "base64"));
+    return safeStorage.decryptString(Buffer.from(settings[key], "base64"));
   } catch {
     return "";
   }
 }
 
+function decryptToken(settings) { return decryptSecret(settings, "openZeroTokenEncrypted"); }
+
 function publicSettings(settings) {
-  const { openZeroTokenEncrypted: _privateToken, ...visible } = settings;
-  return { ...visible, hasOpenZeroToken: Boolean(decryptToken(settings)) };
+  const { openZeroTokenEncrypted: _privateToken, openAiKeyEncrypted: _openAiKey, groqKeyEncrypted: _groqKey, zeroThinkTokenEncrypted: _zeroThinkToken, trayNoticeShown: _trayNoticeShown, ...visible } = settings;
+  return { ...visible, hasOpenZeroToken: Boolean(decryptToken(settings)), hasOpenAiKey: Boolean(decryptSecret(settings, "openAiKeyEncrypted")), hasGroqKey: Boolean(decryptSecret(settings, "groqKeyEncrypted")), hasZeroThinkAccount: Boolean(decryptZeroThinkToken(settings)) };
+}
+
+function decryptZeroThinkToken(settings) {
+  if (!settings.zeroThinkTokenEncrypted || !credentialStorageIsSecure()) return "";
+  try { return safeStorage.decryptString(Buffer.from(settings.zeroThinkTokenEncrypted, "base64")); } catch { return ""; }
 }
 
 async function saveSettingsInternal(input) {
@@ -147,9 +199,12 @@ async function saveSettingsInternal(input) {
     openZeroUrl: cleanUrl(input.openZeroUrl, current.openZeroUrl),
     openZeroPublicUrl: cleanUrl(input.openZeroPublicUrl, current.openZeroPublicUrl),
     callChatUrl: cleanUrl(input.callChatUrl, current.callChatUrl),
+    assistantProvider: ["openzero", "openai", "groq"].includes(input.assistantProvider) ? input.assistantProvider : current.assistantProvider,
     model: String(input.model || current.model).trim().slice(0, 160),
-    mediaEnabled: Boolean(input.mediaEnabled),
-    launchAtLogin: Boolean(input.launchAtLogin),
+    mediaEnabled: typeof input.mediaEnabled === "boolean" ? input.mediaEnabled : current.mediaEnabled,
+    launchAtLogin: typeof input.launchAtLogin === "boolean" ? input.launchAtLogin : current.launchAtLogin,
+    closeToTray: typeof input.closeToTray === "boolean" ? input.closeToTray : current.closeToTray,
+    onboardingCompleted: typeof input.onboardingCompleted === "boolean" ? input.onboardingCompleted : current.onboardingCompleted,
   };
 
   if (input.clearOpenZeroToken) {
@@ -160,12 +215,205 @@ async function saveSettingsInternal(input) {
     }
     next.openZeroTokenEncrypted = safeStorage.encryptString(input.openZeroToken.trim()).toString("base64");
   }
+  for (const [inputKey, encryptedKey, clearKey] of [
+    ["openAiKey", "openAiKeyEncrypted", "clearOpenAiKey"],
+    ["groqKey", "groqKeyEncrypted", "clearGroqKey"],
+  ]) {
+    if (input[clearKey]) delete next[encryptedKey];
+    else if (typeof input[inputKey] === "string" && input[inputKey].trim()) {
+      if (!credentialStorageIsSecure()) throw new Error("Secure operating-system credential storage is unavailable; the API key was not saved.");
+      next[encryptedKey] = safeStorage.encryptString(input[inputKey].trim()).toString("base64");
+    }
+  }
 
   await fs.mkdir(path.dirname(settingsPath()), { recursive: true });
   await fs.writeFile(settingsPath(), JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
   runtimeSettings = next;
-  app.setLoginItemSettings({ openAtLogin: next.launchAtLogin, path: process.execPath });
+  app.setLoginItemSettings(loginItemOptions({ enabled: next.launchAtLogin, executablePath: process.execPath, packaged: app.isPackaged }));
   return publicSettings(next);
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function sendMainNavigation(view) {
+  showMainWindow();
+  mainWindow?.webContents.send("app:navigate", view);
+}
+
+function createTray() {
+  if (tray) return tray;
+  const iconPath = path.join(__dirname, "..", "assets", "zero-one-icon.png");
+  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 20, height: 20 });
+  tray = new Tray(trayIcon);
+  tray.setToolTip("ZERO ONE — workspaces and local AI");
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: "Open ZERO ONE", click: showMainWindow },
+    { label: "Open ZeroThink", click: () => sendMainNavigation("service:zerothink") },
+    { label: "Settings", click: () => sendMainNavigation("settings") },
+    { type: "separator" },
+    { label: "Quit ZERO ONE", click: () => { isQuitting = true; app.quit(); } },
+  ]));
+  tray.on("click", showMainWindow);
+  tray.on("double-click", showMainWindow);
+  return tray;
+}
+
+async function persistTrayNoticeShown() {
+  if (runtimeSettings.trayNoticeShown) return;
+  runtimeSettings = { ...runtimeSettings, trayNoticeShown: true };
+  await fs.mkdir(path.dirname(settingsPath()), { recursive: true });
+  await fs.writeFile(settingsPath(), JSON.stringify(runtimeSettings, null, 2), { encoding: "utf8", mode: 0o600 });
+}
+
+async function handleFirstHideToTray() {
+  if (closeNoticeOpen || !mainWindow || mainWindow.isDestroyed()) return;
+  closeNoticeOpen = true;
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: "info",
+    title: "ZERO ONE is still available",
+    message: "ZERO ONE can keep running beside the clock.",
+    detail: "Choose Keep running to hide it in the notification area. Open it again from the ZERO ONE tray icon. You can change this any time in Settings.",
+    buttons: ["Keep running", "Quit ZERO ONE"],
+    defaultId: 0,
+    cancelId: 0,
+    checkboxLabel: "Do not show this message again",
+    checkboxChecked: true,
+  });
+  closeNoticeOpen = false;
+  if (result.response === 1) {
+    isQuitting = true;
+    app.quit();
+    return;
+  }
+  mainWindow?.hide();
+  if (result.checkboxChecked) await persistTrayNoticeShown();
+}
+
+async function zeroThinkApi(action, payload = {}) {
+  const response = await fetch("https://zerothink.talktoai.org/api/cli", {
+    method: "POST", headers: { "Content-Type": "application/json", "User-Agent": `ZERO-ONE/${app.getVersion()}` },
+    body: JSON.stringify({ action, ...payload }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok && response.status !== 202) throw new Error(result.message || `ZeroThink returned HTTP ${response.status}.`);
+  return result;
+}
+
+const ZERO_THINK_ORIGIN = "https://zerothink.talktoai.org";
+const ZERO_THINK_PARTITION = "persist:zero-one-zerothink";
+
+async function createZeroThinkDesktopSession(accessToken) {
+  if (!accessToken) throw new Error("ZeroThink did not return an account token.");
+  const targetSession = session.fromPartition(ZERO_THINK_PARTITION);
+  const linked = await targetSession.fetch(`${ZERO_THINK_ORIGIN}/desktop_session.php`, {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": `ZERO-ONE/${app.getVersion()}`,
+    },
+    // Some shared-host configurations remove Authorization before PHP. Keep
+    // the one-time account token in the encrypted HTTPS request body instead.
+    body: JSON.stringify({ access_token: accessToken }),
+  });
+  const result = await linked.json().catch(() => ({}));
+  if (!linked.ok) throw new Error(result.message || `The ZeroThink desktop session bridge returned HTTP ${linked.status}.`);
+
+  // Main-process Chromium fetches do not reliably commit response cookies.
+  // Copy only a strictly validated PHP session id into this isolated partition.
+  const setCookieValues = typeof linked.headers.getSetCookie === "function"
+    ? linked.headers.getSetCookie()
+    : [linked.headers.get("set-cookie")].filter(Boolean);
+  // PHP may send an initial id and then a regenerated authenticated id. The
+  // last PHPSESSID is authoritative; copying the first preserves guest state.
+  const sessionId = latestPhpSessionId(setCookieValues);
+  if (!sessionId) throw new Error("ZeroThink approved the account but did not return a valid desktop session cookie.");
+  await targetSession.cookies.set({ url: ZERO_THINK_ORIGIN, name: "PHPSESSID", value: sessionId, path: "/", secure: true, httpOnly: true, sameSite: "lax" });
+  await targetSession.cookies.flushStore();
+
+  const identityResponse = await targetSession.fetch(`${ZERO_THINK_ORIGIN}/api/cli`, {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: { Accept: "application/json", "Content-Type": "application/json", "User-Agent": `ZERO-ONE/${app.getVersion()}` },
+    body: JSON.stringify({ action: "me" }),
+  });
+  const identity = await identityResponse.json().catch(() => ({}));
+  const email = String(identity.user?.email || "").trim().slice(0, 254);
+  if (!identityResponse.ok || identity.status !== "success" || !email) {
+    throw new Error("ZeroThink returned a session cookie, but the in-app account could not be verified.");
+  }
+
+  // Identity is proven above by the cookie-authenticated API. Also confirm the
+  // embedded route remains reachable before switching the visible webview.
+  const studio = await targetSession.fetch(`${ZERO_THINK_ORIGIN}/studio`, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    redirect: "follow",
+    headers: { "User-Agent": `ZERO-ONE/${app.getVersion()}` },
+  });
+  // Electron's Session.fetch can expose an empty Response.url even after a
+  // successful fixed-origin request. The authenticated `me` check above is
+  // authoritative; validate a final URL only when Electron supplies one.
+  const finalResponseUrl = String(studio.url || "");
+  const finalUrl = finalResponseUrl ? new URL(finalResponseUrl) : null;
+  if (!studio.ok || (finalUrl && (finalUrl.origin !== ZERO_THINK_ORIGIN || !finalUrl.pathname.startsWith("/studio")))) {
+    throw new Error("Google approved the device, but ZeroThink did not create an in-app session. Please retry linking.");
+  }
+  await targetSession.cookies.flushStore();
+  return { status: "success", url: `${ZERO_THINK_ORIGIN}/studio`, email, plan: String(identity.user?.plan || "") };
+}
+
+async function restoreZeroThinkSession() {
+  const current = await loadSettingsInternal();
+  const accessToken = decryptZeroThinkToken(current);
+  if (!accessToken) return { status: "signed_out", email: "" };
+  try {
+    const linked = await createZeroThinkDesktopSession(accessToken);
+    return { ...linked, email: linked.email || String(current.zeroThinkEmail || "") };
+  } catch (error) {
+    return { status: "needs_link", email: String(current.zeroThinkEmail || ""), message: error instanceof Error ? error.message : "ZeroThink needs to be linked again." };
+  }
+}
+
+async function startZeroThinkPairing() {
+  if (!credentialStorageIsSecure()) throw new Error("Secure operating-system credential storage is unavailable.");
+  const started = await zeroThinkApi("device_start", { label: `${os.hostname()} ZERO ONE`, platform: `${os.type()} ${os.release()}`, hostname: os.hostname(), version: app.getVersion() });
+  await shell.openExternal(started.verification_url);
+  const interval = Math.max(2, Number(started.interval) || 3) * 1000;
+  const deadline = Date.now() + Math.max(60, Number(started.expires_in) || 900) * 1000;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, interval));
+    const polled = await zeroThinkApi("device_poll", { device_code: started.device_code });
+    if (polled.status === "authorization_pending") continue;
+    if (polled.status !== "success" || !polled.access_token) throw new Error(polled.message || "ZeroThink account linking was not approved.");
+    const linked = await createZeroThinkDesktopSession(polled.access_token);
+    const current = await loadSettingsInternal();
+    const next = { ...current, zeroThinkTokenEncrypted: safeStorage.encryptString(polled.access_token).toString("base64"), zeroThinkEmail: linked.email || String(polled.user?.email || "") };
+    await fs.mkdir(path.dirname(settingsPath()), { recursive: true });
+    await fs.writeFile(settingsPath(), JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
+    runtimeSettings = next;
+    return { ...linked, email: next.zeroThinkEmail, userCode: started.user_code };
+  }
+  throw new Error("The ZeroThink sign-in request expired. Please try again.");
+}
+
+async function signOutZeroThink() {
+  const current = await loadSettingsInternal();
+  delete current.zeroThinkTokenEncrypted; delete current.zeroThinkEmail;
+  await fs.writeFile(settingsPath(), JSON.stringify(current, null, 2), { encoding: "utf8", mode: 0o600 });
+  runtimeSettings = current;
+  const target = session.fromPartition("persist:zero-one-zerothink");
+  await target.clearStorageData(); await target.clearCache(); await target.clearAuthCache();
+  return true;
 }
 
 async function probe(name, url) {
@@ -205,8 +453,8 @@ async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1540,
     height: 960,
-    minWidth: 1000,
-    minHeight: 680,
+    minWidth: 720,
+    minHeight: 520,
     show: false,
     backgroundColor: "#07090f",
     title: "ZERO ONE",
@@ -222,7 +470,27 @@ async function createWindow() {
   });
 
   mainWindow.removeMenu();
-  mainWindow.once("ready-to-show", () => mainWindow.show());
+  const revealAfterNormalLaunch = () => {
+    if (!shouldStartHidden(process.argv) && mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
+  };
+  mainWindow.once("ready-to-show", revealAfterNormalLaunch);
+  // Some Windows/Electron combinations finish loading without emitting a
+  // usable ready-to-show event. A completed renderer load is an equally safe
+  // reveal point and prevents a normal launch from becoming tray-only.
+  mainWindow.webContents.once("did-finish-load", revealAfterNormalLaunch);
+  mainWindow.on("close", (event) => {
+    if (!shouldCloseToTray({ isQuitting, closeToTray: runtimeSettings.closeToTray })) return;
+    event.preventDefault();
+    if (runtimeSettings.trayNoticeShown) mainWindow.hide();
+    else void handleFirstHideToTray();
+  });
+  mainWindow.on("minimize", (event) => {
+    if (!runtimeSettings.closeToTray) return;
+    event.preventDefault();
+    if (runtimeSettings.trayNoticeShown) mainWindow.hide();
+    else void handleFirstHideToTray();
+  });
+  mainWindow.on("closed", () => { mainWindow = undefined; });
 
   const devUrl = process.env.ZERO_ONE_DEV_URL || "http://127.0.0.1:5173";
   if (!app.isPackaged) await mainWindow.loadURL(devUrl);
@@ -231,6 +499,22 @@ async function createWindow() {
 
 app.on("web-contents-created", (_event, contents) => {
   configurePermissionPolicy(contents.session);
+  contents.on("dom-ready", () => contents.setZoomFactor(currentZoomFactor));
+  contents.on("before-input-event", (event, input) => {
+    if (!(input.control || input.meta) || input.alt) return;
+    const key = String(input.key || "").toLowerCase();
+    const code = String(input.code || "");
+    if (key === "+" || key === "=" || code === "NumpadAdd") {
+      event.preventDefault();
+      stepZoom(1);
+    } else if (key === "-" || code === "NumpadSubtract") {
+      event.preventDefault();
+      stepZoom(-1);
+    } else if (key === "0" || code === "Numpad0") {
+      event.preventDefault();
+      applyZoomFactor(1);
+    }
+  });
   contents.on("will-attach-webview", (event, webPreferences, params) => {
     delete webPreferences.preload;
     webPreferences.nodeIntegration = false;
@@ -254,15 +538,43 @@ app.on("web-contents-created", (_event, contents) => {
 
 app.whenReady().then(async () => {
   configurePermissionPolicy(session.defaultSession);
+  await loadSettingsInternal();
+  // Upgrade the former loopback-server default to the verified on-device
+  // model only when that model is already installed. Existing remote/server
+  // configurations remain untouched and can still be selected in Advanced.
+  const legacySlowLocalModels = new Set(["openzerogemma:latest", "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest"]);
+  if (runtimeSettings.assistantProvider === "openzero" && !runtimeSettings.fastLocalModelMigrationCompleted && legacySlowLocalModels.has(runtimeSettings.model)) {
+    const local = await localOllamaStatus();
+    if (local.reachable && local.models.some((model) => model.name.toLowerCase() === DEFAULT_LOCAL_MODEL.toLowerCase())) {
+      runtimeSettings = { ...runtimeSettings, model: DEFAULT_LOCAL_MODEL, fastLocalModelMigrationCompleted: true };
+      await fs.mkdir(path.dirname(settingsPath()), { recursive: true });
+      await fs.writeFile(settingsPath(), JSON.stringify(runtimeSettings, null, 2), { encoding: "utf8", mode: 0o600 });
+    }
+  }
+  if (runtimeSettings.assistantProvider === "openzero" && !decryptToken(runtimeSettings)) {
+    try {
+      const endpoint = new URL(runtimeSettings.openZeroUrl);
+      if (["127.0.0.1", "localhost", "::1"].includes(endpoint.hostname)) await provisionOpenZeroDesktop(runtimeSettings);
+    } catch {
+      // Older or remote OpenZero nodes fall back to the guided setup screen.
+    }
+  }
+  app.setLoginItemSettings(loginItemOptions({ enabled: runtimeSettings.launchAtLogin, executablePath: process.execPath, packaged: app.isPackaged }));
+  createTray();
   await createWindow();
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (!runtimeSettings.closeToTray) app.quit();
 });
 
+app.on("before-quit", () => { isQuitting = true; });
+
+app.on("second-instance", () => showMainWindow());
+
 app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  if (mainWindow && !mainWindow.isDestroyed()) showMainWindow();
+  else createWindow();
 });
 
 ipcMain.handle("app:info", (event) => {
@@ -273,6 +585,33 @@ ipcMain.handle("app:info", (event) => {
   platform: process.platform,
   packaged: app.isPackaged,
   });
+});
+
+ipcMain.handle("ui:get-zoom", (event) => {
+  requireTrustedIpcSender(event);
+  return currentZoomFactor;
+});
+
+ipcMain.handle("ui:set-zoom", (event, factor) => {
+  requireTrustedIpcSender(event);
+  return applyZoomFactor(factor);
+});
+
+ipcMain.handle("zerothink:sign-in", async (event) => {
+  requireTrustedIpcSender(event);
+  return startZeroThinkPairing();
+});
+ipcMain.handle("zerothink:restore-session", async (event) => {
+  requireTrustedIpcSender(event);
+  return restoreZeroThinkSession();
+});
+ipcMain.handle("zerothink:sign-out", async (event) => { requireTrustedIpcSender(event); return signOutZeroThink(); });
+
+ipcMain.handle("app:quit", (event) => {
+  requireTrustedIpcSender(event);
+  isQuitting = true;
+  app.quit();
+  return true;
 });
 
 ipcMain.handle("system:snapshot", (event) => {
@@ -482,7 +821,7 @@ ipcMain.handle("settings:clear-local-data", async (event) => {
     await targetSession.clearAuthCache();
   }
   await fs.rm(settingsPath(), { force: true });
-  app.setLoginItemSettings({ openAtLogin: false, path: process.execPath });
+  app.setLoginItemSettings(loginItemOptions({ enabled: false, executablePath: process.execPath, packaged: app.isPackaged }));
   runtimeSettings = { ...DEFAULT_SETTINGS };
   setTimeout(() => { app.relaunch(); app.exit(0); }, 250);
   return { cleared: true };
@@ -499,22 +838,189 @@ ipcMain.handle("services:probe", async (event) => {
   ]);
 });
 
+async function fetchLocalOllama(pathname, options = {}, timeoutMs = 8000) {
+  const controller = options.signal ? null : new AbortController();
+  const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    return await fetch(`${OLLAMA_LOCAL_ORIGIN}${pathname}`, {
+      ...options,
+      signal: options.signal || controller.signal,
+      headers: { Accept: "application/json", "User-Agent": `ZERO-ONE/${app.getVersion()}`, ...(options.headers || {}) },
+    });
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+async function localOllamaStatus() {
+  try {
+    const [versionResponse, tagsResponse] = await Promise.all([
+      fetchLocalOllama("/api/version"),
+      fetchLocalOllama("/api/tags"),
+    ]);
+    if (!versionResponse.ok || !tagsResponse.ok) throw new Error("The local model service returned an error.");
+    const [versionPayload, tagsPayload] = await Promise.all([versionResponse.json(), tagsResponse.json()]);
+    const models = Array.isArray(tagsPayload.models) ? tagsPayload.models.slice(0, 250).map((model) => ({
+      name: String(model?.name || model?.model || "").slice(0, 192),
+      size: Math.max(0, Number(model?.size) || 0),
+      modifiedAt: String(model?.modified_at || "").slice(0, 64),
+    })).filter((model) => model.name) : [];
+    return { reachable: true, origin: OLLAMA_LOCAL_ORIGIN, defaultModel: DEFAULT_LOCAL_MODEL, version: String(versionPayload.version || "unknown").slice(0, 64), models };
+  } catch (error) {
+    return { reachable: false, origin: OLLAMA_LOCAL_ORIGIN, defaultModel: DEFAULT_LOCAL_MODEL, version: "", models: [], message: error?.name === "AbortError" ? "The local model service did not respond in time." : "Ollama is not running on this computer." };
+  }
+}
+
+ipcMain.handle("openzero:local-status", async (event) => {
+  requireTrustedIpcSender(event);
+  return localOllamaStatus();
+});
+
+ipcMain.handle("openzero:open-ollama-download", async (event) => {
+  requireTrustedIpcSender(event);
+  await shell.openExternal("https://ollama.com/download");
+  return true;
+});
+
+ipcMain.handle("openzero:local-pull", async (event, input) => {
+  requireTrustedIpcSender(event);
+  const model = cleanModelName(input?.model || DEFAULT_LOCAL_MODEL);
+  const jobId = randomUUID();
+  if (localModelPullControllers.has(jobId)) throw new Error("That model download is already running.");
+  if ([...localModelPullControllers.values()].some((entry) => entry.senderId === event.sender.id)) throw new Error("A local model download is already running.");
+  const controller = new AbortController();
+  const sender = event.sender;
+  const cancelWhenRendererCloses = () => controller.abort();
+  sender.once("destroyed", cancelWhenRendererCloses);
+  localModelPullControllers.set(jobId, { controller, senderId: event.sender.id });
+  const publish = (payload) => {
+    if (!event.sender.isDestroyed()) event.sender.send("openzero:local-pull-progress", publicPullProgress(payload, jobId, model));
+  };
+  try {
+    const response = await fetchLocalOllama("/api/pull", {
+      method: "POST",
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model, stream: true }),
+    });
+    if (!response.ok || !response.body) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(String(payload?.error || `The local model service returned HTTP ${response.status}.`).slice(0, 300));
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let last = { status: "starting" };
+    const consume = (line) => {
+      if (!line.trim()) return;
+      const payload = JSON.parse(line);
+      if (payload.error) throw new Error(String(payload.error).slice(0, 300));
+      last = payload;
+      publish(payload);
+    };
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      if (buffer.length > 256 * 1024) throw new Error("The local model service returned an oversized progress message.");
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) consume(line);
+      if (done) break;
+    }
+    if (buffer.trim()) consume(buffer);
+    if (last.status !== "success") throw new Error("The local model download ended before completion.");
+    return { jobId, model, status: "success" };
+  } catch (error) {
+    if (error?.name === "AbortError") throw new Error("The local model download was cancelled.");
+    throw error;
+  } finally {
+    sender.removeListener("destroyed", cancelWhenRendererCloses);
+    localModelPullControllers.delete(jobId);
+  }
+});
+
+ipcMain.handle("openzero:local-pull-cancel", async (event) => {
+  requireTrustedIpcSender(event);
+  let cancelled = 0;
+  for (const entry of localModelPullControllers.values()) {
+    if (entry.senderId !== event.sender.id) continue;
+    entry.controller.abort();
+    cancelled += 1;
+  }
+  return { cancelled };
+});
+
+ipcMain.handle("openzero:local-chat", async (event, request) => {
+  requireTrustedIpcSender(event);
+  const model = cleanModelName(request?.model || DEFAULT_LOCAL_MODEL);
+  const messages = cleanChatMessages(request?.messages);
+  try {
+    const response = await fetchLocalOllama("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model, messages, stream: false, think: false, keep_alive: "15m", options: { temperature: 0.4, num_predict: 128, num_ctx: 2048 } }),
+    }, 45000);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(String(payload?.error || `The local model service returned HTTP ${response.status}.`).slice(0, 300));
+    const content = String(payload?.message?.content || "").trim();
+    if (!content) throw new Error("The local model returned no assistant message.");
+    return { content, model: String(payload.model || model).slice(0, 192), provider: "ollama-local" };
+  } catch (error) {
+    if (error?.name === "AbortError") throw new Error("The local assistant took too long. ZERO ONE now recommends the Fast 2B model; check Settings and try again.");
+    throw error;
+  }
+});
+
+async function provisionOpenZeroDesktop(settings = null) {
+  if (!credentialStorageIsSecure()) throw new Error("Secure operating-system credential storage is unavailable.");
+  settings = settings || await loadSettingsInternal();
+  const pairingEndpoint = new URL("/api/openzero/desktop-key", settings.openZeroUrl).toString();
+  const paired = await fetch(pairingEndpoint, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json", "User-Agent": `ZERO-ONE/${app.getVersion()}` },
+    body: JSON.stringify({ client: "zero-one-desktop", version: app.getVersion() }),
+  });
+  const payload = await paired.json().catch(() => ({}));
+  if (!paired.ok) throw new Error(payload?.error?.message || `OpenZero automatic connection returned HTTP ${paired.status}.`);
+  const token = String(payload.api_key || "");
+  if (!/^ozd_[A-Za-z0-9_-]{32,128}$/.test(token)) throw new Error("OpenZero returned an invalid desktop credential.");
+
+  const modelsEndpoint = new URL("/v1/models", settings.openZeroUrl).toString();
+  const verified = await fetch(modelsEndpoint, { headers: { Authorization: `Bearer ${token}`, "User-Agent": `ZERO-ONE/${app.getVersion()}` } });
+  if (!verified.ok) throw new Error("OpenZero created desktop access, but verification failed. Try again.");
+  const next = { ...settings, assistantProvider: "openzero", openZeroTokenEncrypted: safeStorage.encryptString(token).toString("base64") };
+  await fs.mkdir(path.dirname(settingsPath()), { recursive: true });
+  await fs.writeFile(settingsPath(), JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
+  runtimeSettings = next;
+  return { settings: publicSettings(next), hint: String(payload.hint || "") };
+}
+
+ipcMain.handle("openzero:connect-desktop", async (event) => {
+  requireTrustedIpcSender(event);
+  return provisionOpenZeroDesktop();
+});
+
 ipcMain.handle("openzero:chat", async (event, request) => {
   requireTrustedIpcSender(event);
   const settings = await loadSettingsInternal();
-  const token = decryptToken(settings);
-  if (!token) throw new Error("Add your OpenZero API token in Settings before using the copilot.");
-  const endpoint = new URL("/v1/chat/completions", settings.openZeroUrl).toString();
+  const provider = settings.assistantProvider || "openzero";
+  const providers = {
+    openzero: { token: decryptToken(settings), endpoint: new URL("/v1/chat/completions", settings.openZeroUrl).toString(), label: "OpenZero" },
+    openai: { token: decryptSecret(settings, "openAiKeyEncrypted"), endpoint: "https://api.openai.com/v1/chat/completions", label: "OpenAI" },
+    groq: { token: decryptSecret(settings, "groqKeyEncrypted"), endpoint: "https://api.groq.com/openai/v1/chat/completions", label: "Groq" },
+  };
+  const selected = providers[provider] || providers.openzero;
+  if (!selected.token) throw new Error(`Finish ${selected.label} setup in Settings before using Assistant.`);
   const messages = Array.isArray(request?.messages) ? request.messages.slice(-30) : [];
   if (!messages.length) throw new Error("A message is required.");
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120000);
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(selected.endpoint, {
       method: "POST",
       signal: controller.signal,
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${selected.token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -526,10 +1032,10 @@ ipcMain.handle("openzero:chat", async (event, request) => {
       }),
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload?.error?.message || `OpenZero returned HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(payload?.error?.message || `${selected.label} returned HTTP ${response.status}.`);
     const content = payload?.choices?.[0]?.message?.content;
-    if (!content) throw new Error("OpenZero returned no assistant message.");
-    return { content, model: payload.model || settings.model };
+    if (!content) throw new Error(`${selected.label} returned no assistant message.`);
+    return { content, model: payload.model || settings.model, provider };
   } finally {
     clearTimeout(timeout);
   }

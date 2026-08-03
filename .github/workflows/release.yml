@@ -54,14 +54,16 @@ jobs:
       - name: Confirm installer is intentionally unsigned
         shell: pwsh
         run: |
-          $signature = Get-AuthenticodeSignature "release/ZERO-ONE-0.4.0-win-x64.exe"
+          $installer = Get-ChildItem "release/ZERO-ONE-*-win-x64.exe" | Select-Object -First 1
+          if (-not $installer) { throw "Windows installer was not produced" }
+          $signature = Get-AuthenticodeSignature $installer.FullName
           if ($signature.Status -ne "NotSigned") { throw "Unexpected Windows signature state: $($signature.Status)" }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: zero-one-windows-x64
           path: |
-            release/ZERO-ONE-0.4.0-win-x64.exe
-            release/ZERO-ONE-0.4.0-win-x64.exe.blockmap
+            release/ZERO-ONE-*-win-x64.exe
+            release/ZERO-ONE-*-win-x64.exe.blockmap
           if-no-files-found: error
 
   macos:
@@ -87,8 +89,8 @@ jobs:
         with:
           name: zero-one-macos-arm64
           path: |
-            release/ZERO-ONE-0.4.0-mac-*.dmg
-            release/ZERO-ONE-0.4.0-mac-*.zip
+            release/ZERO-ONE-*-mac-*.dmg
+            release/ZERO-ONE-*-mac-*.zip
           if-no-files-found: error
 
   linux:
@@ -112,8 +114,8 @@ jobs:
         with:
           name: zero-one-linux-x64
           path: |
-            release/ZERO-ONE-0.4.0-linux-*.AppImage
-            release/ZERO-ONE-0.4.0-linux-*.deb
+            release/ZERO-ONE-*-linux-*.AppImage
+            release/ZERO-ONE-*-linux-*.deb
           if-no-files-found: error
 
   publish:
@@ -137,8 +139,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
           gh release create "$GITHUB_REF_NAME" release-assets/* \
             --verify-tag \
-            --prerelease \
-            --title "ZERO ONE 0.4.0 Installable Preview" \
-            --notes-file store/RELEASE_NOTES_0.4.0.md
+            --title "ZERO ONE ${VERSION}" \
+            --notes-file "store/RELEASE_NOTES_${VERSION}.md"

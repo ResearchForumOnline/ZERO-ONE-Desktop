@@ -1,5 +1,20 @@
 # ZERO ONE local release evidence
 
+## 0.4.1 responsive Windows candidate
+
+Status: **locally built, installed and verified; not yet published or publisher-signed**.
+
+Local Windows validation on 2 August 2026:
+
+| Artifact | Bytes | SHA-256 | Publisher signature |
+|---|---:|---|---|
+| `ZERO-ONE-0.4.1-win-x64.exe` | 110,831,801 | `6de91642f226fba5de261a37389ad70c51ad11effb32bb96c69d0ee22d7a3995` | NotSigned |
+| `ZERO-ONE-0.4.1-win-x64.exe.blockmap` | 117,350 | `99b6b2156d0b7515636b29cf930659fa9c8971587d2cd38234e40a45e4e355d6` | Data file |
+
+Passed locally: 17 tests, TypeScript, production Vite build, exact 89-file/60-PE ZSEC verification, responsive layout inspection at compact/medium/desktop viewports under 125% Windows display scaling, visible zoom-control interaction, packaged application launch, DOM/preload bridge, clean selected-folder scan, fail-closed incomplete scan, silent install exit 0, installed product version `0.4.1.0`, and a responding installed application process.
+
+The macOS and Linux 0.4.1 artifacts remain unbuilt in this local Windows run. This candidate must not be described as published, signed, notarized, Store-approved or cross-platform-verified.
+
 ## 0.4.0 installable public preview
 
 Status: **cross-platform package candidate; public prerelease only after native CI succeeds**.

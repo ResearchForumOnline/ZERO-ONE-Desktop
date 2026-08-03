@@ -14,7 +14,7 @@ const REQUIRED_LICENSES = [
 const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i;
 const PINNED_LOCK = {
   schema: "zero-one.zsec-vendor-lock.v1",
-  consumer_version: "0.4.0",
+  consumer_version: "0.6.1",
   repository: "ResearchForumOnline/ZSEC-Shield",
   release: {
     id: 363682670,

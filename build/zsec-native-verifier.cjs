@@ -52,7 +52,7 @@ function verifyNativeZsec(vendorRoot, provenancePath, platform = process.platfor
   const provenance = JSON.parse(fs.readFileSync(path.resolve(provenancePath), "utf8"));
   if (
     provenance.schema !== "zero-one.zsec-native-provenance.v1"
-    || provenance.consumerVersion !== "0.4.0"
+    || provenance.consumerVersion !== "0.6.1"
     || provenance.release !== "v0.1.2"
     || provenance.asset !== expected.archive
     || provenance.archiveSha256 !== expected.archiveSha256
