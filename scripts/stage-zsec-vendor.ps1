@@ -30,7 +30,7 @@ Assert-Condition (-not (Test-Path -LiteralPath $destinationFullPath)) "the desti
 
 $lock = Get-Content -Raw -LiteralPath $lockFullPath | ConvertFrom-Json
 Assert-Condition ($lock.schema -eq "zero-one.zsec-vendor-lock.v1") "unsupported lock schema"
-Assert-Condition ($lock.consumer_version -eq "0.6.1") "unexpected consumer version"
+Assert-Condition ($lock.consumer_version -eq "0.6.2") "unexpected consumer version"
 Assert-Condition ($lock.repository -eq "ResearchForumOnline/ZSEC-Shield") "unexpected upstream repository"
 Assert-Condition ($lock.release.immutable -eq $true) "the lock does not require an immutable release"
 Assert-Condition ($lock.release.release_attestation_verified -eq $true) "the lock does not record release-attestation verification"
@@ -39,7 +39,7 @@ Assert-Condition ($lock.release.tag_signature_verified -eq $false) "the unsigned
 $headers = @{
   Accept = "application/vnd.github+json"
   "X-GitHub-Api-Version" = "2026-03-10"
-  "User-Agent" = "ZERO-ONE-ZSEC-Vendor-Stager/0.6.1"
+  "User-Agent" = "ZERO-ONE-ZSEC-Vendor-Stager/0.6.2"
 }
 $releaseUri = "https://api.github.com/repos/$($lock.repository)/releases/tags/$($lock.release.tag)"
 $release = Invoke-RestMethod -Uri $releaseUri -Headers $headers -TimeoutSec 30

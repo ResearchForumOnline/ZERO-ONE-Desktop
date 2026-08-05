@@ -32,7 +32,7 @@ try {
   const extracted = path.join(temporary, expected.archiveRoot);
   const provenance = {
     schema: "zero-one.zsec-native-provenance.v1",
-    consumerVersion: "0.6.1",
+    consumerVersion: "0.6.2",
     repository: "ResearchForumOnline/ZSEC-Shield",
     release: "v0.1.2",
     asset: expected.archive,
