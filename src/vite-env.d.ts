@@ -12,6 +12,8 @@ interface ZeroOneSettings {
   launchAtLogin: boolean;
   closeToTray: boolean;
   onboardingCompleted: boolean;
+  lastView?: string;
+  lastCopilotOpen?: boolean;
   hasOpenZeroToken: boolean;
   hasOpenAiKey: boolean;
   hasGroqKey: boolean;

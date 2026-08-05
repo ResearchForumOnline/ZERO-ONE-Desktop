@@ -90,6 +90,10 @@ describe("responsive desktop shell", () => {
     expect(app).toContain("Download local model · ~1.4 GB");
     expect(app).toContain("no API key required");
     expect(app).toContain("Assistant needs no config");
+    expect(app).toContain("chat-clear");
+    expect(app).toContain('key === "j"');
+    expect(app).toContain("lastView");
+    expect(app).toContain("Apache-2.0 open shell");
     expect(app).toContain('const LOCAL_OPENZERO_MODEL = "qwen3:1.7b"');
     expect(app).toContain("chatLocalOpenZero");
     expect(app).toContain("getLocalOpenZeroStatus");

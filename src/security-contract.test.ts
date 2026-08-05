@@ -163,7 +163,7 @@ describe("desktop security contract", () => {
   it("pins an immutable, exact-architecture ZSEC payload and fails packaging closed", () => {
     expect(vendorLock).toMatchObject({
       schema: "zero-one.zsec-vendor-lock.v1",
-      consumer_version: "0.6.1",
+      consumer_version: "0.6.2",
       release: { id: 363682670, tag: "v0.1.2", immutable: true, release_attestation_verified: true },
       asset: { id: 498488611, size: 12392156, sha256: "62ade4111206e6b0b083c60dd2ccd1b7cbc83452e4067d71ea99ac76364dd13d" },
       manifest: { version: "0.1.2", architecture: "x86_64", source_tree_state: "clean" },

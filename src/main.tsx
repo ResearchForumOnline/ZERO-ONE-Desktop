@@ -22,7 +22,7 @@ if (!window.zeroOne && import.meta.env.DEV) {
     hasZeroThinkAccount: false,
   };
   window.zeroOne = {
-    getAppInfo: async () => ({ name: "ZERO ONE", version: "0.6.1-preview", platform: navigator.platform.toLowerCase().includes("mac") ? "darwin" : navigator.platform.toLowerCase().includes("linux") ? "linux" : "win32", packaged: false }),
+    getAppInfo: async () => ({ name: "ZERO ONE", version: "0.6.2-preview", platform: navigator.platform.toLowerCase().includes("mac") ? "darwin" : navigator.platform.toLowerCase().includes("linux") ? "linux" : "win32", packaged: false }),
     getUserInterfaceScale: async () => 1,
     setUserInterfaceScale: async (factor) => factor,
     startZeroThinkSignIn: async () => ({ status: "success", email: "preview@example.com", userCode: "PREVIEW" }),

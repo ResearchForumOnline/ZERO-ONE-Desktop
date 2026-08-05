@@ -25,12 +25,12 @@ Use the authenticated [latest ZERO ONE release](https://github.com/ResearchForum
 
 | Platform | Package | Install |
 |---|---|---|
-| Windows 10/11 x64 | `ZERO-ONE-0.6.1-win-x64.exe` | Download, double-click and follow the one-click installer |
-| macOS Apple silicon | `ZERO-ONE-0.6.1-mac-arm64.dmg` | Open the disk image and drag ZERO ONE to Applications |
-| Linux x64 | `ZERO-ONE-0.6.1-linux-x86_64.AppImage` | Make executable and open |
-| Debian/Ubuntu x64 | `ZERO-ONE-0.6.1-linux-amd64.deb` | Open with the software installer or use `sudo apt install ./ZERO-ONE-0.6.1-linux-amd64.deb` |
+| Windows 10/11 x64 | `ZERO-ONE-*-win-x64.exe` | Download the latest Windows installer from [Releases](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/latest) |
+| macOS Apple silicon | `ZERO-ONE-*-mac-arm64.dmg` | Open the disk image and drag ZERO ONE to Applications |
+| Linux x64 | `ZERO-ONE-*-linux-x86_64.AppImage` | Make executable and open |
+| Debian/Ubuntu x64 | `ZERO-ONE-*-linux-amd64.deb` | Open with the software installer or use `sudo apt install ./ZERO-ONE-*-linux-amd64.deb` |
 
-The 0.6.1 packages are unsigned public builds. Windows SmartScreen or macOS Gatekeeper may show an unknown-publisher warning. Verify downloads against `SHA256SUMS.txt`; publisher signing and Store approval are still in progress.
+Current source version is **0.6.2**. Published installers are unsigned public builds until Authenticode/notarization ships. Windows SmartScreen or macOS Gatekeeper may show an unknown-publisher warning. Verify downloads against `SHA256SUMS.txt` when present.
 
 ## What is included
 

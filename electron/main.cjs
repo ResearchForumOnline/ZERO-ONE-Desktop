@@ -27,6 +27,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   onboardingCompleted: false,
   trayNoticeShown: false,
   fastLocalModelMigrationCompleted: false,
+  lastView: "home",
+  lastCopilotOpen: true,
 });
 
 const ALLOWED_ORIGINS = new Set([
@@ -165,8 +167,17 @@ async function loadSettingsInternal() {
     onboardingCompleted: Boolean(stored.onboardingCompleted),
     trayNoticeShown: Boolean(stored.trayNoticeShown),
     fastLocalModelMigrationCompleted: Boolean(stored.fastLocalModelMigrationCompleted),
+    lastView: sanitizeLastView(stored.lastView),
+    lastCopilotOpen: stored.lastCopilotOpen !== false,
   };
   return runtimeSettings;
+}
+
+function sanitizeLastView(value) {
+  const view = String(value || "home");
+  if (view === "home" || view === "shield" || view === "agents" || view === "settings") return view;
+  if (/^service:(openzero|zerothink|zmail|callchat)$/.test(view)) return view;
+  return "home";
 }
 
 function decryptSecret(settings, key) {
@@ -205,6 +216,8 @@ async function saveSettingsInternal(input) {
     launchAtLogin: typeof input.launchAtLogin === "boolean" ? input.launchAtLogin : current.launchAtLogin,
     closeToTray: typeof input.closeToTray === "boolean" ? input.closeToTray : current.closeToTray,
     onboardingCompleted: typeof input.onboardingCompleted === "boolean" ? input.onboardingCompleted : current.onboardingCompleted,
+    lastView: input.lastView !== undefined ? sanitizeLastView(input.lastView) : current.lastView,
+    lastCopilotOpen: typeof input.lastCopilotOpen === "boolean" ? input.lastCopilotOpen : current.lastCopilotOpen,
   };
 
   if (input.clearOpenZeroToken) {

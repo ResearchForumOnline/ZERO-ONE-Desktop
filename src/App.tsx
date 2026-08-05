@@ -8,6 +8,11 @@ type LocalOpenZeroStatus = { reachable: boolean; origin: string; defaultModel: s
 type LocalOpenZeroProgress = { status: string; completed: number; total: number; percent?: number; done: boolean };
 
 const LOCAL_OPENZERO_MODEL = "qwen3:1.7b";
+const ZOOM_STEPS = [0.75, 0.85, 1, 1.1, 1.25, 1.4, 1.5] as const;
+function nearestZoom(value: number) {
+  return ZOOM_STEPS.reduce((closest, candidate) =>
+    Math.abs(candidate - value) < Math.abs(closest - value) ? candidate : closest, ZOOM_STEPS[2]);
+}
 const localOpenZeroApi = () => window.zeroOne as typeof window.zeroOne & {
   getLocalOpenZeroStatus?: () => Promise<LocalOpenZeroStatus>;
   openOllamaDownload?: () => Promise<boolean>;
@@ -121,9 +126,9 @@ function Topbar({ view, probes, system, zoom, copilotOpen, onZoom, onToggleCopil
           <span>{online}/{SERVICES.length} online</span>
           {system && <strong>{system.memoryPercent}% RAM</strong>}        </div>
         <div className="zoom-controls" role="group" aria-label="Interface zoom">
-          <button type="button" onClick={() => onZoom(zoom - 0.1)} aria-label="Zoom out" title="Zoom out (Ctrl -)">−</button>
+          <button type="button" onClick={() => onZoom(nearestZoom(zoom - 0.1))} aria-label="Zoom out" title="Zoom out (Ctrl -)">−</button>
           <button type="button" className="zoom-value" onClick={() => onZoom(1)} aria-label={`Reset zoom, currently ${Math.round(zoom * 100)} percent`} title="Reset zoom (Ctrl 0)">{Math.round(zoom * 100)}%</button>
-          <button type="button" onClick={() => onZoom(zoom + 0.1)} aria-label="Zoom in" title="Zoom in (Ctrl +)">+</button>
+          <button type="button" onClick={() => onZoom(nearestZoom(zoom + 0.1))} aria-label="Zoom in" title="Zoom in (Ctrl +)">+</button>
         </div>
         <button type="button" className={`copilot-toggle ${copilotOpen ? "active" : ""}`} onClick={onToggleCopilot} aria-pressed={copilotOpen} aria-label={`${copilotOpen ? "Hide" : "Show"} quick Assistant`}><span>Ø</span><b>Assistant</b></button>
         <button className="icon-button" onClick={onRefresh} aria-label="Refresh status">
@@ -377,17 +382,23 @@ function ServiceWorkspace({ service, settings, probe }: { service: ServiceDefini
     let timer = window.setTimeout(() => { setLoading(false); setLoadError("This workspace is taking too long to load."); }, 20000);
     const start = () => { window.clearTimeout(timer); setLoading(true); setLoadError(""); timer = window.setTimeout(() => { setLoading(false); setLoadError("This workspace is taking too long to load."); }, 20000); };
     const stop = () => { window.clearTimeout(timer); setLoading(false); };
-    const fail = () => { window.clearTimeout(timer); setLoading(false); setLoadError("The workspace could not be loaded inside ZERO ONE."); };
+    const fail = (event?: Event & { errorCode?: number; isMainFrame?: boolean }) => {
+      // Chromium aborts navigations with -3 during redirects/reloads; ignore those.
+      if (event && typeof event.errorCode === "number" && (event.errorCode === -3 || event.isMainFrame === false)) return;
+      window.clearTimeout(timer);
+      setLoading(false);
+      setLoadError("The workspace could not be loaded inside ZERO ONE.");
+    };
     webview.addEventListener("did-start-loading", start);
     webview.addEventListener("did-stop-loading", stop);
-    webview.addEventListener("did-fail-load", fail);
-    webview.addEventListener("render-process-gone", fail);
+    webview.addEventListener("did-fail-load", fail as EventListener);
+    webview.addEventListener("render-process-gone", fail as EventListener);
     return () => {
       window.clearTimeout(timer);
       webview.removeEventListener("did-start-loading", start);
       webview.removeEventListener("did-stop-loading", stop);
-      webview.removeEventListener("did-fail-load", fail);
-      webview.removeEventListener("render-process-gone", fail);
+      webview.removeEventListener("did-fail-load", fail as EventListener);
+      webview.removeEventListener("render-process-gone", fail as EventListener);
     };
   }, [reloadKey, workspaceUrl]);
 
@@ -448,6 +459,9 @@ function ServiceWorkspace({ service, settings, probe }: { service: ServiceDefini
       {probe?.state === "offline" && service.id === "openzero" && (
         <div className="runtime-banner"><span className="warning-symbol">!</span><div><strong>The full OpenZero panel is not responding</strong><p>Start OpenZero or its secure tunnel, then check the full-panel address in Settings. The local Assistant can still work independently.</p></div></div>
       )}
+      {probe?.state === "offline" && service.id !== "openzero" && (
+        <div className="runtime-banner"><span className="warning-symbol">!</span><div><strong>{service.name} is not reachable</strong><p>Check your network, VPN, or the workspace URL in Settings. You can still retry inside ZERO ONE or open the service in a browser.</p></div></div>
+      )}
       {service.id === "zerothink" ? (
         <div className={`zerothink-layout ${zeroThinkDockOpen ? "" : "dock-collapsed"}`}>
           <aside className="zerothink-dock" aria-label="ZeroThink tools">
@@ -500,9 +514,11 @@ function SettingsView({ settings, openZeroProbe, onSaved }: { settings: ZeroOneS
   const [localProgress, setLocalProgress] = useState<LocalOpenZeroProgress | null>(null);
   const [openZeroMode, setOpenZeroMode] = useState<"local" | "server">(() => settings.model === LOCAL_OPENZERO_MODEL ? "local" : "server");
   const [zmath, setZmath] = useState<ZmathSecurityStatus | null>(null);
+  const [appVersion, setAppVersion] = useState("");
 
   useEffect(() => { setDraft(settings); setOpenZeroMode(settings.model === LOCAL_OPENZERO_MODEL ? "local" : "server"); }, [settings]);
   useEffect(() => { window.zeroOne.getZmathSecurityStatus().then(setZmath); }, []);
+  useEffect(() => { window.zeroOne.getAppInfo?.().then((info) => setAppVersion(info.version)).catch(() => setAppVersion("")); }, []);
   const refreshLocalOpenZero = useCallback(async () => {
     const getStatus = localOpenZeroApi().getLocalOpenZeroStatus;
     if (!getStatus) return;
@@ -653,7 +669,18 @@ function SettingsView({ settings, openZeroProbe, onSaved }: { settings: ZeroOneS
           <div className="settings-heading"><div><p>DESKTOP</p><h2>App behavior</h2></div><span>Privacy-first defaults</span></div>
           <button type="button" className="secondary-action data-clear-action" onClick={clearLocalData}>Clear desktop data</button><small className="data-clear-note">Removes this app's settings, encrypted OpenZero token, and embedded workspace cookies/storage after confirmation. Server-side data and saved diagnostics are not deleted.</small>
           <button type="button" className="secondary-action quit-action" onClick={() => window.zeroOne.quitApp()}>Quit ZERO ONE completely</button>
-        </section></details>
+        </section>
+        <section className="settings-section glass-card">
+          <div className="settings-heading"><div><p>ABOUT</p><h2>ZERO ONE</h2></div><span>Open-core desktop shell</span></div>
+          <dl className="system-list about-list">
+            <div><dt>Version</dt><dd className="mono">{appVersion || "—"}</dd></div>
+            <div><dt>Assistant default</dt><dd>OpenZero Local · qwen3:1.7b</dd></div>
+            <div><dt>Security</dt><dd>TLS · OS credential store · ZSEC Shield on-demand</dd></div>
+            <div><dt>Source</dt><dd><button type="button" className="linkish" onClick={() => window.zeroOne.openExternal("https://github.com/ResearchForumOnline/ZERO-ONE-Desktop")}>GitHub ↗</button></dd></div>
+          </dl>
+          <small className="data-clear-note">Apache-2.0 open shell. Proprietary ZMath research and production secrets are not included in this repository.</small>
+        </section>
+        </details>
         <div className="settings-footer"><span role="status" aria-live="polite">{message || (dirty ? "You have unsaved changes." : "All changes saved.")}</span><button className="primary-action" disabled={saving || !dirty}>{saving ? "Saving…" : "Save changes"}</button></div>
       </form>
     </div>
@@ -668,6 +695,7 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
   const [pulling, setPulling] = useState(false);
   const [pullProgress, setPullProgress] = useState<LocalOpenZeroProgress | null>(null);
   const streamRef = useRef<HTMLDivElement>(null);
+  const clearChat = () => setMessages(initialAssistant);
   // Local Assistant: OpenZero provider with the default model, or OpenZero without a server token.
   const localSelected = settings.assistantProvider === "openzero" && (settings.model === LOCAL_OPENZERO_MODEL || !settings.hasOpenZeroToken);
   const providerLabel = settings.assistantProvider === "groq" ? "Groq" : settings.assistantProvider === "openai" ? "OpenAI" : localSelected ? "OpenZero Local" : "OpenZero Server";
@@ -743,7 +771,7 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
   return (
     <aside className="copilot">
       <div className="copilot-header"><div className="copilot-symbol">Ø<span /></div><div><p>ZERO ONE ASSISTANT</p><h3>Zero</h3></div><span className={`copilot-state ${ready ? "ready" : "setup"}`}>{ready ? "READY" : localChecking ? "CHECK" : "SETUP"}</span></div>
-      <div className="copilot-context"><span>{providerLabel.toUpperCase()}</span><strong>{settings.model || LOCAL_OPENZERO_MODEL}</strong></div>
+      <div className="copilot-context"><span>{providerLabel.toUpperCase()}</span><strong>{settings.model || LOCAL_OPENZERO_MODEL}</strong><button type="button" className="chat-clear" onClick={clearChat} title="Clear conversation (Ctrl+L)" aria-label="Clear conversation">Clear</button></div>
       <div className="chat-stream" ref={streamRef}>
         {messages.map((message, index) => <div key={index} className={`chat-message ${message.role}`}><span>{message.role === "assistant" ? "Ø" : "YOU"}</span><p>{message.content}</p></div>)}
         {busy && <div className="thinking"><i /><i /><i /></div>}
@@ -770,7 +798,7 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
         </div>
       )}
       <div className="copilot-report"><button type="button" onClick={() => window.zeroOne.openExternal("https://talktoai.org/report-ai/")}>Report AI output</button><span>Opens privacy-aware support guidance</span></div>
-      <div className="chat-compose"><textarea disabled={!ready} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={keyDown} placeholder={ready ? `Ask ${providerLabel}…` : "Install the local model above — no keys needed"} rows={2} /><button onClick={send} disabled={busy || !input.trim() || !ready} aria-label="Send"><Icon name="send" size={18} /></button><small>{ready ? "Enter to send · Shift Enter for line break" : "OpenZero Local is the zero-config private default"}</small></div>
+      <div className="chat-compose"><textarea disabled={!ready} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={keyDown} placeholder={ready ? `Ask ${providerLabel}…` : "Install the local model above — no keys needed"} rows={2} /><button onClick={send} disabled={busy || !input.trim() || !ready} aria-label="Send"><Icon name="send" size={18} /></button><small>{ready ? "Enter to send · Shift+Enter newline · Ctrl+L clear · Ctrl+J toggle" : "OpenZero Local is the zero-config private default"}</small></div>
     </aside>
   );
 }
@@ -814,6 +842,12 @@ function Welcome({ onFinish, onSetup }: { onFinish: () => void; onSetup: () => v
   </section></div>;
 }
 
+function isValidView(value: string | undefined): value is View {
+  if (!value) return false;
+  if (value === "home" || value === "shield" || value === "agents" || value === "settings") return true;
+  return /^service:(openzero|zerothink|zmail|callchat)$/.test(value);
+}
+
 export default function App() {
   const [view, setView] = useState<View>("home");
   const [settings, setSettings] = useState<ZeroOneSettings | null>(null);
@@ -824,6 +858,7 @@ export default function App() {
   const [palette, setPalette] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(() => window.innerWidth > 1180);
   const [bootError, setBootError] = useState("");
+  const [restoredLayout, setRestoredLayout] = useState(false);
   const searchButtonRef = useRef<HTMLButtonElement>(null);
   const bridgeUnavailable = "ZERO ONE could not start its secure desktop bridge. Restart the app; if this continues, install the latest update.";
 
@@ -833,12 +868,22 @@ export default function App() {
   }, []);
 
   const updateZoom = useCallback(async (factor: number) => {
-    const applied = await window.zeroOne.setUserInterfaceScale(factor);
+    const applied = await window.zeroOne.setUserInterfaceScale(nearestZoom(factor));
     setZoom(applied);
   }, []);
+  const stepZoom = useCallback(async (direction: 1 | -1) => {
+    const index = ZOOM_STEPS.indexOf(nearestZoom(zoom) as typeof ZOOM_STEPS[number]);
+    const next = ZOOM_STEPS[Math.max(0, Math.min(ZOOM_STEPS.length - 1, (index < 0 ? 2 : index) + direction))];
+    await updateZoom(next);
+  }, [updateZoom, zoom]);
   const closePalette = useCallback(() => {
     setPalette(false);
     window.requestAnimationFrame(() => searchButtonRef.current?.focus());
+  }, []);
+
+  const navigate = useCallback((next: View, options?: { collapseCopilot?: boolean }) => {
+    setView(next);
+    if (options?.collapseCopilot || next.startsWith("service:")) setCopilotOpen(false);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -854,47 +899,82 @@ export default function App() {
 
   useEffect(() => {
     if (!window.zeroOne?.loadSettings) { setBootError(bridgeUnavailable); return; }
-    window.zeroOne.loadSettings().then((value) => { setSettings(value); setBootError(""); }).catch(() => setBootError("ZERO ONE could not load its local settings."));
+    window.zeroOne.loadSettings().then((value) => {
+      setSettings(value);
+      setBootError("");
+      if (!restoredLayout) {
+        if (isValidView(value.lastView)) setView(value.lastView);
+        if (typeof value.lastCopilotOpen === "boolean") setCopilotOpen(value.lastCopilotOpen && window.innerWidth > 900);
+        setRestoredLayout(true);
+      }
+    }).catch(() => setBootError("ZERO ONE could not load its local settings."));
     refresh();
     const interval = window.setInterval(refresh, 30000);
     return () => window.clearInterval(interval);
-  }, [refresh]);
+  }, [refresh, restoredLayout]);
+
+  // Persist last workspace / assistant drawer without blocking UI.
+  useEffect(() => {
+    if (!settings || !restoredLayout) return;
+    const handle = window.setTimeout(() => {
+      window.zeroOne.saveSettings({ ...settings, lastView: view, lastCopilotOpen: copilotOpen }).then(setSettings).catch(() => {});
+    }, 400);
+    return () => window.clearTimeout(handle);
+  }, [view, copilotOpen, restoredLayout]); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally omit settings body to avoid loop
 
   useEffect(() => {
     if (!window.zeroOne?.onAppNavigate) return;
-    return window.zeroOne.onAppNavigate((destination) => { setView(destination as View); setCopilotOpen(false); });
-  }, []);
+    return window.zeroOne.onAppNavigate((destination) => { navigate(destination as View, { collapseCopilot: true }); });
+  }, [navigate]);
 
   useEffect(() => {
     const listener = (event: globalThis.KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setPalette(true); }
+      const key = event.key.toLowerCase();
+      const mod = event.ctrlKey || event.metaKey;
+      if (mod && key === "k") { event.preventDefault(); setPalette(true); }
+      if (mod && key === "j") { event.preventDefault(); setCopilotOpen((value) => !value); }
+      if (mod && key === "l" && !event.shiftKey) {
+        // Let the Assistant compose field handle clear when focused; otherwise open palette search focus.
+        const tag = (event.target as HTMLElement | null)?.tagName;
+        if (tag !== "TEXTAREA" && tag !== "INPUT") {
+          event.preventDefault();
+          document.querySelector<HTMLButtonElement>(".chat-clear")?.click();
+        }
+      }
+      if (mod && (key === "=" || key === "+")) { event.preventDefault(); void stepZoom(1); }
+      if (mod && key === "-") { event.preventDefault(); void stepZoom(-1); }
+      if (mod && key === "0") { event.preventDefault(); void updateZoom(1); }
       if (event.key === "Escape" && palette) closePalette();
     };
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
-  }, [closePalette, palette]);
+  }, [closePalette, palette, stepZoom, updateZoom]);
 
   if (!settings) return <div className="boot-screen"><div className="boot-mark">Ø</div><p>{bootError || "INITIALIZING ZERO ONE"}</p>{bootError ? <button className="primary-action" onClick={() => window.location.reload()}>Try again</button> : <span />}</div>;
 
-  const completeOnboarding = async (destination?: View) => { const saved = await window.zeroOne.saveSettings({ ...settings, onboardingCompleted: true }); setSettings(saved); if (destination) setView(destination); };
+  const completeOnboarding = async (destination?: View) => {
+    const saved = await window.zeroOne.saveSettings({ ...settings, onboardingCompleted: true, lastView: destination || view, lastCopilotOpen: copilotOpen });
+    setSettings(saved);
+    if (destination) setView(destination);
+  };
 
   const activeService = view.startsWith("service:") ? serviceById(view.split(":")[1] as ServiceId) : null;
   return (
     <div className={`app-shell ${copilotOpen ? "" : "copilot-collapsed"}`}>
       <a className="skip-link" href="#main-content">Skip to main content</a>
-      <Sidebar view={view} onNavigate={(next) => { setView(next); if (next.startsWith("service:")) setCopilotOpen(false); }} />
+      <Sidebar view={view} onNavigate={(next) => navigate(next)} />
       <main className="main-stage">
         <Topbar view={view} probes={probes} system={system} zoom={zoom} copilotOpen={copilotOpen} onZoom={updateZoom} onToggleCopilot={() => setCopilotOpen((value) => !value)} onRefresh={refresh} onSearch={() => setPalette(true)} searchRef={searchButtonRef} />
         <div className="content-frame" id="main-content">
-          {view === "home" && <Dashboard settings={settings} probes={probes} system={system} zsec={zsec} onOpen={(id) => setView(`service:${id}`)} onOpenShield={() => setView("shield")} />}
+          {view === "home" && <Dashboard settings={settings} probes={probes} system={system} zsec={zsec} onOpen={(id) => navigate(`service:${id}`)} onOpenShield={() => navigate("shield")} />}
           {view === "shield" && <ZsecView snapshot={zsec} onRefresh={refresh} />}
-          {view === "agents" && <AgentLattice settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onOpenZero={() => setView("service:openzero")} />}
+          {view === "agents" && <AgentLattice settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onOpenZero={() => navigate("service:openzero")} />}
           {view === "settings" && <SettingsView settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onSaved={(saved) => { setSettings(saved); refresh(); }} />}
           {activeService && <ServiceWorkspace service={activeService} settings={settings} probe={probes.find((probe) => probe.name === activeService.id)} />}
         </div>
       </main>
-      <Copilot settings={settings} onOpenSettings={() => setView("settings")} />
-      {palette && <CommandPalette onClose={closePalette} onNavigate={setView} />}
+      <Copilot settings={settings} onOpenSettings={() => navigate("settings")} />
+      {palette && <CommandPalette onClose={closePalette} onNavigate={navigate} />}
       {!settings.onboardingCompleted && <Welcome onFinish={() => completeOnboarding()} onSetup={() => completeOnboarding("settings")} />}
     </div>
   );
