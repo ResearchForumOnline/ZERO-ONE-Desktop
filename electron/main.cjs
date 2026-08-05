@@ -551,14 +551,29 @@ app.whenReady().then(async () => {
       await fs.writeFile(settingsPath(), JSON.stringify(runtimeSettings, null, 2), { encoding: "utf8", mode: 0o600 });
     }
   }
-  if (runtimeSettings.assistantProvider === "openzero" && !decryptToken(runtimeSettings)) {
-    try {
-      const endpoint = new URL(runtimeSettings.openZeroUrl);
-      if (["127.0.0.1", "localhost", "::1"].includes(endpoint.hostname)) await provisionOpenZeroDesktop(runtimeSettings);
-    } catch {
-      // Older or remote OpenZero nodes fall back to the guided setup screen.
+  // Prefer private local Assistant by default so users need no API keys/tokens.
+  // Loopback OpenZero panel tokens are still provisioned when available.
+  if (runtimeSettings.assistantProvider === "openzero") {
+    const local = await localOllamaStatus();
+    const hasLocalDefault = local.reachable && local.models.some((model) => model.name.toLowerCase() === DEFAULT_LOCAL_MODEL.toLowerCase());
+    if (hasLocalDefault && (runtimeSettings.model !== DEFAULT_LOCAL_MODEL || !runtimeSettings.fastLocalModelMigrationCompleted) && !decryptToken(runtimeSettings)) {
+      runtimeSettings = { ...runtimeSettings, model: DEFAULT_LOCAL_MODEL, assistantProvider: "openzero", fastLocalModelMigrationCompleted: true };
+      await fs.mkdir(path.dirname(settingsPath()), { recursive: true });
+      await fs.writeFile(settingsPath(), JSON.stringify(runtimeSettings, null, 2), { encoding: "utf8", mode: 0o600 });
+    }
+    if (!decryptToken(runtimeSettings)) {
+      try {
+        const endpoint = new URL(runtimeSettings.openZeroUrl);
+        if (["127.0.0.1", "localhost", "::1"].includes(endpoint.hostname)) await provisionOpenZeroDesktop(runtimeSettings);
+      } catch {
+        // Local Ollama chat still works without an OpenZero desktop token.
+      }
     }
   }
+  // Soft keep-alive for embedded ZMail so Roundcube idle timers do not log users out
+  // while ZERO ONE is open (pairs with server session_lifetime=7 days).
+  setInterval(() => { keepZmailSessionAlive().catch(() => {}); }, 8 * 60 * 1000);
+  setTimeout(() => { keepZmailSessionAlive().catch(() => {}); }, 15_000);
   app.setLoginItemSettings(loginItemOptions({ enabled: runtimeSettings.launchAtLogin, executablePath: process.execPath, packaged: app.isPackaged }));
   createTray();
   await createWindow();
@@ -871,6 +886,49 @@ async function localOllamaStatus() {
   }
 }
 
+async function chatViaLocalOllama(request, preferredModel) {
+  const model = cleanModelName(preferredModel || DEFAULT_LOCAL_MODEL);
+  const messages = cleanChatMessages(request?.messages);
+  const response = await fetchLocalOllama("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model, messages, stream: false, think: false, keep_alive: "15m", options: { temperature: 0.4, num_predict: 128, num_ctx: 2048 } }),
+  }, 45000);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(String(payload?.error || `The local model service returned HTTP ${response.status}.`).slice(0, 300));
+  const content = String(payload?.message?.content || "").trim();
+  if (!content) throw new Error("The local model returned no assistant message.");
+  return { content, model: String(payload.model || model).slice(0, 192), provider: "ollama-local" };
+}
+
+/** Touch ZMail session cookies so embedded webmail stays signed in while ZERO ONE is open. */
+async function keepZmailSessionAlive() {
+  const targetSession = session.fromPartition("persist:zero-one-zmail");
+  configurePermissionPolicy(targetSession);
+  const base = cleanUrl(runtimeSettings.zmailUrl, DEFAULT_SETTINGS.zmailUrl);
+  const origin = new URL(base).origin;
+  // Prefer a lightweight refresh endpoint; fall back to workspace root.
+  const candidates = [
+    `${origin}/?_task=mail&_action=refresh`,
+    `${origin}/?_task=workspace`,
+    origin + "/",
+  ];
+  for (const url of candidates) {
+    try {
+      const response = await targetSession.fetch(url, {
+        method: "GET",
+        headers: { "User-Agent": `ZERO-ONE/${app.getVersion()}`, Accept: "text/html,application/json;q=0.9,*/*;q=0.8" },
+        redirect: "manual",
+      });
+      await targetSession.cookies.flushStore();
+      if (response.status > 0 && response.status < 500) return true;
+    } catch {
+      // try next candidate
+    }
+  }
+  return false;
+}
+
 ipcMain.handle("openzero:local-status", async (event) => {
   requireTrustedIpcSender(event);
   return localOllamaStatus();
@@ -952,21 +1010,10 @@ ipcMain.handle("openzero:local-pull-cancel", async (event) => {
 
 ipcMain.handle("openzero:local-chat", async (event, request) => {
   requireTrustedIpcSender(event);
-  const model = cleanModelName(request?.model || DEFAULT_LOCAL_MODEL);
-  const messages = cleanChatMessages(request?.messages);
   try {
-    const response = await fetchLocalOllama("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model, messages, stream: false, think: false, keep_alive: "15m", options: { temperature: 0.4, num_predict: 128, num_ctx: 2048 } }),
-    }, 45000);
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(String(payload?.error || `The local model service returned HTTP ${response.status}.`).slice(0, 300));
-    const content = String(payload?.message?.content || "").trim();
-    if (!content) throw new Error("The local model returned no assistant message.");
-    return { content, model: String(payload.model || model).slice(0, 192), provider: "ollama-local" };
+    return await chatViaLocalOllama(request, request?.model || DEFAULT_LOCAL_MODEL);
   } catch (error) {
-    if (error?.name === "AbortError") throw new Error("The local assistant took too long. ZERO ONE now recommends the Fast 2B model; check Settings and try again.");
+    if (error?.name === "AbortError") throw new Error("The local assistant took too long. ZERO ONE recommends qwen3:1.7b; check Settings and try again.");
     throw error;
   }
 });
@@ -1010,6 +1057,17 @@ ipcMain.handle("openzero:chat", async (event, request) => {
     groq: { token: decryptSecret(settings, "groqKeyEncrypted"), endpoint: "https://api.groq.com/openai/v1/chat/completions", label: "Groq" },
   };
   const selected = providers[provider] || providers.openzero;
+
+  // Zero-config path: OpenZero without a token uses local Ollama automatically.
+  if (provider === "openzero" && !selected.token) {
+    try {
+      return await chatViaLocalOllama(request, request?.model || settings.model || DEFAULT_LOCAL_MODEL);
+    } catch (error) {
+      if (error?.name === "AbortError") throw new Error("The local assistant took too long. Install or start Ollama, then try again.");
+      throw new Error(error?.message || "Local Assistant is unavailable. Install Ollama and pull qwen3:1.7b once — no API key required.");
+    }
+  }
+
   if (!selected.token) throw new Error(`Finish ${selected.label} setup in Settings before using Assistant.`);
   const messages = Array.isArray(request?.messages) ? request.messages.slice(-30) : [];
   if (!messages.length) throw new Error("A message is required.");

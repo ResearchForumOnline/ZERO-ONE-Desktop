@@ -19,7 +19,7 @@ const localOpenZeroApi = () => window.zeroOne as typeof window.zeroOne & {
 const initialAssistant: ChatMessage[] = [
   {
     role: "assistant",
-    content: "I’m your ZERO ONE Assistant. OpenZero is the private default. Finish the short setup once, then ask me questions here without opening another workspace.",
+    content: "I’m your ZERO ONE Assistant. Private Local mode uses OpenZero + Ollama on this PC with no API keys. If the model is installed, just ask — otherwise open Settings once to download qwen3:1.7b (~1.4 GB).",
   },
 ];
 
@@ -424,6 +424,15 @@ function ServiceWorkspace({ service, settings, probe }: { service: ServiceDefini
       {service.id === "callchat" && !settings.mediaEnabled && (
         <div className="permission-banner"><Icon name="call" size={18} /><span>Camera and microphone are locked. Enable CallChat media in Settings when you want to make a call.</span></div>
       )}
+      {service.id === "zmail" && (
+        <div className="openzero-context-banner" role="note">
+          <strong>Persistent session</strong>
+          <span>ZMail stays signed in inside ZERO ONE (7-day server session + keep-alive while the app is open).</span>
+          <i aria-hidden="true" />
+          <strong>Partition</strong>
+          <span>Cookies live only in the isolated ZMail workspace — not in your browser.</span>
+        </div>
+      )}
       {service.id === "openzero" && probe?.state !== "offline" && (
         <div className="openzero-context-banner" role="note">
           <strong>Full OpenZero panel</strong>
@@ -655,24 +664,56 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [localReady, setLocalReady] = useState(false);
+  const [localChecking, setLocalChecking] = useState(false);
+  const [pulling, setPulling] = useState(false);
+  const [pullProgress, setPullProgress] = useState<LocalOpenZeroProgress | null>(null);
   const streamRef = useRef<HTMLDivElement>(null);
-  const localSelected = settings.assistantProvider === "openzero" && settings.model === LOCAL_OPENZERO_MODEL;
+  // Local Assistant: OpenZero provider with the default model, or OpenZero without a server token.
+  const localSelected = settings.assistantProvider === "openzero" && (settings.model === LOCAL_OPENZERO_MODEL || !settings.hasOpenZeroToken);
   const providerLabel = settings.assistantProvider === "groq" ? "Groq" : settings.assistantProvider === "openai" ? "OpenAI" : localSelected ? "OpenZero Local" : "OpenZero Server";
   const ready = settings.assistantProvider === "groq" ? settings.hasGroqKey : settings.assistantProvider === "openai" ? settings.hasOpenAiKey : localSelected ? localReady : settings.hasOpenZeroToken;
 
-  useEffect(() => {
+  const refreshLocal = useCallback(async () => {
     if (!localSelected || !localOpenZeroApi().getLocalOpenZeroStatus) { setLocalReady(false); return; }
-    let active = true;
-    localOpenZeroApi().getLocalOpenZeroStatus!().then((status) => {
-      if (active) setLocalReady(status.reachable && status.models.some((model) => model.name.toLowerCase() === status.defaultModel.toLowerCase()));
-    }).catch(() => { if (active) setLocalReady(false); });
-    return () => { active = false; };
+    setLocalChecking(true);
+    try {
+      const status = await localOpenZeroApi().getLocalOpenZeroStatus!();
+      const modelName = (settings.model || status.defaultModel || LOCAL_OPENZERO_MODEL).toLowerCase();
+      setLocalReady(status.reachable && status.models.some((model) => model.name.toLowerCase() === modelName || model.name.toLowerCase().startsWith(`${modelName.split(":")[0]}:`)));
+    } catch {
+      setLocalReady(false);
+    } finally {
+      setLocalChecking(false);
+    }
   }, [localSelected, settings.model]);
+
+  useEffect(() => {
+    refreshLocal();
+    if (!localSelected) return;
+    const id = window.setInterval(refreshLocal, 20_000);
+    return () => window.clearInterval(id);
+  }, [localSelected, refreshLocal]);
 
   useEffect(() => {
     const stream = streamRef.current;
     if (stream) stream.scrollTop = stream.scrollHeight;
   }, [messages, busy]);
+
+  const pullLocalModel = async () => {
+    const pull = localOpenZeroApi().pullLocalOpenZeroModel;
+    if (!pull || pulling) return;
+    setPulling(true);
+    setPullProgress({ status: "starting", completed: 0, total: 0, done: false });
+    try {
+      await pull(settings.model || LOCAL_OPENZERO_MODEL, (progress) => setPullProgress(progress));
+      await refreshLocal();
+      setMessages((current) => [...current, { role: "assistant", content: "Local model is ready. Ask me anything — no API key required." }]);
+    } catch (error) {
+      setMessages((current) => [...current, { role: "assistant", content: error instanceof Error ? error.message : "Could not download the local model." }]);
+    } finally {
+      setPulling(false);
+    }
+  };
 
   const send = async () => {
     const text = input.trim();
@@ -682,8 +723,11 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
     setInput("");
     setBusy(true);
     try {
-      const request = { model: settings.model, messages: next.map(({ role, content }) => ({ role, content })) };
-      const response = localSelected && localOpenZeroApi().chatLocalOpenZero ? await localOpenZeroApi().chatLocalOpenZero!(request) : await window.zeroOne.chat(request);
+      const request = { model: settings.model || LOCAL_OPENZERO_MODEL, messages: next.map(({ role, content }) => ({ role, content })) };
+      // Prefer direct local chat when in local mode; otherwise unified chat (which also falls back to Ollama).
+      const response = localSelected && localOpenZeroApi().chatLocalOpenZero
+        ? await localOpenZeroApi().chatLocalOpenZero!(request)
+        : await window.zeroOne.chat(request);
       setMessages((current) => [...current, { role: "assistant", content: response.content }]);
     } catch (error) {
       setMessages((current) => [...current, { role: "assistant", content: error instanceof Error ? error.message : "The configured OpenZero model is unavailable." }]);
@@ -698,15 +742,35 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
 
   return (
     <aside className="copilot">
-      <div className="copilot-header"><div className="copilot-symbol">Ø<span /></div><div><p>ZERO ONE ASSISTANT</p><h3>Zero</h3></div><span className={`copilot-state ${ready ? "ready" : "setup"}`}>{ready ? "READY" : "SETUP"}</span></div>
-      <div className="copilot-context"><span>{providerLabel.toUpperCase()}</span><strong>{settings.model}</strong></div>
+      <div className="copilot-header"><div className="copilot-symbol">Ø<span /></div><div><p>ZERO ONE ASSISTANT</p><h3>Zero</h3></div><span className={`copilot-state ${ready ? "ready" : "setup"}`}>{ready ? "READY" : localChecking ? "CHECK" : "SETUP"}</span></div>
+      <div className="copilot-context"><span>{providerLabel.toUpperCase()}</span><strong>{settings.model || LOCAL_OPENZERO_MODEL}</strong></div>
       <div className="chat-stream" ref={streamRef}>
         {messages.map((message, index) => <div key={index} className={`chat-message ${message.role}`}><span>{message.role === "assistant" ? "Ø" : "YOU"}</span><p>{message.content}</p></div>)}
         {busy && <div className="thinking"><i /><i /><i /></div>}
       </div>
-      {!ready && <div className="assistant-empty"><strong>One quick setup</strong><span>{localSelected ? "Install the recommended local model once—no key or token required." : `${providerLabel} is selected. Add its key once to start chatting here.`}</span><button className="token-prompt" onClick={onOpenSettings}><Icon name="shield" size={16} /> Set up Assistant</button></div>}
+      {!ready && (
+        <div className="assistant-empty">
+          <strong>{localSelected ? "One-time local model" : "One quick setup"}</strong>
+          <span>
+            {localSelected
+              ? "Download the private OpenZero local model once. No account, token, or cloud key is required."
+              : `${providerLabel} is selected. Add its key once to start chatting here.`}
+          </span>
+          {localSelected ? (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button className="token-prompt" disabled={pulling} onClick={pullLocalModel}>
+                <Icon name="shield" size={16} /> {pulling ? (pullProgress?.percent != null ? `Downloading ${pullProgress.percent}%` : "Downloading…") : "Download local model · ~1.4 GB"}
+              </button>
+              <button className="token-prompt" onClick={() => localOpenZeroApi().openOllamaDownload?.()}>Get Ollama ↗</button>
+              <button className="token-prompt" onClick={onOpenSettings}>Settings</button>
+            </div>
+          ) : (
+            <button className="token-prompt" onClick={onOpenSettings}><Icon name="shield" size={16} /> Set up Assistant</button>
+          )}
+        </div>
+      )}
       <div className="copilot-report"><button type="button" onClick={() => window.zeroOne.openExternal("https://talktoai.org/report-ai/")}>Report AI output</button><span>Opens privacy-aware support guidance</span></div>
-      <div className="chat-compose"><textarea disabled={!ready} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={keyDown} placeholder={ready ? `Ask ${providerLabel}…` : "Complete the guided setup above"} rows={2} /><button onClick={send} disabled={busy || !input.trim() || !ready} aria-label="Send"><Icon name="send" size={18} /></button><small>{ready ? "Enter to send · Shift Enter for line break" : "OpenZero is the recommended private default"}</small></div>
+      <div className="chat-compose"><textarea disabled={!ready} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={keyDown} placeholder={ready ? `Ask ${providerLabel}…` : "Install the local model above — no keys needed"} rows={2} /><button onClick={send} disabled={busy || !input.trim() || !ready} aria-label="Send"><Icon name="send" size={18} /></button><small>{ready ? "Enter to send · Shift Enter for line break" : "OpenZero Local is the zero-config private default"}</small></div>
     </aside>
   );
 }
@@ -741,7 +805,11 @@ function CommandPalette({ onClose, onNavigate }: { onClose: () => void; onNaviga
 function Welcome({ onFinish, onSetup }: { onFinish: () => void; onSetup: () => void }) {
   return <div className="welcome-backdrop"><section className="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
     <span className="welcome-mark">Ø</span><p>WELCOME TO ZERO ONE</p><h1 id="welcome-title">Your workspaces, in one calm desktop.</h1>
-    <div className="welcome-points"><article><strong>1. Pick a workspace</strong><span>ZeroThink, ZMail, CallChat and OpenZero are in the left rail.</span></article><article><strong>2. Sign in safely</strong><span>Google sign-in opens in your normal browser. The ZeroThink CLI is optional.</span></article><article><strong>3. Close without losing your place</strong><span>ZERO ONE stays ready in the system tray. Use tray → Quit to stop it.</span></article></div>
+    <div className="welcome-points">
+      <article><strong>1. Assistant needs no config</strong><span>Private chat uses OpenZero Local + Ollama on this PC. Download the model once if prompted — no cloud key.</span></article>
+      <article><strong>2. Workspaces stay signed in</strong><span>ZMail, ZeroThink, OpenZero and CallChat keep isolated sessions. ZMail is hardened for multi-day login.</span></article>
+      <article><strong>3. ZSEC Shield is local</strong><span>On-demand folder scanning stays on this computer. Server ZSEC handles Linux security updates separately.</span></article>
+    </div>
     <div className="welcome-actions"><button className="secondary-action" onClick={onSetup}>Review setup</button><button className="primary-action" onClick={onFinish}>Start using ZERO ONE</button></div>
   </section></div>;
 }

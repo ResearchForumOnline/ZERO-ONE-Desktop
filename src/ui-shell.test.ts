@@ -87,7 +87,9 @@ describe("responsive desktop shell", () => {
     expect(app).toContain("Local Assistant model");
     expect(app).toContain("Use my OpenZero server");
     expect(app).toContain("Local Assistant mode needs no API key or token");
-    expect(app).toContain("Download local Qwen Assistant · ~1.4 GB");
+    expect(app).toContain("Download local model · ~1.4 GB");
+    expect(app).toContain("no API key required");
+    expect(app).toContain("Assistant needs no config");
     expect(app).toContain('const LOCAL_OPENZERO_MODEL = "qwen3:1.7b"');
     expect(app).toContain("chatLocalOpenZero");
     expect(app).toContain("getLocalOpenZeroStatus");
@@ -96,6 +98,8 @@ describe("responsive desktop shell", () => {
     expect(main).toContain('new URL("/v1/models", settings.openZeroUrl)');
     expect(main).toContain('await provisionOpenZeroDesktop(runtimeSettings)');
     expect(main).toContain('["127.0.0.1", "localhost", "::1"].includes(endpoint.hostname)');
+    expect(main).toContain("keepZmailSessionAlive");
+    expect(main).toContain("chatViaLocalOllama");
     expect(preload).toContain('connectOpenZeroDesktop: () => ipcRenderer.invoke("openzero:connect-desktop")');
     expect(app).toContain('chooseProvider("groq")');
     expect(app).toContain('chooseProvider("openai")');
