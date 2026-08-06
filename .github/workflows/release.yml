@@ -55,6 +55,10 @@ jobs:
   windows:
     needs: verify-windows
     runs-on: windows-latest
+    env:
+      # Optional Authenticode: set repo secrets WINDOWS_CSC_LINK (base64 PFX) + WINDOWS_CSC_KEY_PASSWORD
+      CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -75,13 +79,19 @@ jobs:
       - name: Smoke packaged Windows application
         shell: pwsh
         run: ./scripts/smoke-packaged-windows.ps1 -AppPath "release/win-unpacked/ZERO ONE.exe"
-      - name: Confirm installer is intentionally unsigned
+      - name: Report Authenticode signature state
         shell: pwsh
         run: |
           $installer = Get-ChildItem "release/ZERO-ONE-*-win-x64.exe" | Select-Object -First 1
           if (-not $installer) { throw "Windows installer was not produced" }
           $signature = Get-AuthenticodeSignature $installer.FullName
-          if ($signature.Status -ne "NotSigned") { throw "Unexpected Windows signature state: $($signature.Status)" }
+          Write-Host "Authenticode Status=$($signature.Status) Publisher=$($signature.SignerCertificate.Subject)"
+          if ($env:CSC_LINK -and $env:CSC_LINK.Trim().Length -gt 0) {
+            if ($signature.Status -ne "Valid") { throw "Signing secrets were set but installer is not Valid: $($signature.Status)" }
+          } else {
+            if ($signature.Status -ne "NotSigned") { throw "Unexpected signature without CSC secrets: $($signature.Status)" }
+            Write-Host "No WINDOWS_CSC_* secrets — unsigned public build (see docs/WINDOWS_CODE_SIGNING.md)"
+          }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: zero-one-windows-x64
