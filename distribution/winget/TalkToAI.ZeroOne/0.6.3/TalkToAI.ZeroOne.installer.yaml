@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json
+# ZERO ONE Desktop — winget installer manifest
+# Installer: electron-builder NSIS (oneClick). Silent switch: /S
+PackageIdentifier: TalkToAI.ZeroOne
+PackageVersion: 0.6.3
+Platform:
+  - Windows.Desktop
+MinimumOSVersion: 10.0.17763.0
+InstallerType: nullsoft
+Scope: user
+InstallModes:
+  - interactive
+  - silent
+  - silentWithProgress
+InstallerSwitches:
+  Silent: /S
+  SilentWithProgress: /S
+UpgradeBehavior: install
+ReleaseDate: 2026-08-06
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v0.6.3/ZERO-ONE-0.6.3-win-x64.exe
+    InstallerSha256: 2352DA64394017D93DC6F9B7A486CF0DBD7ED26082EEB37B5CE69F1401A9259B
+    # Local build (release/ZERO-ONE-0.6.3-win-x64.exe): size 110853743 bytes
+    # Re-hash after re-signing or rebuild before winget-pkgs PR
+ManifestType: installer
+ManifestVersion: 1.9.0

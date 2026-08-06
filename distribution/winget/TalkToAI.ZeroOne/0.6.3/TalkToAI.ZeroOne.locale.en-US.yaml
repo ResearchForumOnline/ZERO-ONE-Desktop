@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.9.0.schema.json
+# ZERO ONE Desktop — winget default locale (en-US)
+PackageIdentifier: TalkToAI.ZeroOne
+PackageVersion: 0.6.3
+PackageLocale: en-US
+Publisher: QUANTUMENCRYPTION1 LTD
+PublisherUrl: https://talktoai.org/
+PublisherSupportUrl: https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/issues
+Author: QUANTUMENCRYPTION1 LTD / ResearchForumOnline
+PackageName: ZERO ONE
+PackageUrl: https://talktoai.org/ZeroOne/
+License: Apache-2.0
+LicenseUrl: https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/blob/main/LICENSE
+Copyright: Copyright (c) QUANTUMENCRYPTION1 LTD
+ShortDescription: Desktop command center for ZMail, ZeroThink, OpenZero, CallChat, and local ZSEC Shield preview.
+Description: |-
+  ZERO ONE is a desktop command center for the TalkToAI ecosystem.
+  It brings ZMail, ZeroThink, OpenZero, and CallChat into one app with isolated persistent sessions,
+  user-configured endpoints, and an optional local ZSEC Shield on-demand folder scan preview on Windows x64.
+
+  The bundled ZSEC Shield preview is not real-time antivirus protection.
+  Remote workspaces require internet access and may need separate service accounts.
+Moniker: zero-one
+Tags:
+  - ai
+  - callchat
+  - command-center
+  - desktop
+  - openzero
+  - productivity
+  - talktoai
+  - workspace
+  - zero-one
+  - zerothink
+  - zmail
+  - zsec
+ReleaseNotes: |-
+  Stay signed in for ZeroThink and ZMail, encrypted saved workspace logins (Windows DPAPI / safeStorage),
+  and Windows packaging/CI integrity fixes so version bumps no longer break package builds.
+ReleaseNotesUrl: https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v0.6.3
+ManifestType: defaultLocale
+ManifestVersion: 1.9.0

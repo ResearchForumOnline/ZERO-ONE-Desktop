@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Install ZERO ONE — phone, Windows, Mac, Linux</title>
+  <meta name="description" content="Install ZERO ONE in one place: Android APK, iPhone Home Screen app, Windows, macOS, Linux. No store account required.">
+  <link rel="canonical" href="https://talktoai.org/ZeroOne/install/">
+  <meta name="theme-color" content="#05070b">
+  <meta property="og:title" content="Install ZERO ONE">
+  <meta property="og:description" content="Phone + desktop install links and QR codes.">
+  <meta property="og:url" content="https://talktoai.org/ZeroOne/install/">
+  <style>
+    :root{color-scheme:dark;--ink:#f2f7ff;--muted:#a8b6c9;--cyan:#16e8d5;--green:#00ff85;--line:rgba(255,255,255,.14)}
+    *{box-sizing:border-box}body{margin:0;font:16px/1.55 Inter,system-ui,sans-serif;background:#05070b;color:var(--ink)}
+    body:before{content:"";position:fixed;inset:0;z-index:-1;background:radial-gradient(circle at 20% 0,rgba(22,232,213,.12),transparent 40%),#05070b}
+    .wrap{width:min(980px,calc(100% - 32px));margin:auto;padding:28px 0 64px}
+    a{color:var(--cyan)} .muted{color:var(--muted)}
+    h1{font-size:clamp(32px,6vw,48px);letter-spacing:-.05em;line-height:1.05;margin:10px 0}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:22px}
+    .card{border:1px solid var(--line);border-radius:18px;padding:18px;background:rgba(255,255,255,.03);display:flex;flex-direction:column;gap:10px}
+    .card h2{margin:0;font-size:18px}
+    .card p{margin:0;color:var(--muted);font-size:13.5px;flex:1}
+    .btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:999px;text-decoration:none;font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--green));color:#032521}
+    .btn2{background:transparent;border:1px solid var(--line);color:#fff}
+    .qr{width:140px;height:140px;border-radius:12px;background:#fff;padding:8px;align-self:flex-start}
+    .hash{font:12px/1.4 ui-monospace,monospace;color:var(--muted);word-break:break-all}
+    nav{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .brand{font-weight:800;letter-spacing:.12em;color:#fff;text-decoration:none}
+    footer{margin-top:36px;color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="brand" href="/ZeroOne/">Ø ZERO ONE</a>
+      <div>
+        <a class="btn2 btn" href="/ZeroOne/">All downloads</a>
+        <a class="btn2 btn" href="https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/latest">GitHub</a>
+      </div>
+    </nav>
+    <p class="muted">ONE LINK · PHONE + DESKTOP</p>
+    <h1>Install without the store maze.</h1>
+    <p class="muted">Scan a QR or tap a button. Android APK and desktop installers host on GitHub + talktoai.org. iPhone uses Home Screen install (PWA).</p>
+
+    <div class="grid">
+      <article class="card">
+        <img class="qr" src="qr/pwa.png" alt="QR code for ZERO ONE mobile web app" width="140" height="140">
+        <h2>Phone app (fastest)</h2>
+        <p>Works on Android &amp; iPhone. Open, then Add to Home Screen for an app icon.</p>
+        <a class="btn" href="/ZeroOne/app/">Open mobile app</a>
+      </article>
+      <article class="card">
+        <img class="qr" src="qr/apk.png" alt="QR code for Android APK" width="140" height="140">
+        <h2>Android APK (signed)</h2>
+        <p>Sideload install. Allow “unknown apps” for your browser once.</p>
+        <a class="btn" href="/ZeroOne/ZERO-ONE-0.1.1-android-release.apk">Download APK</a>
+        <p class="hash">SHA256 AA066F98D3F989C9CDB8BB1CB13383BF2567C7759B79FCCF6D9B744536406FE2</p>
+      </article>
+      <article class="card">
+        <img class="qr" src="qr/win.png" alt="QR code for Windows installer" width="140" height="140">
+        <h2>Windows 10/11</h2>
+        <p>ZERO ONE Desktop 0.6.3 — stay signed in, ZMail autofill, ZSEC.</p>
+        <a class="btn" href="https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v0.6.3/ZERO-ONE-0.6.3-win-x64.exe">Download EXE</a>
+        <p class="hash">SHA256 2352DA64394017D93DC6F9B7A486CF0DBD7ED26082EEB37B5CE69F1401A9259B</p>
+      </article>
+      <article class="card">
+        <img class="qr" src="qr/install.png" alt="QR code for ZERO ONE install page" width="140" height="140">
+        <h2>Mac · Linux · more</h2>
+        <p>DMG, AppImage, DEB, Play kit, winget/scoop manifests on the full downloads page.</p>
+        <a class="btn btn2" href="/ZeroOne/#desktop">Desktop packages</a>
+        <a class="btn btn2" href="/ZeroOne/play/">Play kit</a>
+      </article>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <h2>Power users</h2>
+      <p><strong>Windows (after winget PR merges):</strong> <code>winget install TalkToAI.ZeroOne</code></p>
+      <p><strong>Scoop:</strong> add bucket using <code>distribution/scoop/zero-one.json</code> from the desktop repo.</p>
+      <p><strong>Obtainium / APK updaters:</strong> point at the GitHub Mobile release or the APK URL above.</p>
+      <p><strong>Source:</strong> <a href="https://github.com/ResearchForumOnline/ZERO-ONE-Desktop">Desktop</a> · <a href="https://github.com/ResearchForumOnline/ZERO-ONE-Mobile">Mobile</a></p>
+    </div>
+
+    <footer>© 2026 QUANTUMENCRYPTION1 LTD · Apache-2.0 · Unsigned Windows builds may show SmartScreen until Authenticode is purchased.</footer>
+  </div>
+</body>
+</html>

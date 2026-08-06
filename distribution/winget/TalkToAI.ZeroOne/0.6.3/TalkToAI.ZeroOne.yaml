@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.9.0.schema.json
+# ZERO ONE Desktop — winget version manifest (multi-file)
+# Submit path in winget-pkgs: manifests/t/TalkToAI/ZeroOne/0.6.3/
+PackageIdentifier: TalkToAI.ZeroOne
+PackageVersion: 0.6.3
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.9.0

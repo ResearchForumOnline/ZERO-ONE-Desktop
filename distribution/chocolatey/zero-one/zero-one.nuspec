@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>zero-one</id>
+    <version>0.6.3</version>
+    <title>ZERO ONE Desktop</title>
+    <authors>QUANTUMENCRYPTION1 LTD</authors>
+    <owners>ResearchForumOnline</owners>
+    <projectUrl>https://talktoai.org/ZeroOne/</projectUrl>
+    <projectSourceUrl>https://github.com/ResearchForumOnline/ZERO-ONE-Desktop</projectSourceUrl>
+    <docsUrl>https://talktoai.org/ZeroOne/</docsUrl>
+    <bugTrackerUrl>https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/issues</bugTrackerUrl>
+    <licenseUrl>https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <summary>Desktop command center for ZMail, ZeroThink, OpenZero, CallChat, and local ZSEC Shield preview.</summary>
+    <description><![CDATA[
+ZERO ONE is a desktop command center for the TalkToAI ecosystem from QUANTUMENCRYPTION1 LTD / ResearchForumOnline.
+
+## Features
+
+- Four connected workspaces: ZMail, ZeroThink, OpenZero, and CallChat
+- Isolated persistent sessions per workspace
+- Stay signed in (ZeroThink + ZMail) with encrypted saved logins on Windows
+- Optional local ZSEC Shield on-demand folder scan preview (Windows x64)
+
+## Notes
+
+- Installer is electron-builder NSIS (oneClick). Silent install uses `/S`.
+- The bundled ZSEC Shield preview is **not** real-time antivirus protection.
+- Remote workspaces require internet access and may need separate service accounts.
+
+## Package source
+
+- Homepage: https://talktoai.org/ZeroOne/
+- Source: https://github.com/ResearchForumOnline/ZERO-ONE-Desktop
+- License: Apache-2.0
+]]></description>
+    <releaseNotes><![CDATA[
+0.6.3
+
+- Stay signed in for ZeroThink and ZMail (longer-lived session cookies + restore on launch)
+- Encrypted saved workspace logins via Windows DPAPI / Electron safeStorage
+- Windows packaging and CI integrity fixes so version bumps do not break package builds
+
+Release notes: https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v0.6.3
+]]></releaseNotes>
+    <tags>zero-one talktoai desktop electron zmail zerothink openzero callchat zsec productivity</tags>
+    <copyright>Copyright (c) QUANTUMENCRYPTION1 LTD</copyright>
+    <language>en-US</language>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

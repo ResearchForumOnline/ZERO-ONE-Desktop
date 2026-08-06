@@ -1,0 +1,37 @@
+{
+  "version": "0.6.3",
+  "description": "ZERO ONE desktop command center for ZMail, ZeroThink, OpenZero, CallChat, and the local ZSEC Shield preview.",
+  "homepage": "https://talktoai.org/ZeroOne/",
+  "license": "Apache-2.0",
+  "notes": [
+    "ZERO ONE is published by QUANTUMENCRYPTION1 LTD / ResearchForumOnline.",
+    "Source: https://github.com/ResearchForumOnline/ZERO-ONE-Desktop",
+    "The bundled ZSEC Shield preview is not real-time antivirus protection."
+  ],
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v0.6.3/ZERO-ONE-0.6.3-win-x64.exe#/dl.7z",
+      "hash": "2352da64394017d93dc6f9b7a486cf0dbd7ed26082eeb37b5ce69f1401a9259b"
+    }
+  },
+  "pre_install": [
+    "if (!(Test-Path \"$persist_dir\")) { New-Item -ItemType Directory -Path \"$persist_dir\" | Out-Null }"
+  ],
+  "bin": "ZERO ONE.exe",
+  "shortcuts": [
+    [
+      "ZERO ONE.exe",
+      "ZERO ONE"
+    ]
+  ],
+  "checkver": {
+    "github": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v$version/ZERO-ONE-$version-win-x64.exe#/dl.7z"
+      }
+    }
+  }
+}
