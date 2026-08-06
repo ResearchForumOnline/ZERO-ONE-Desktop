@@ -49,10 +49,11 @@ function verifyNativeZsec(vendorRoot, provenancePath, platform = process.platfor
   if (expectedArch !== expected.architecture) fail(`unsupported architecture ${architecture}`);
 
   const root = path.resolve(vendorRoot);
+  const packageVersion = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8")).version;
   const provenance = JSON.parse(fs.readFileSync(path.resolve(provenancePath), "utf8"));
   if (
     provenance.schema !== "zero-one.zsec-native-provenance.v1"
-    || provenance.consumerVersion !== "0.6.2"
+    || provenance.consumerVersion !== packageVersion
     || provenance.release !== "v0.1.2"
     || provenance.asset !== expected.archive
     || provenance.archiveSha256 !== expected.archiveSha256

@@ -342,6 +342,11 @@ function ServiceWorkspace({ service, settings, probe }: { service: ServiceDefini
 
   useEffect(() => { setWorkspaceUrl(configuredUrl); setReloadKey((value) => value + 1); }, [configuredUrl]);
   useEffect(() => {
+    if (service.id !== "zmail") return;
+    // Refresh ZMail cookies when the workspace is opened.
+    void window.zeroOne.keepZmailSessionAlive?.();
+  }, [service.id]);
+  useEffect(() => {
     if (service.id !== "zerothink") return;
     if (!settings.hasZeroThinkAccount) {
       setRestoringAccount(false);
@@ -430,18 +435,18 @@ function ServiceWorkspace({ service, settings, probe }: { service: ServiceDefini
         <div className="workspace-actions"><span className="workspace-health"><StatusDot state={probe?.state} />{probe?.state === "online" ? "reachable" : probe?.state || "checking"}</span><button onClick={retry}>Retry</button><button onClick={() => window.zeroOne.openExternal(workspaceUrl)}><Icon name="external" size={17} /> Browser</button></div>
       </div>
       {service.id === "zerothink" && (
-        <div className={`account-banner ${accountLinked ? "linked" : accountState}`} role="status" aria-live="polite"><div><strong>{accountLinked ? "Desktop session active" : pairing ? "Finish sign-in, then return here…" : restoringAccount ? "Checking your saved desktop session…" : accountState === "needs-link" ? "ZERO ONE is not signed in" : "Sign in to ZeroThink"}</strong><span>{accountError || (accountLinked ? `${accountEmail || "ZeroThink account"} · Signed in inside ZERO ONE.` : "A normal browser opens for Google approval. Keep ZERO ONE open until this banner confirms the desktop session; browser sign-in alone is not confirmation.")}</span></div>{accountLinked ? <button className="secondary-action" onClick={signOutZeroThink}>Sign out</button> : <><button className="primary-action" disabled={pairing || restoringAccount} onClick={pairZeroThink}>{pairing ? "Waiting for desktop approval…" : restoringAccount ? "Checking account…" : accountState === "needs-link" ? "Retry secure sign-in ↗" : "Sign in with Google ↗"}</button><button className="secondary-action" disabled={restoringAccount} onClick={() => setWorkspaceUrl("https://zerothink.talktoai.org/guest")}>Continue as guest</button></>}</div>
+        <div className={`account-banner ${accountLinked ? "linked" : accountState}`} role="status" aria-live="polite"><div><strong>{accountLinked ? "Signed in on this PC" : pairing ? "Finish Google approval in your browser…" : restoringAccount ? "Restoring your saved ZeroThink login…" : accountState === "needs-link" ? "Saved login needs a quick refresh" : "Sign in to ZeroThink (one time)"}</strong><span>{accountError || (accountLinked ? `${accountEmail || "ZeroThink account"} · Stays signed in after you close ZERO ONE.` : "Click Sign in with Google. Approve once in your browser, then return here. ZERO ONE saves the link so you should not need to do this every time.")}</span></div>{accountLinked ? <button className="secondary-action" onClick={signOutZeroThink}>Sign out</button> : <><button className="primary-action" disabled={pairing || restoringAccount} onClick={pairZeroThink}>{pairing ? "Waiting for approval…" : restoringAccount ? "Restoring login…" : accountState === "needs-link" ? "Sign in again ↗" : "Sign in with Google ↗"}</button><button className="secondary-action" disabled={restoringAccount} onClick={() => setWorkspaceUrl("https://zerothink.talktoai.org/guest")}>Continue as guest</button></>}</div>
       )}
       {service.id === "callchat" && !settings.mediaEnabled && (
         <div className="permission-banner"><Icon name="call" size={18} /><span>Camera and microphone are locked. Enable CallChat media in Settings when you want to make a call.</span></div>
       )}
       {service.id === "zmail" && (
         <div className="openzero-context-banner" role="note">
-          <strong>Persistent session</strong>
-          <span>ZMail stays signed in inside ZERO ONE (7-day server session + keep-alive while the app is open).</span>
+          <strong>Remember login</strong>
+          <span>Sign in once. ZERO ONE saves your ZMail username and password on this PC (encrypted) and fills the form next time.</span>
           <i aria-hidden="true" />
-          <strong>Partition</strong>
-          <span>Cookies live only in the isolated ZMail workspace — not in your browser.</span>
+          <strong>Stay signed in</strong>
+          <span>Cookies stay in the ZMail workspace only. Keep-alive runs while the app is open so you are not kicked out for idle.</span>
         </div>
       )}
       {service.id === "openzero" && probe?.state !== "offline" && (
@@ -475,7 +480,7 @@ function ServiceWorkspace({ service, settings, probe }: { service: ServiceDefini
               <button className={zeroThinkPath === "/faq" ? "active" : ""} onClick={() => openZeroThinkPath("/faq")}><Icon name="shield" size={16} /><span>Help &amp; FAQ</span></button>
               <button className={zeroThinkPath === "/cli" ? "active" : ""} onClick={() => openZeroThinkPath("/cli")}><Icon name="agents" size={16} /><span>Optional CLI</span></button>
             </nav>
-            <div className="zerothink-account-card"><span className={accountLinked ? "online" : "guest"}>{accountLinked ? (accountEmail.slice(0, 1).toUpperCase() || "Z") : "G"}</span><div><strong>{accountLinked ? (accountEmail || "ZeroThink account") : "Guest workspace"}</strong><small>{accountLinked ? "Desktop session active" : accountState === "checking" ? "Checking saved session" : "Not signed in to the app"}</small></div></div>
+            <div className="zerothink-account-card"><span className={accountLinked ? "online" : "guest"}>{accountLinked ? (accountEmail.slice(0, 1).toUpperCase() || "Z") : "G"}</span><div><strong>{accountLinked ? (accountEmail || "ZeroThink account") : "Guest workspace"}</strong><small>{accountLinked ? "Saved on this PC" : accountState === "checking" ? "Restoring login…" : "Not signed in"}</small></div></div>
           </aside>
           {workspaceSurface}
         </div>
@@ -546,6 +551,17 @@ function SettingsView({ settings, openZeroProbe, onSaved }: { settings: ZeroOneS
     }
   };
 
+  const [savedLogins, setSavedLogins] = useState<Array<{ origin: string; username: string; updatedAt?: string }>>([]);
+  const refreshSavedLogins = async () => {
+    try {
+      const list = await window.zeroOne.listSavedWorkspaceLogins?.();
+      setSavedLogins(Array.isArray(list) ? list : []);
+    } catch {
+      setSavedLogins([]);
+    }
+  };
+  useEffect(() => { void refreshSavedLogins(); }, []);
+
   const clearLocalData = async () => {
     setMessage("");
     try {
@@ -601,8 +617,24 @@ function SettingsView({ settings, openZeroProbe, onSaved }: { settings: ZeroOneS
           <label className="check-row"><input type="checkbox" checked={draft.mediaEnabled} onChange={(event) => setDraft({ ...draft, mediaEnabled: event.target.checked })} /><span><strong>Allow camera and microphone in CallChat</strong><small>Other workspaces remain blocked from camera and microphone access.</small></span></label>
         </section>
         <section className="settings-section glass-card account-setup">
-          <div className="settings-heading"><div><p>ZEROTHINK</p><h2>Account access</h2></div><span>CLI is optional</span></div>
-          <p>ZeroThink uses the same secure browser-pairing flow as its CLI: your normal browser handles Google sign-in, then ZERO ONE receives only the approved account link. The separate CLI remains optional.</p>
+          <div className="settings-heading"><div><p>ZEROTHINK</p><h2>Account access</h2></div><span>Sign in once</span></div>
+          <p>Open the ZeroThink workspace and click <strong>Sign in with Google</strong>. Approve once in your browser, then return here. ZERO ONE stores a secure desktop link so you stay signed in after you close the app.</p>
+          {settings.hasZeroThinkAccount ? <p className="no-token-note"><Icon name="shield" size={15} /> Saved ZeroThink account{settings.zeroThinkEmail ? `: ${settings.zeroThinkEmail}` : ""} · restore runs automatically when you open ZeroThink.</p> : <p className="no-token-note">No ZeroThink account linked yet. Open ZeroThink and sign in once.</p>}
+        </section>
+        <section className="settings-section glass-card">
+          <div className="settings-heading"><div><p>ZMAIL &amp; WORKSPACES</p><h2>Saved logins on this PC</h2></div><span>Encrypted by Windows</span></div>
+          <p>When you sign into ZMail inside ZERO ONE, your username and password can be saved on this computer (encrypted) and filled in next time. Cookies also stay in the ZMail workspace so you stay signed in when possible.</p>
+          {savedLogins.length === 0 ? <p className="no-token-note">No saved workspace logins yet. Sign into ZMail once inside ZERO ONE and submit the login form — it will be remembered automatically.</p> : (
+            <ul className="saved-login-list">
+              {savedLogins.map((entry) => (
+                <li key={entry.origin}>
+                  <div><strong>{entry.username}</strong><small>{entry.origin}</small></div>
+                  <button type="button" className="secondary-action" onClick={async () => { await window.zeroOne.deleteSavedWorkspaceLogin?.(entry.origin); await refreshSavedLogins(); setMessage("Saved login removed."); }}>Remove</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {savedLogins.length > 0 && <button type="button" className="secondary-action data-clear-action" onClick={async () => { await window.zeroOne.clearSavedWorkspaceLogins?.(); await refreshSavedLogins(); setMessage("All saved workspace logins cleared."); }}>Clear all saved logins</button>}
         </section>
         <section className="settings-section glass-card assistant-setup">
           <div className="settings-heading"><div><p>ASSISTANT DRAWER</p><h2>Choose how the quick chat answers</h2></div><span>Local model recommended</span></div>
@@ -667,7 +699,7 @@ function SettingsView({ settings, openZeroProbe, onSaved }: { settings: ZeroOneS
         </section>
         <section className="settings-section glass-card">
           <div className="settings-heading"><div><p>DESKTOP</p><h2>App behavior</h2></div><span>Privacy-first defaults</span></div>
-          <button type="button" className="secondary-action data-clear-action" onClick={clearLocalData}>Clear desktop data</button><small className="data-clear-note">Removes this app's settings, encrypted OpenZero token, and embedded workspace cookies/storage after confirmation. Server-side data and saved diagnostics are not deleted.</small>
+          <button type="button" className="secondary-action data-clear-action" onClick={clearLocalData}>Clear desktop data</button><small className="data-clear-note">Removes settings, encrypted tokens, saved ZMail logins, and workspace cookies after confirmation. Server accounts and diagnostics files you saved are not deleted.</small>
           <button type="button" className="secondary-action quit-action" onClick={() => window.zeroOne.quitApp()}>Quit ZERO ONE completely</button>
         </section>
         <section className="settings-section glass-card">
@@ -835,7 +867,7 @@ function Welcome({ onFinish, onSetup }: { onFinish: () => void; onSetup: () => v
     <span className="welcome-mark">Ø</span><p>WELCOME TO ZERO ONE</p><h1 id="welcome-title">Your workspaces, in one calm desktop.</h1>
     <div className="welcome-points">
       <article><strong>1. Assistant needs no config</strong><span>Private chat uses OpenZero Local + Ollama on this PC. Download the model once if prompted — no cloud key.</span></article>
-      <article><strong>2. Workspaces stay signed in</strong><span>ZMail, ZeroThink, OpenZero and CallChat keep isolated sessions. ZMail is hardened for multi-day login.</span></article>
+      <article><strong>2. Sign in once — stay signed in</strong><span>ZMail remembers your username and password on this PC (encrypted). ZeroThink saves a secure desktop link so you do not re-do Google every launch.</span></article>
       <article><strong>3. ZSEC Shield is local</strong><span>On-demand folder scanning stays on this computer. Server ZSEC handles Linux security updates separately.</span></article>
     </div>
     <div className="welcome-actions"><button className="secondary-action" onClick={onSetup}>Review setup</button><button className="primary-action" onClick={onFinish}>Start using ZERO ONE</button></div>

@@ -7,6 +7,10 @@ contextBridge.exposeInMainWorld("zeroOne", {
   startZeroThinkSignIn: () => ipcRenderer.invoke("zerothink:sign-in"),
   restoreZeroThinkSession: () => ipcRenderer.invoke("zerothink:restore-session"),
   signOutZeroThink: () => ipcRenderer.invoke("zerothink:sign-out"),
+  listSavedWorkspaceLogins: () => ipcRenderer.invoke("workspace:list-logins"),
+  deleteSavedWorkspaceLogin: (origin) => ipcRenderer.invoke("workspace:delete-login", origin),
+  clearSavedWorkspaceLogins: () => ipcRenderer.invoke("workspace:clear-logins"),
+  keepZmailSessionAlive: () => ipcRenderer.invoke("workspace:keep-zmail-alive"),
   quitApp: () => ipcRenderer.invoke("app:quit"),
   onAppNavigate: (callback) => {
     const listener = (_event, view) => callback(view);

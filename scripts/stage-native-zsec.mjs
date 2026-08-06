@@ -30,9 +30,10 @@ try {
   const extract = spawnSync("tar", ["-xzf", archivePath, "-C", temporary], { encoding: "utf8" });
   if (extract.status !== 0) throw new Error(`ZSEC extraction failed: ${extract.stderr || extract.stdout}`);
   const extracted = path.join(temporary, expected.archiveRoot);
+  const packageVersion = JSON.parse(fs.readFileSync(path.join(projectRoot, "package.json"), "utf8")).version;
   const provenance = {
     schema: "zero-one.zsec-native-provenance.v1",
-    consumerVersion: "0.6.2",
+    consumerVersion: packageVersion,
     repository: "ResearchForumOnline/ZSEC-Shield",
     release: "v0.1.2",
     asset: expected.archive,

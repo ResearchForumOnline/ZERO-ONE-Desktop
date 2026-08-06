@@ -54,6 +54,13 @@ describe("responsive desktop shell", () => {
     expect(main).toContain('credentials: "include"');
     expect(main).toContain("targetSession.cookies.set");
     expect(main).toContain('name: "PHPSESSID"');
+    expect(main).toContain("expirationDate:");
+    expect(main).toContain("zeroThinkIdentityFromCookies");
+    expect(main).toContain("flushAllWorkspaceSessions");
+    expect(main).toContain("hardenPartitionCookies");
+    expect(main).toContain("buildLoginAssistScript");
+    expect(main).toContain("ZERO_ONE_SAVE_LOGIN_SIGNAL");
+    expect(main).toContain("capturePendingWorkspaceLogin");
     expect(main).toContain('body: JSON.stringify({ action: "me" })');
     expect(main).toContain('identity.status !== "success"');
     expect(main).toContain('body: JSON.stringify({ access_token: accessToken })');
@@ -61,18 +68,24 @@ describe("responsive desktop shell", () => {
     expect(main).toContain('finalResponseUrl ? new URL(finalResponseUrl) : null');
     expect(main).toContain('finalUrl && (finalUrl.origin !== ZERO_THINK_ORIGIN || !finalUrl.pathname.startsWith("/studio"))');
     expect(main).toContain('ipcMain.handle("zerothink:restore-session"');
+    expect(main).toContain('ipcMain.handle("workspace:list-logins"');
     expect(preload).toContain('restoreZeroThinkSession: () => ipcRenderer.invoke("zerothink:restore-session")');
     expect(preload).toContain('signOutZeroThink: () => ipcRenderer.invoke("zerothink:sign-out")');
+    expect(preload).toContain("listSavedWorkspaceLogins");
+    expect(preload).toContain("keepZmailSessionAlive");
   });
 
   it("gives ZeroThink a responsive, honest task-space shell", () => {
     expect(app).toContain('className="zerothink-dock"');
-    expect(app).toContain("Desktop session active");
-    expect(app).toContain("browser sign-in alone is not confirmation");
+    expect(app).toContain("Signed in on this PC");
+    expect(app).toContain("Stays signed in after you close ZERO ONE");
     expect(app).toContain('accountState === "linked"');
-    expect(app).toContain("Optional CLI");
+    expect(app).toContain("Sign in once");
+    expect(app).toContain("Saved logins on this PC");
+    expect(app).toContain("Remember login");
     expect(css).toContain(".zerothink-layout.dock-collapsed");
     expect(css).toContain("@media(max-width:560px)");
+    expect(css).toContain(".saved-login-list");
   });
 
   it("makes OpenZero the guided Assistant default with optional hosted providers", () => {

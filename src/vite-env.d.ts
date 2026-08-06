@@ -88,6 +88,10 @@ interface Window {
     startZeroThinkSignIn(): Promise<{ status: string; email: string; userCode: string; url?: string }>;
     restoreZeroThinkSession(): Promise<{ status: string; email: string; url?: string; message?: string }>;
     signOutZeroThink(): Promise<boolean>;
+    listSavedWorkspaceLogins?: () => Promise<Array<{ origin: string; username: string; updatedAt?: string }>>;
+    deleteSavedWorkspaceLogin?: (origin: string) => Promise<boolean>;
+    clearSavedWorkspaceLogins?: () => Promise<boolean>;
+    keepZmailSessionAlive?: () => Promise<boolean>;
     quitApp(): Promise<boolean>;
     onAppNavigate(callback: (view: string) => void): () => void;
     getSystemSnapshot(): Promise<SystemSnapshot>;
