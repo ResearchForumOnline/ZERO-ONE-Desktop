@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ZERO ONE status</title>
+  <link rel="canonical" href="https://talktoai.org/ZeroOne/status/">
+  <style>
+    body{margin:0;font:15px/1.5 system-ui,sans-serif;background:#05070b;color:#eef3ff;padding:28px}
+    main{max-width:720px;margin:auto}
+    a{color:#16e8d5}
+    pre{background:#111;padding:14px;border-radius:12px;overflow:auto;border:1px solid rgba(255,255,255,.1)}
+    .ok{color:#00ff85}.bad{color:#ff8da0}
+    h1{letter-spacing:-.03em}
+  </style>
+</head>
+<body>
+<main>
+  <h1>ZERO ONE status</h1>
+  <p>Live release pointers for installers and the mobile app. Auto-refreshes every 60s.</p>
+  <p id="state">Loading…</p>
+  <pre id="json">…</pre>
+  <p><a href="/ZeroOne/install/">Install hub</a> · <a href="/ZeroOne/">Downloads</a> · <a href="/ZeroOne/status.json">Raw JSON</a></p>
+</main>
+<script>
+async function load(){
+  const el=document.getElementById('json');
+  const st=document.getElementById('state');
+  try{
+    const r=await fetch('../status.json?ts='+Date.now(),{cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    el.textContent=JSON.stringify(data,null,2);
+    st.innerHTML='<span class="ok">OK</span> · desktop <strong>'+data.desktop.version+'</strong> · mobile <strong>'+data.mobile.version+'</strong> · updated '+data.updated;
+  }catch(e){
+    st.innerHTML='<span class="bad">Failed</span> '+e.message;
+  }
+}
+load(); setInterval(load,60000);
+</script>
+</body>
+</html>

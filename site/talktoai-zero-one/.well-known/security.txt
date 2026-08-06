@@ -1,0 +1,5 @@
+Contact: https://talktoai.org/ZeroOne/
+Preferred-Languages: en
+Canonical: https://talktoai.org/ZeroOne/.well-known/security.txt
+Policy: https://talktoai.org/ZeroOne/privacy-mobile
+Expires: 2027-08-06T00:00:00.000Z

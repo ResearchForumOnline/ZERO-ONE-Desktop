@@ -1,0 +1,26 @@
+# ZERO ONE download area
+Options -Indexes
+
+# Correct MIME types for installers
+AddType application/vnd.android.package-archive .apk
+AddType application/x-msdownload .exe
+AddType application/java-archive .aab
+AddType application/json .json
+AddType image/svg+xml .svg
+
+# Cache static assets
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/png "access plus 7 days"
+  ExpiresByType image/jpeg "access plus 7 days"
+  ExpiresByType application/javascript "access plus 1 day"
+  ExpiresByType text/css "access plus 1 day"
+  ExpiresByType application/json "access plus 1 hour"
+</IfModule>
+
+# Security headers (safe defaults)
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>
