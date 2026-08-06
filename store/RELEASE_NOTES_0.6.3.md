@@ -23,6 +23,7 @@ Stay signed in. This release fixes the desktop logout-on-close behavior users hi
 - `beforePack` now reads `consumer_version` from `vendor/zsec-shield.lock.json` and compares it to the app version (no hard-coded app version string).
 - Windows ZSEC staging asserts lock `consumer_version` equals `package.json` version dynamically.
 - Native ZSEC provenance `consumerVersion` is taken from `package.json` at stage time and verified the same way.
+- CI no longer uses a single multi-OS matrix gate for packaging: Windows verify + pack run independently of macOS runner queues (which were stranding Windows builds for 10+ minutes).
 
 ## Usability copy
 

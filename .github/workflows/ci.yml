@@ -8,12 +8,36 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+  # Separate jobs (not one matrix) so Windows packaging is never blocked by
+  # macOS runner capacity queues while still verifying every platform.
+  verify-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.14.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+
+  verify-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.14.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+
+  verify-ubuntu:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -26,7 +50,7 @@ jobs:
       - run: npm run check
 
   package-windows:
-    needs: verify
+    needs: verify-windows
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
