@@ -110,7 +110,7 @@ interface Window {
     saveSettings(settings: Partial<ZeroOneSettings>): Promise<ZeroOneSettings>;
     clearLocalData(): Promise<{ cleared: boolean }>;
     probeServices(): Promise<ServiceProbe[]>;
-    connectOpenZeroDesktop(): Promise<{ settings: ZeroOneSettings; hint: string }>;
+    connectOpenZeroDesktop(): Promise<{ settings: ZeroOneSettings; hint: string; model: string; models: string[] }>;
     chat(request: { model: string; messages: Array<{ role: "user" | "assistant" | "system"; content: string }> }): Promise<{ content: string; model: string; provider?: string }>;
     openExternal(url: string): Promise<boolean>;
     exportDiagnostics(): Promise<{ saved: boolean; path?: string }>;

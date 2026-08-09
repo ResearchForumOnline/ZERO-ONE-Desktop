@@ -157,6 +157,9 @@ describe("responsive desktop shell", () => {
     expect(app).toContain("The top-right drawer is fast everyday chat.");
     expect(app).toContain("Chrome or Brave actions stay tab-scoped and require your approval.");
     expect(app).toContain("cgaalobjjknalamgchppccbocnhonhbf");
+    expect(app).toContain("Connect OpenZero + Gemma");
+    expect(app).toContain("openzerogemma:latest");
+    expect(main).toContain('models.includes("openzerogemma:latest")');
     expect(main).toContain('"https://chromewebstore.google.com"');
     expect(main).toContain('new URL("/api/openzero/key", settings.openZeroUrl)');
     expect(app).toContain('field("openZeroUrl", "OpenZero full panel and API"');
