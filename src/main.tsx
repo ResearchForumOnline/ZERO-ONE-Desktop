@@ -22,8 +22,8 @@ if (!window.zeroOne && import.meta.env.DEV) {
     hasZeroThinkAccount: false,
   };
   window.zeroOne = {
-    getAppInfo: async () => ({ name: "ZERO ONE", version: "0.6.4-preview", platform: navigator.platform.toLowerCase().includes("mac") ? "darwin" : navigator.platform.toLowerCase().includes("linux") ? "linux" : "win32", packaged: false }),
-    checkForAppUpdate: async () => ({ status: "current", updateAvailable: false, currentVersion: "0.6.4", latestVersion: "0.6.4", releaseUrl: "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v0.6.4", checkedAt: new Date().toISOString() }),
+    getAppInfo: async () => ({ name: "ZERO ONE", version: "0.6.5-preview", platform: navigator.platform.toLowerCase().includes("mac") ? "darwin" : navigator.platform.toLowerCase().includes("linux") ? "linux" : "win32", packaged: false }),
+    checkForAppUpdate: async () => ({ status: "current", updateAvailable: false, currentVersion: "0.6.5", latestVersion: "0.6.5", releaseUrl: "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v0.6.5", checkedAt: new Date().toISOString() }),
     getUserInterfaceScale: async () => 1,
     setUserInterfaceScale: async (factor) => factor,
     startZeroThinkSignIn: async () => ({ status: "success", email: "preview@example.com", userCode: "PREVIEW" }),
