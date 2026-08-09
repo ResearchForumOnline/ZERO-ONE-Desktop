@@ -70,7 +70,9 @@ describe("desktop security contract", () => {
   it("binds IPC to the main local renderer and rejects insecure credential fallback", () => {
     expect(main).toContain("event?.sender === mainWindow.webContents");
     expect(main).toContain("event?.senderFrame === event.sender.mainFrame");
-    expect(main).toContain('backend !== "basic_text"');
+    expect(main).toContain("isSecureCredentialStorage(safeStorage)");
+    expect(main).toContain('backend === "basic_text" ? "insecure"');
+    expect(readFileSync(resolve(process.cwd(), "electron/workspace-logins.cjs"), "utf8")).toContain('backend !== "basic_text"');
   });
 
   it("keeps ZMath Secure on fixed platform protections and explicit disk consent", () => {

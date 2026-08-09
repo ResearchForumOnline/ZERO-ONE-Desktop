@@ -30,7 +30,7 @@ Use the authenticated [latest ZERO ONE release](https://github.com/ResearchForum
 | Linux x64 | `ZERO-ONE-*-linux-x86_64.AppImage` | Make executable and open |
 | Debian/Ubuntu x64 | `ZERO-ONE-*-linux-amd64.deb` | Open with the software installer or use `sudo apt install ./ZERO-ONE-*-linux-amd64.deb` |
 
-Current source version is **0.6.3**. Published installers are unsigned public builds until Authenticode/notarization ships. Windows SmartScreen or macOS Gatekeeper may show an unknown-publisher warning. Verify downloads against `SHA256SUMS.txt` when present.
+Current source version is **0.6.4**. Published installers are unsigned public builds until Authenticode/notarization ships. Windows SmartScreen or macOS Gatekeeper may show an unknown-publisher warning. Verify downloads against `SHA256SUMS.txt` when present.
 
 ## What is included
 

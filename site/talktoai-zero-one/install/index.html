@@ -52,22 +52,22 @@
       </article>
       <article class="card">
         <img class="qr" src="qr/apk.png" alt="QR code for Android APK" width="140" height="140">
-        <h2>Android APK (signed)</h2>
-        <p>Sideload install. Allow “unknown apps” for your browser once.</p>
-        <a class="btn" href="/ZeroOne/ZERO-ONE-0.1.1-android-release.apk">Download APK</a>
-        <p class="hash">SHA256 AA066F98D3F989C9CDB8BB1CB13383BF2567C7759B79FCCF6D9B744536406FE2</p>
+        <h2>Android APK (sideload)</h2>
+        <p>Cryptographically signed for installation, but not distributed or reviewed by Google Play. Allow “unknown apps” for your browser once.</p>
+        <a class="btn" href="/ZeroOne/ZERO-ONE-android-latest.apk">Download latest APK</a>
+        <a class="btn btn2" href="/ZeroOne/ZERO-ONE-0.4.0-android-release.apk">Versioned APK 0.4.0</a>
       </article>
       <article class="card">
         <img class="qr" src="qr/win.png" alt="QR code for Windows installer" width="140" height="140">
         <h2>Windows 10/11</h2>
-        <p>ZERO ONE Desktop 0.6.3 — stay signed in, ZMail autofill, ZSEC.</p>
-        <a class="btn" href="https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v0.6.3/ZERO-ONE-0.6.3-win-x64.exe">Download EXE</a>
-        <p class="hash">SHA256 2352DA64394017D93DC6F9B7A486CF0DBD7ED26082EEB37B5CE69F1401A9259B</p>
+        <p>ZERO ONE Desktop 0.6.4 — persistent workspace tabs, optional secure login saving, local Assistant and ZSEC.</p>
+        <a class="btn" href="https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v0.6.4/ZERO-ONE-0.6.4-win-x64.exe">Download EXE</a>
+        <p class="hash">Verify the installer against the release SHA256SUMS.txt file.</p>
       </article>
       <article class="card">
         <img class="qr" src="qr/install.png" alt="QR code for ZERO ONE install page" width="140" height="140">
         <h2>Mac · Linux · more</h2>
-        <p>DMG, AppImage, DEB, Play kit, winget/scoop manifests on the full downloads page.</p>
+        <p>DMG, AppImage, DEB and the Play submission kit are linked from the full downloads page.</p>
         <a class="btn btn2" href="/ZeroOne/#desktop">Desktop packages</a>
         <a class="btn btn2" href="/ZeroOne/play/">Play kit</a>
       </article>
@@ -76,12 +76,12 @@
     <div class="card" style="margin-top:18px">
       <h2>Power users</h2>
       <p><strong>Windows (after winget PR merges):</strong> <code>winget install TalkToAI.ZeroOne</code></p>
-      <p><strong>Scoop:</strong> add bucket using <code>distribution/scoop/zero-one.json</code> from the desktop repo.</p>
+      <p><strong>Scoop:</strong> a manifest is staged in the desktop source repository; use the verified release installers until a public bucket is available.</p>
       <p><strong>Obtainium / APK updaters:</strong> point at the GitHub Mobile release or the APK URL above.</p>
       <p><strong>Source:</strong> <a href="https://github.com/ResearchForumOnline/ZERO-ONE-Desktop">Desktop</a> · <a href="https://github.com/ResearchForumOnline/ZERO-ONE-Mobile">Mobile</a></p>
     </div>
 
-    <p class="muted" style="margin-top:18px"><a href="/ZeroOne/status/">Live status JSON</a> · <a href="/ZeroOne/SHA256SUMS-mobile-0.1.1.txt">Mobile checksums</a> · <a href="/ZeroOne/SHA256SUMS-desktop-0.6.3.txt">Desktop checksums</a></p>
+    <p class="muted" style="margin-top:18px"><a href="/ZeroOne/status/">Live status JSON</a> · <a href="/ZeroOne/SHA256SUMS-mobile-latest.txt">Mobile checksums</a> · <a href="https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v0.6.4/SHA256SUMS.txt">Desktop checksums</a></p>
     <footer>© 2026 QUANTUMENCRYPTION1 LTD · Apache-2.0 · Unsigned Windows builds may show SmartScreen until Authenticode is purchased.</footer>
   </div>
 </body>

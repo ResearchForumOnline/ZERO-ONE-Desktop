@@ -2,19 +2,19 @@
   "product": "ZERO ONE",
   "updated": "2026-08-06T18:42:00Z",
   "desktop": {
-    "version": "0.6.3",
-    "windows": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v0.6.3/ZERO-ONE-0.6.3-win-x64.exe",
-    "sha256_windows": "2352DA64394017D93DC6F9B7A486CF0DBD7ED26082EEB37B5CE69F1401A9259B",
-    "release": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v0.6.3"
+    "version": "0.6.4",
+    "windows": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v0.6.4/ZERO-ONE-0.6.4-win-x64.exe",
+    "sha256_windows": "published-in-release-SHA256SUMS.txt",
+    "release": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v0.6.4"
   },
   "mobile": {
-    "version": "0.1.1",
+    "version": "0.4.0",
     "versionCode": 3,
     "pwa": "https://talktoai.org/ZeroOne/app/",
-    "apk": "https://talktoai.org/ZeroOne/ZERO-ONE-0.1.1-android-release.apk",
-    "aab": "https://talktoai.org/ZeroOne/ZERO-ONE-0.1.1-android-release.aab",
+    "apk": "https://talktoai.org/ZeroOne/ZERO-ONE-0.4.0-android-release.apk",
+    "aab": "https://talktoai.org/ZeroOne/ZERO-ONE-0.4.0-android-release.aab",
     "sha256_apk": "AA066F98D3F989C9CDB8BB1CB13383BF2567C7759B79FCCF6D9B744536406FE2",
-    "release": "https://github.com/ResearchForumOnline/ZERO-ONE-Mobile/releases/tag/v0.1.1"
+    "release": "https://github.com/ResearchForumOnline/ZERO-ONE-Mobile/releases/tag/v0.4.0"
   },
   "links": {
     "install_hub": "https://talktoai.org/ZeroOne/install/",

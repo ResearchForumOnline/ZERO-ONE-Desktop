@@ -3,7 +3,8 @@ const path = require("node:path");
 
 /**
  * Encrypted workspace login store for embedded webviews (ZMail, etc.).
- * Credentials are encrypted with Electron safeStorage when available.
+ * Credentials are encrypted with Electron safeStorage. There is deliberately
+ * no plaintext or base64 fallback when the operating-system vault is absent.
  */
 
 function loginStorePath(userDataPath) {
@@ -44,22 +45,23 @@ async function writeStore(filePath, data) {
   await fs.writeFile(filePath, JSON.stringify(data, null, 2), { encoding: "utf8", mode: 0o600 });
 }
 
+function isSecureCredentialStorage(safeStorage) {
+  if (!safeStorage?.isEncryptionAvailable?.()) return false;
+  const backend = safeStorage.getSelectedStorageBackend?.();
+  return backend !== "basic_text";
+}
+
 function encryptSecret(safeStorage, plain) {
   if (!plain) return "";
-  if (!safeStorage?.isEncryptionAvailable?.()) {
-    // Fall back only if OS vault unavailable — still local file mode 0600.
-    return Buffer.from(plain, "utf8").toString("base64");
-  }
+  if (!isSecureCredentialStorage(safeStorage)) throw new Error("Secure operating-system credential storage is unavailable; the login was not saved.");
   return safeStorage.encryptString(plain).toString("base64");
 }
 
 function decryptSecret(safeStorage, encoded) {
   if (!encoded) return "";
   try {
-    if (safeStorage?.isEncryptionAvailable?.()) {
-      return safeStorage.decryptString(Buffer.from(encoded, "base64"));
-    }
-    return Buffer.from(encoded, "base64").toString("utf8");
+    if (!isSecureCredentialStorage(safeStorage)) return "";
+    return safeStorage.decryptString(Buffer.from(encoded, "base64"));
   } catch {
     return "";
   }
@@ -119,15 +121,18 @@ async function clearAllLogins({ userDataPath }) {
   return true;
 }
 
-/** Build inject script: autofill + save-on-submit for login forms. */
-function buildLoginAssistScript(saved) {
+/** Build inject script: user-triggered fill + explicit save consent. */
+function buildLoginAssistScript(saved, options = {}) {
   const payload = JSON.stringify(saved || null);
+  const canSave = options.canSave === true;
   // Credentials never go through console.log (avoids DevTools / log leakage).
   // Main process receives ZERO_ONE_SAVE_LOGIN_SIGNAL then reads window.__zeroOnePendingLogin.
   return `(() => {
     if (window.__zeroOneLoginAssist) return true;
     window.__zeroOneLoginAssist = true;
     const saved = ${payload};
+    const canSave = ${JSON.stringify(canSave)};
+    const saveApprovedForms = new WeakSet();
 
     function findLoginForms() {
       const forms = Array.from(document.querySelectorAll("form"));
@@ -162,6 +167,8 @@ function buildLoginAssistScript(saved) {
 
     function captureFromForm(form) {
       try {
+        const consent = form.querySelector('input[data-zero-one-save-login-consent="1"]');
+        if (!canSave || !consent || !consent.checked || !saveApprovedForms.has(form)) return;
         const user = pickUserInput(form);
         const pass = form.querySelector('input[type="password"]');
         if (!user || !pass || !user.value || !pass.value) return;
@@ -174,10 +181,46 @@ function buildLoginAssistScript(saved) {
       } catch (_) {}
     }
 
+    function addControls(form) {
+      if (form.querySelector('[data-zero-one-login-controls="1"]')) return;
+      if (!saved && !canSave) return;
+      const controls = document.createElement('div');
+      controls.dataset.zeroOneLoginControls = '1';
+      controls.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0;padding:9px 10px;border:1px solid rgba(50,120,200,.28);border-radius:8px;background:rgba(50,120,200,.06);font:13px system-ui,sans-serif;';
+      if (saved && saved.username && saved.password) {
+        const fillButton = document.createElement('button');
+        fillButton.type = 'button';
+        fillButton.textContent = 'Fill saved ZERO ONE login';
+        fillButton.dataset.zeroOneFillLogin = '1';
+        fillButton.addEventListener('click', (event) => { if (event.isTrusted) fill(form); });
+        controls.appendChild(fillButton);
+      }
+      if (canSave) {
+        const label = document.createElement('label');
+        label.style.cssText = 'display:inline-flex;align-items:center;gap:7px;cursor:pointer;';
+        const consent = document.createElement('input');
+        consent.type = 'checkbox';
+        consent.checked = false;
+        consent.autocomplete = 'off';
+        consent.dataset.zeroOneSaveLoginConsent = '1';
+        consent.addEventListener('change', (event) => {
+          if (event.isTrusted && consent.checked) saveApprovedForms.add(form);
+          else saveApprovedForms.delete(form);
+        });
+        const text = document.createElement('span');
+        text.textContent = saved ? 'Update saved login on this PC' : 'Save login in ZERO ONE on this PC';
+        label.append(consent, text);
+        controls.appendChild(label);
+      }
+      const submit = form.querySelector('button[type="submit"], input[type="submit"]');
+      if (submit && submit.parentNode) submit.parentNode.insertBefore(controls, submit);
+      else form.appendChild(controls);
+    }
+
     function bind(form) {
       if (form.dataset.zeroOneBound) return;
       form.dataset.zeroOneBound = "1";
-      fill(form);
+      addControls(form);
       form.addEventListener("submit", () => captureFromForm(form), true);
       const pass = form.querySelector('input[type="password"]');
       if (pass) {
@@ -211,6 +254,7 @@ module.exports = {
   listLogins,
   clearAllLogins,
   buildLoginAssistScript,
+  isSecureCredentialStorage,
   isSafeOrigin,
   loginStorePath,
 };

@@ -80,15 +80,26 @@ interface ZmathSecurityStatus {
   engine: { state: "interface-only"; message: string };
 }
 
+interface AppUpdateInfo {
+  status: "available" | "current" | "unavailable";
+  updateAvailable: boolean;
+  currentVersion: string;
+  latestVersion: string;
+  releaseUrl: string;
+  checkedAt: string;
+}
+
 interface Window {
   zeroOne: {
     getAppInfo(): Promise<{ name: string; version: string; platform: string; packaged: boolean }>;
+    checkForAppUpdate(): Promise<AppUpdateInfo>;
     getUserInterfaceScale(): Promise<number>;
     setUserInterfaceScale(factor: number): Promise<number>;
     startZeroThinkSignIn(): Promise<{ status: string; email: string; userCode: string; url?: string }>;
     restoreZeroThinkSession(): Promise<{ status: string; email: string; url?: string; message?: string }>;
     signOutZeroThink(): Promise<boolean>;
     listSavedWorkspaceLogins?: () => Promise<Array<{ origin: string; username: string; updatedAt?: string }>>;
+    getWorkspaceCredentialStatus?: () => Promise<{ available: boolean; backend?: string }>;
     deleteSavedWorkspaceLogin?: (origin: string) => Promise<boolean>;
     clearSavedWorkspaceLogins?: () => Promise<boolean>;
     keepZmailSessionAlive?: () => Promise<boolean>;

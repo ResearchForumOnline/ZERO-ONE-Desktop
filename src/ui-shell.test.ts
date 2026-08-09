@@ -38,11 +38,34 @@ describe("responsive desktop shell", () => {
     expect(css).toMatch(/\.sidebar\{overflow-x:hidden\}/);
   });
 
+  it("keeps opened service webviews mounted while making inactive tabs inaccessible", () => {
+    expect(app).toContain("retainMountedServiceTab(current, serviceIdFromView(next))");
+    expect(app).toContain("renderedServiceIds.map((serviceId)");
+    expect(app).toContain("key={serviceId}");
+    expect(app).toContain("aria-hidden={!active}");
+    expect(app).toContain("inert={!active}");
+    expect(css).toContain(".workspace-tab-panel.inactive{visibility:hidden;pointer-events:none;z-index:0}");
+    expect(app).not.toContain("{activeService && <ServiceWorkspace");
+  });
+
   it("exposes bounded zoom to the renderer and embedded workspaces", () => {
     expect(main).toContain("const ZOOM_LEVELS");
     expect(main).toContain("webContents.getAllWebContents()");
     expect(main).toContain('ipcMain.handle("ui:set-zoom"');
     expect(preload).toContain('setUserInterfaceScale: (factor) => ipcRenderer.invoke("ui:set-zoom", factor)');
+  });
+
+  it("checks only for an official stable update and leaves installation to the user", () => {
+    expect(main).toContain('require("./update-check.cjs")');
+    expect(main).toContain('ipcMain.handle("app:check-update"');
+    expect(main).toContain("APP_UPDATE_CACHE_MS");
+    expect(preload).toContain('checkForAppUpdate: () => ipcRenderer.invoke("app:check-update")');
+    expect(app).toContain("ZERO ONE {update.latestVersion} is available");
+    expect(app).toContain("Nothing is downloaded or installed automatically.");
+    expect(app).toContain("Review download ↗");
+    expect(app).toContain("window.setInterval(check, 6 * 60 * 60 * 1000)");
+    expect(css).toContain(".app-update-banner");
+    expect(main).not.toContain("autoUpdater");
   });
 
   it("uses the ZeroThink CLI device flow through the system browser", () => {
@@ -54,10 +77,11 @@ describe("responsive desktop shell", () => {
     expect(main).toContain('credentials: "include"');
     expect(main).toContain("targetSession.cookies.set");
     expect(main).toContain('name: "PHPSESSID"');
-    expect(main).toContain("expirationDate:");
+    expect(main).toContain("latestPhpSessionCookie");
+    expect(main).toContain("sessionCookie.expirationDate");
     expect(main).toContain("zeroThinkIdentityFromCookies");
     expect(main).toContain("flushAllWorkspaceSessions");
-    expect(main).toContain("hardenPartitionCookies");
+    expect(main).not.toContain("hardenPartitionCookies");
     expect(main).toContain("buildLoginAssistScript");
     expect(main).toContain("ZERO_ONE_SAVE_LOGIN_SIGNAL");
     expect(main).toContain("capturePendingWorkspaceLogin");
@@ -72,6 +96,7 @@ describe("responsive desktop shell", () => {
     expect(preload).toContain('restoreZeroThinkSession: () => ipcRenderer.invoke("zerothink:restore-session")');
     expect(preload).toContain('signOutZeroThink: () => ipcRenderer.invoke("zerothink:sign-out")');
     expect(preload).toContain("listSavedWorkspaceLogins");
+    expect(preload).toContain("getWorkspaceCredentialStatus");
     expect(preload).toContain("keepZmailSessionAlive");
   });
 
@@ -82,7 +107,9 @@ describe("responsive desktop shell", () => {
     expect(app).toContain('accountState === "linked"');
     expect(app).toContain("Sign in once");
     expect(app).toContain("Saved logins on this PC");
-    expect(app).toContain("Remember login");
+    expect(app).toContain("Save login is optional");
+    expect(app).toContain("Password saving is off by default");
+    expect(app).not.toContain("it will be remembered automatically");
     expect(css).toContain(".zerothink-layout.dock-collapsed");
     expect(css).toContain("@media(max-width:560px)");
     expect(css).toContain(".saved-login-list");

@@ -1,6 +1,6 @@
 {
   "schema": "zero-one.zsec-vendor-lock.v1",
-  "consumer_version": "0.6.3",
+  "consumer_version": "0.6.4",
   "repository": "ResearchForumOnline/ZSEC-Shield",
   "release": {
     "id": 363682670,

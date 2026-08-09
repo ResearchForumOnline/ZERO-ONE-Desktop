@@ -1,5 +1,5 @@
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SERVICES, ServiceDefinition, ServiceId, serviceById, serviceUrl } from "./lib/services";
+import { SERVICES, ServiceDefinition, ServiceId, retainMountedServiceTab, serviceById, serviceIdFromView, serviceUrl } from "./lib/services";
 
 type View = "home" | "shield" | "agents" | "settings" | `service:${ServiceId}`;
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -68,7 +68,7 @@ function StatusDot({ state }: { state?: ServiceProbe["state"] }) {
   return <span className={`status-dot ${state || "checking"}`} aria-label={state || "checking"} />;
 }
 
-function Sidebar({ view, onNavigate }: { view: View; onNavigate: (view: View) => void }) {
+function Sidebar({ view, mountedServiceIds, onNavigate }: { view: View; mountedServiceIds: readonly ServiceId[]; onNavigate: (view: View) => void }) {
   return (
     <aside className="sidebar">
       <button className="brand-mark" onClick={() => onNavigate("home")} aria-label="ZERO ONE home">
@@ -83,10 +83,12 @@ function Sidebar({ view, onNavigate }: { view: View; onNavigate: (view: View) =>
         {SERVICES.map((service) => (
           <button
             key={service.id}
-            className={`nav-service ${view === `service:${service.id}` ? "active" : ""}`}
+            className={`nav-service ${view === `service:${service.id}` ? "active" : ""} ${mountedServiceIds.includes(service.id) ? "mounted" : ""}`}
             style={{ "--service-accent": service.accent } as React.CSSProperties}
             onClick={() => onNavigate(`service:${service.id}`)}
-            title={service.name}
+            title={`${service.name}${mountedServiceIds.includes(service.id) ? " — open" : ""}`}
+            aria-label={`${service.name}${mountedServiceIds.includes(service.id) ? ", open workspace" : ""}`}
+            aria-current={view === `service:${service.id}` ? "page" : undefined}
           >
             {service.glyph}
           </button>
@@ -136,6 +138,18 @@ function Topbar({ view, probes, system, zoom, copilotOpen, onZoom, onToggleCopil
         </button>
       </div>
     </header>
+  );
+}
+
+function UpdateBanner({ update, onDismiss }: { update: AppUpdateInfo; onDismiss: () => void }) {
+  const reviewRelease = () => { void window.zeroOne.openExternal(update.releaseUrl); };
+  return (
+    <aside className="app-update-banner" role="status" aria-live="polite">
+      <span className="app-update-mark" aria-hidden="true">↑</span>
+      <div><strong>ZERO ONE {update.latestVersion} is available</strong><small>Review the official GitHub release when convenient. Nothing is downloaded or installed automatically.</small></div>
+      <button type="button" className="app-update-review" onClick={reviewRelease}>Review download ↗</button>
+      <button type="button" className="app-update-dismiss" onClick={onDismiss} aria-label={`Dismiss ZERO ONE ${update.latestVersion} update notice`}>×</button>
+    </aside>
   );
 }
 
@@ -326,7 +340,7 @@ function ServiceCard({ service, probe, onOpen }: { service: ServiceDefinition; p
   );
 }
 
-function ServiceWorkspace({ service, settings, probe }: { service: ServiceDefinition; settings: ZeroOneSettings; probe?: ServiceProbe }) {
+function ServiceWorkspace({ service, settings, probe, active }: { service: ServiceDefinition; settings: ZeroOneSettings; probe?: ServiceProbe; active: boolean }) {
   const configuredUrl = serviceUrl(service, settings);
   const [workspaceUrl, setWorkspaceUrl] = useState(configuredUrl);
   const [reloadKey, setReloadKey] = useState(0);
@@ -343,7 +357,7 @@ function ServiceWorkspace({ service, settings, probe }: { service: ServiceDefini
   useEffect(() => { setWorkspaceUrl(configuredUrl); setReloadKey((value) => value + 1); }, [configuredUrl]);
   useEffect(() => {
     if (service.id !== "zmail") return;
-    // Refresh ZMail cookies when the workspace is opened.
+    // Ask ZMail to refresh through its own server-controlled session.
     void window.zeroOne.keepZmailSessionAlive?.();
   }, [service.id]);
   useEffect(() => {
@@ -428,7 +442,12 @@ function ServiceWorkspace({ service, settings, probe }: { service: ServiceDefini
     </div>
   );
   return (
-    <section className="workspace-view">
+    <section
+      className={`workspace-view workspace-tab-panel ${active ? "active" : "inactive"}`}
+      data-service-tab={service.id}
+      aria-hidden={!active}
+      inert={!active}
+    >
       <div className="workspace-toolbar" style={{ "--service-accent": service.accent } as React.CSSProperties}>
         <div className="workspace-identity"><span>{service.glyph}</span><div><p>{service.eyebrow}</p><h2>{service.name}</h2></div></div>
         <div className="workspace-address"><Icon name="shield" size={16} /><span>{workspaceUrl}</span></div>
@@ -442,11 +461,11 @@ function ServiceWorkspace({ service, settings, probe }: { service: ServiceDefini
       )}
       {service.id === "zmail" && (
         <div className="openzero-context-banner" role="note">
-          <strong>Remember login</strong>
-          <span>Sign in once. ZERO ONE saves your ZMail username and password on this PC (encrypted) and fills the form next time.</span>
+          <strong>Save login is optional</strong>
+          <span>Tick “Save login in ZERO ONE” on the sign-in form only if you want an encrypted copy in your operating-system vault.</span>
           <i aria-hidden="true" />
-          <strong>Stay signed in</strong>
-          <span>Cookies stay in the ZMail workspace only. Keep-alive runs while the app is open so you are not kicked out for idle.</span>
+          <strong>You control filling</strong>
+          <span>Use “Fill saved ZERO ONE login” when needed. Server cookie expiry and logout remain unchanged.</span>
         </div>
       )}
       {service.id === "openzero" && probe?.state !== "offline" && (
@@ -552,12 +571,18 @@ function SettingsView({ settings, openZeroProbe, onSaved }: { settings: ZeroOneS
   };
 
   const [savedLogins, setSavedLogins] = useState<Array<{ origin: string; username: string; updatedAt?: string }>>([]);
+  const [workspaceCredentialStatus, setWorkspaceCredentialStatus] = useState<{ available: boolean; backend?: string } | null>(null);
   const refreshSavedLogins = async () => {
     try {
-      const list = await window.zeroOne.listSavedWorkspaceLogins?.();
+      const [list, status] = await Promise.all([
+        window.zeroOne.listSavedWorkspaceLogins?.(),
+        window.zeroOne.getWorkspaceCredentialStatus?.(),
+      ]);
       setSavedLogins(Array.isArray(list) ? list : []);
+      setWorkspaceCredentialStatus(status || { available: false });
     } catch {
       setSavedLogins([]);
+      setWorkspaceCredentialStatus({ available: false });
     }
   };
   useEffect(() => { void refreshSavedLogins(); }, []);
@@ -622,9 +647,10 @@ function SettingsView({ settings, openZeroProbe, onSaved }: { settings: ZeroOneS
           {settings.hasZeroThinkAccount ? <p className="no-token-note"><Icon name="shield" size={15} /> Saved ZeroThink account{settings.zeroThinkEmail ? `: ${settings.zeroThinkEmail}` : ""} · restore runs automatically when you open ZeroThink.</p> : <p className="no-token-note">No ZeroThink account linked yet. Open ZeroThink and sign in once.</p>}
         </section>
         <section className="settings-section glass-card">
-          <div className="settings-heading"><div><p>ZMAIL &amp; WORKSPACES</p><h2>Saved logins on this PC</h2></div><span>Encrypted by Windows</span></div>
-          <p>When you sign into ZMail inside ZERO ONE, your username and password can be saved on this computer (encrypted) and filled in next time. Cookies also stay in the ZMail workspace so you stay signed in when possible.</p>
-          {savedLogins.length === 0 ? <p className="no-token-note">No saved workspace logins yet. Sign into ZMail once inside ZERO ONE and submit the login form — it will be remembered automatically.</p> : (
+          <div className="settings-heading"><div><p>ZMAIL &amp; WORKSPACES</p><h2>Saved logins on this PC</h2></div><span>{workspaceCredentialStatus === null ? "Checking secure storage" : workspaceCredentialStatus.available ? "Secure OS vault" : "Password saving unavailable"}</span></div>
+          <p>Password saving is off by default. On an approved workspace sign-in form, tick <strong>Save login in ZERO ONE on this PC</strong> to opt in. A saved login is filled only when you press <strong>Fill saved ZERO ONE login</strong>. Persistent workspace cookies keep the server’s original expiry and logout rules.</p>
+          {workspaceCredentialStatus?.available === false && <p className="runtime-banner" role="status"><span className="warning-symbol">!</span><span>ZERO ONE cannot access a secure operating-system credential vault, so it will not capture, decrypt, or fill workspace passwords.</span></p>}
+          {savedLogins.length === 0 ? <p className="no-token-note">No saved workspace logins. Open ZMail and explicitly tick the save-login option if you want one stored.</p> : (
             <ul className="saved-login-list">
               {savedLogins.map((entry) => (
                 <li key={entry.origin}>
@@ -867,7 +893,7 @@ function Welcome({ onFinish, onSetup }: { onFinish: () => void; onSetup: () => v
     <span className="welcome-mark">Ø</span><p>WELCOME TO ZERO ONE</p><h1 id="welcome-title">Your workspaces, in one calm desktop.</h1>
     <div className="welcome-points">
       <article><strong>1. Assistant needs no config</strong><span>Private chat uses OpenZero Local + Ollama on this PC. Download the model once if prompted — no cloud key.</span></article>
-      <article><strong>2. Sign in once — stay signed in</strong><span>ZMail remembers your username and password on this PC (encrypted). ZeroThink saves a secure desktop link so you do not re-do Google every launch.</span></article>
+      <article><strong>2. Sign in with control</strong><span>ZMail passwords are saved only after you tick the opt-in box, then filled only when you request it. ZeroThink linking remains an explicit browser approval.</span></article>
       <article><strong>3. ZSEC Shield is local</strong><span>On-demand folder scanning stays on this computer. Server ZSEC handles Linux security updates separately.</span></article>
     </div>
     <div className="welcome-actions"><button className="secondary-action" onClick={onSetup}>Review setup</button><button className="primary-action" onClick={onFinish}>Start using ZERO ONE</button></div>
@@ -891,12 +917,28 @@ export default function App() {
   const [copilotOpen, setCopilotOpen] = useState(() => window.innerWidth > 1180);
   const [bootError, setBootError] = useState("");
   const [restoredLayout, setRestoredLayout] = useState(false);
+  const [mountedServiceIds, setMountedServiceIds] = useState<ServiceId[]>([]);
+  const [appUpdate, setAppUpdate] = useState<AppUpdateInfo | null>(null);
+  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState("");
   const searchButtonRef = useRef<HTMLButtonElement>(null);
   const bridgeUnavailable = "ZERO ONE could not start its secure desktop bridge. Restart the app; if this continues, install the latest update.";
 
   useEffect(() => {
     if (!window.zeroOne?.getUserInterfaceScale) { setBootError(bridgeUnavailable); return; }
     window.zeroOne.getUserInterfaceScale().then(setZoom).catch(() => setZoom(1));
+  }, []);
+
+  useEffect(() => {
+    if (!window.zeroOne?.checkForAppUpdate) return;
+    let active = true;
+    const check = () => {
+      window.zeroOne.checkForAppUpdate().then((result) => {
+        if (active && result.updateAvailable && result.status === "available") setAppUpdate(result);
+      }).catch(() => {});
+    };
+    const startup = window.setTimeout(check, 1_500);
+    const background = window.setInterval(check, 6 * 60 * 60 * 1000);
+    return () => { active = false; window.clearTimeout(startup); window.clearInterval(background); };
   }, []);
 
   const updateZoom = useCallback(async (factor: number) => {
@@ -914,6 +956,7 @@ export default function App() {
   }, []);
 
   const navigate = useCallback((next: View, options?: { collapseCopilot?: boolean }) => {
+    setMountedServiceIds((current) => retainMountedServiceTab(current, serviceIdFromView(next)) as ServiceId[]);
     setView(next);
     if (options?.collapseCopilot || next.startsWith("service:")) setCopilotOpen(false);
   }, []);
@@ -935,7 +978,11 @@ export default function App() {
       setSettings(value);
       setBootError("");
       if (!restoredLayout) {
-        if (isValidView(value.lastView)) setView(value.lastView);
+        const restoredView = value.lastView;
+        if (isValidView(restoredView)) {
+          setView(restoredView);
+          setMountedServiceIds((current) => retainMountedServiceTab(current, serviceIdFromView(restoredView)) as ServiceId[]);
+        }
         if (typeof value.lastCopilotOpen === "boolean") setCopilotOpen(value.lastCopilotOpen && window.innerWidth > 900);
         setRestoredLayout(true);
       }
@@ -990,19 +1037,25 @@ export default function App() {
     if (destination) setView(destination);
   };
 
-  const activeService = view.startsWith("service:") ? serviceById(view.split(":")[1] as ServiceId) : null;
+  const activeServiceId = serviceIdFromView(view);
+  const activeService = activeServiceId ? serviceById(activeServiceId) : null;
+  const renderedServiceIds = retainMountedServiceTab(mountedServiceIds, activeServiceId);
   return (
     <div className={`app-shell ${copilotOpen ? "" : "copilot-collapsed"}`}>
       <a className="skip-link" href="#main-content">Skip to main content</a>
-      <Sidebar view={view} onNavigate={(next) => navigate(next)} />
+      <Sidebar view={view} mountedServiceIds={renderedServiceIds} onNavigate={(next) => navigate(next)} />
       <main className="main-stage">
         <Topbar view={view} probes={probes} system={system} zoom={zoom} copilotOpen={copilotOpen} onZoom={updateZoom} onToggleCopilot={() => setCopilotOpen((value) => !value)} onRefresh={refresh} onSearch={() => setPalette(true)} searchRef={searchButtonRef} />
+        {appUpdate && appUpdate.latestVersion !== dismissedUpdateVersion && <UpdateBanner update={appUpdate} onDismiss={() => setDismissedUpdateVersion(appUpdate.latestVersion)} />}
         <div className="content-frame" id="main-content">
           {view === "home" && <Dashboard settings={settings} probes={probes} system={system} zsec={zsec} onOpen={(id) => navigate(`service:${id}`)} onOpenShield={() => navigate("shield")} />}
           {view === "shield" && <ZsecView snapshot={zsec} onRefresh={refresh} />}
           {view === "agents" && <AgentLattice settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onOpenZero={() => navigate("service:openzero")} />}
           {view === "settings" && <SettingsView settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onSaved={(saved) => { setSettings(saved); refresh(); }} />}
-          {activeService && <ServiceWorkspace service={activeService} settings={settings} probe={probes.find((probe) => probe.name === activeService.id)} />}
+          {renderedServiceIds.map((serviceId) => {
+            const service = serviceById(serviceId);
+            return <ServiceWorkspace key={serviceId} service={service} settings={settings} probe={probes.find((probe) => probe.name === serviceId)} active={serviceId === activeService?.id} />;
+          })}
         </div>
       </main>
       <Copilot settings={settings} onOpenSettings={() => navigate("settings")} />

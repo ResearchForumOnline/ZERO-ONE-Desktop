@@ -58,6 +58,18 @@ export function serviceById(id: ServiceId) {
   return SERVICES.find((service) => service.id === id)!;
 }
 
+export function serviceIdFromView(view: string): ServiceId | null {
+  const match = /^service:(openzero|zerothink|zmail|callchat)$/.exec(view);
+  return match ? match[1] as ServiceId : null;
+}
+
+export function retainMountedServiceTab(current: readonly ServiceId[], next: ServiceId | null) {
+  if (!next || current.includes(next)) return current;
+  // SERVICES is the complete allowlist. This prevents arbitrary or unbounded
+  // guest webContents from accumulating while preserving every owned tab.
+  return [...current, next].slice(-SERVICES.length);
+}
+
 export function serviceUrl(service: ServiceDefinition, settings: ZeroOneSettings) {
   return settings[service.settingKey];
 }

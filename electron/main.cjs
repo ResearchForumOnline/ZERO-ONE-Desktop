@@ -8,8 +8,9 @@ const { fileURLToPath } = require("node:url");
 const { parseZsecScanReport, parseZsecStatusPayload } = require("./zsec-contract.cjs");
 const { cleanConfiguredUrl, diagnosticOrigin, isAllowedUrl: urlIsAllowed } = require("./url-policy.cjs");
 const { loginItemOptions, shouldCloseToTray, shouldStartHidden } = require("./tray-lifecycle.cjs");
-const { latestPhpSessionId } = require("./zerothink-session.cjs");
+const { latestPhpSessionCookie } = require("./zerothink-session.cjs");
 const { DEFAULT_LOCAL_MODEL, OLLAMA_LOCAL_ORIGIN, cleanChatMessages, cleanModelName, publicPullProgress } = require("./ollama-local.cjs");
+const { checkLatestStableRelease } = require("./update-check.cjs");
 const {
   saveLogin,
   loadLogin,
@@ -17,6 +18,7 @@ const {
   listLogins,
   clearAllLogins,
   buildLoginAssistScript,
+  isSecureCredentialStorage,
 } = require("./workspace-logins.cjs");
 
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -66,6 +68,8 @@ const configuredPermissionSessions = new WeakSet();
 const ZOOM_LEVELS = Object.freeze([0.75, 0.85, 1, 1.1, 1.25, 1.4, 1.5]);
 let currentZoomFactor = 1;
 const localModelPullControllers = new Map();
+const APP_UPDATE_CACHE_MS = 30 * 60 * 1000;
+let appUpdateCache = null;
 
 function nearestZoomFactor(value) {
   const numeric = Number(value);
@@ -120,9 +124,12 @@ function isCallChatOrigin(value) {
 }
 
 function credentialStorageIsSecure() {
-  if (!safeStorage.isEncryptionAvailable()) return false;
-  const backend = safeStorage.getSelectedStorageBackend?.();
-  return process.platform !== "linux" || backend !== "basic_text";
+  return isSecureCredentialStorage(safeStorage);
+}
+
+function workspaceCredentialStatus() {
+  const backend = String(safeStorage.getSelectedStorageBackend?.() || "");
+  return { available: credentialStorageIsSecure(), backend: backend === "basic_text" ? "insecure" : backend };
 }
 
 function isTrustedIpcSender(event) {
@@ -354,18 +361,21 @@ async function createZeroThinkDesktopSession(accessToken) {
     : [linked.headers.get("set-cookie")].filter(Boolean);
   // PHP may send an initial id and then a regenerated authenticated id. The
   // last PHPSESSID is authoritative; copying the first preserves guest state.
-  const sessionId = latestPhpSessionId(setCookieValues);
-  if (!sessionId) throw new Error("ZeroThink approved the account but did not return a valid desktop session cookie.");
-  // Persist beyond "session cookie" so closing ZERO ONE does not drop the login.
+  const sessionCookie = latestPhpSessionCookie(setCookieValues);
+  if (!sessionCookie?.value || (sessionCookie.expirationDate !== undefined && sessionCookie.expirationDate <= Date.now() / 1000)) {
+    throw new Error("ZeroThink approved the account but did not return a valid desktop session cookie.");
+  }
+  // Copy the server cookie without extending its lifetime. The persistent
+  // partition retains persistent cookies; session cookies remain session-only.
   await targetSession.cookies.set({
     url: ZERO_THINK_ORIGIN,
     name: "PHPSESSID",
-    value: sessionId,
-    path: "/",
+    value: sessionCookie.value,
+    path: sessionCookie.path,
     secure: true,
-    httpOnly: true,
-    sameSite: "lax",
-    expirationDate: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30,
+    httpOnly: sessionCookie.httpOnly,
+    sameSite: sessionCookie.sameSite,
+    ...(sessionCookie.expirationDate === undefined ? {} : { expirationDate: sessionCookie.expirationDate }),
   });
   await targetSession.cookies.flushStore();
 
@@ -592,59 +602,16 @@ async function injectWorkspaceLoginAssist(contents) {
     saved = null;
   }
   try {
-    await contents.executeJavaScript(buildLoginAssistScript(saved ? { username: saved.username, password: saved.password } : null), true);
+    await contents.executeJavaScript(buildLoginAssistScript(
+      saved ? { username: saved.username, password: saved.password } : null,
+      { canSave: credentialStorageIsSecure() },
+    ), true);
   } catch {
     // Page may not allow script yet; retry on next load event.
   }
 }
 
-/**
- * Convert short-lived / session cookies into multi-week cookies so closing
- * ZERO ONE does not wipe embedded ZMail / ZeroThink logins from the partition.
- */
-async function hardenPartitionCookies(partitionName, hostSuffixes, maxAgeDays = 21) {
-  const targetSession = session.fromPartition(partitionName);
-  const cookies = await targetSession.cookies.get({});
-  const expirationDate = Math.floor(Date.now() / 1000) + maxAgeDays * 24 * 60 * 60;
-  for (const cookie of cookies) {
-    const domain = String(cookie.domain || "").replace(/^\./, "").toLowerCase();
-    if (!domain || !hostSuffixes.some((suffix) => domain === suffix || domain.endsWith(`.${suffix}`))) continue;
-    const isSession = cookie.session === true || !cookie.expirationDate;
-    const expiresSoon = Number(cookie.expirationDate || 0) > 0 && Number(cookie.expirationDate) < expirationDate - 24 * 60 * 60;
-    if (!isSession && !expiresSoon) continue;
-    const urlHost = domain;
-    const secure = cookie.secure !== false;
-    const url = `${secure ? "https" : "http"}://${urlHost}${cookie.path || "/"}`;
-    try {
-      await targetSession.cookies.set({
-        url,
-        name: cookie.name,
-        value: cookie.value,
-        domain: cookie.domain,
-        path: cookie.path || "/",
-        secure,
-        httpOnly: Boolean(cookie.httpOnly),
-        expirationDate,
-        sameSite: cookie.sameSite || "unspecified",
-      });
-    } catch {
-      // Some host-only / __Host- cookies reject rewrite; ignore.
-    }
-  }
-  await targetSession.cookies.flushStore();
-}
-
 async function flushAllWorkspaceSessions() {
-  try {
-    await hardenPartitionCookies("persist:zero-one-zmail", ["zmail.my", "zmail.talktoai.org"]);
-  } catch {
-    // continue
-  }
-  try {
-    await hardenPartitionCookies("persist:zero-one-zerothink", ["zerothink.talktoai.org", "talktoai.org"]);
-  } catch {
-    // continue
-  }
   for (const partition of PERSISTENT_PARTITIONS) {
     try {
       const targetSession = session.fromPartition(partition);
@@ -656,7 +623,7 @@ async function flushAllWorkspaceSessions() {
 }
 
 async function capturePendingWorkspaceLogin(contents) {
-  if (!contents || contents.isDestroyed()) return;
+  if (!credentialStorageIsSecure() || !contents || contents.isDestroyed()) return;
   let payload = null;
   try {
     payload = await contents.executeJavaScript(
@@ -689,12 +656,6 @@ app.on("web-contents-created", (_event, contents) => {
   });
   contents.on("did-finish-load", () => {
     void injectWorkspaceLoginAssist(contents);
-    // After a successful ZMail login, turn session cookies into durable ones.
-    const url = contents.getURL();
-    if (url && isWorkspaceCredentialHost(url)) {
-      void hardenPartitionCookies("persist:zero-one-zmail", ["zmail.my", "zmail.talktoai.org"]).catch(() => {});
-      void hardenPartitionCookies("persist:zero-one-zerothink", ["zerothink.talktoai.org", "talktoai.org"]).catch(() => {});
-    }
   });
   contents.on("console-message", (event, level, message) => {
     const text = String(message || event?.message || "");
@@ -702,21 +663,6 @@ app.on("web-contents-created", (_event, contents) => {
     if (text === "ZERO_ONE_SAVE_LOGIN_SIGNAL" || text.includes("ZERO_ONE_SAVE_LOGIN_SIGNAL")) {
       void capturePendingWorkspaceLogin(contents);
       return;
-    }
-    // Legacy path (older inject builds): still accept but avoid encouraging it.
-    if (!text.startsWith("ZERO_ONE_SAVE_LOGIN:")) return;
-    try {
-      const payload = JSON.parse(text.slice("ZERO_ONE_SAVE_LOGIN:".length));
-      void saveLogin({
-        userDataPath: app.getPath("userData"),
-        safeStorage,
-        allowedOrigins: ALLOWED_ORIGINS,
-        origin: payload.origin,
-        username: payload.username,
-        password: payload.password,
-      }).catch(() => {});
-    } catch {
-      // ignore malformed payloads
     }
   });
   contents.on("before-input-event", (event, input) => {
@@ -843,6 +789,15 @@ ipcMain.handle("app:info", (event) => {
   });
 });
 
+ipcMain.handle("app:check-update", async (event) => {
+  requireTrustedIpcSender(event);
+  const now = Date.now();
+  if (appUpdateCache && now - appUpdateCache.cachedAt < APP_UPDATE_CACHE_MS) return appUpdateCache.result;
+  const result = await checkLatestStableRelease({ currentVersion: app.getVersion(), timeoutMs: 5_000, now });
+  appUpdateCache = { cachedAt: now, result };
+  return result;
+});
+
 ipcMain.handle("ui:get-zoom", (event) => {
   requireTrustedIpcSender(event);
   return currentZoomFactor;
@@ -866,6 +821,10 @@ ipcMain.handle("zerothink:sign-out", async (event) => { requireTrustedIpcSender(
 ipcMain.handle("workspace:list-logins", async (event) => {
   requireTrustedIpcSender(event);
   return listLogins({ userDataPath: app.getPath("userData") });
+});
+ipcMain.handle("workspace:credential-status", (event) => {
+  requireTrustedIpcSender(event);
+  return workspaceCredentialStatus();
 });
 ipcMain.handle("workspace:delete-login", async (event, origin) => {
   requireTrustedIpcSender(event);
@@ -1160,7 +1119,7 @@ async function chatViaLocalOllama(request, preferredModel) {
   return { content, model: String(payload.model || model).slice(0, 192), provider: "ollama-local" };
 }
 
-/** Touch ZMail session cookies so embedded webmail stays signed in while ZERO ONE is open. */
+/** Ask ZMail to refresh through its own server-controlled session policy. */
 async function keepZmailSessionAlive() {
   const targetSession = session.fromPartition("persist:zero-one-zmail");
   configurePermissionPolicy(targetSession);
@@ -1188,11 +1147,7 @@ async function keepZmailSessionAlive() {
       // try next candidate
     }
   }
-  try {
-    await hardenPartitionCookies("persist:zero-one-zmail", ["zmail.my", "zmail.talktoai.org"]);
-  } catch {
-    await targetSession.cookies.flushStore().catch(() => {});
-  }
+  await targetSession.cookies.flushStore().catch(() => {});
   return ok;
 }
 
