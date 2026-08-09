@@ -1,26 +1,27 @@
 {
   "product": "ZERO ONE",
-  "updated": "2026-08-09T12:38:05Z",
+  "updated": "2026-08-09T13:18:25Z",
   "desktop": {
-    "version": "0.6.4",
-    "windows": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v0.6.4/ZERO-ONE-0.6.4-win-x64.exe",
-    "sha256_windows": "80ebd59ec8dd9d977a5e6332e31366eb5aeb08dc4c1d338b41783e270ea35f5e",
-    "release": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v0.6.4"
+    "version": "0.6.5",
+    "windows": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v0.6.5/ZERO-ONE-0.6.5-win-x64.exe",
+    "sha256_windows": "aa34b3c312e36833f537c7956a6cbe7fa03fc2103395f8626a3810b9ee66177f",
+    "release": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v0.6.5"
   },
   "mobile": {
-    "version": "0.4.0",
-    "versionCode": 3,
+    "version": "0.4.1",
+    "versionCode": 8,
     "pwa": "https://talktoai.org/ZeroOne/app/",
-    "apk": "https://talktoai.org/ZeroOne/ZERO-ONE-0.4.0-android-release.apk",
-    "aab": "https://talktoai.org/ZeroOne/ZERO-ONE-0.4.0-android-release.aab",
-    "sha256_apk": "AA066F98D3F989C9CDB8BB1CB13383BF2567C7759B79FCCF6D9B744536406FE2",
-    "release": "https://github.com/ResearchForumOnline/ZERO-ONE-Mobile/releases/tag/v0.4.0"
+    "apk": "https://talktoai.org/ZeroOne/ZERO-ONE-0.4.1-android-release.apk",
+    "aab": "https://talktoai.org/ZeroOne/ZERO-ONE-0.4.1-android-release.aab",
+    "sha256_apk": "5B2FF302C066922D5E4597E8EE96BFD86F6354EA7205E35F6E3779ABBC545418",
+    "release": "https://github.com/ResearchForumOnline/ZERO-ONE-Mobile/releases/tag/v0.4.1"
   },
   "links": {
     "install_hub": "https://talktoai.org/ZeroOne/install/",
     "play_kit": "https://talktoai.org/ZeroOne/play/",
     "privacy_mobile": "https://talktoai.org/ZeroOne/privacy-mobile",
     "source_desktop": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop",
-    "source_mobile": "https://github.com/ResearchForumOnline/ZERO-ONE-Mobile"
+    "source_mobile": "https://github.com/ResearchForumOnline/ZERO-ONE-Mobile",
+    "tab_pilot": "https://chromewebstore.google.com/detail/openzero-tab-pilot/cgaalobjjknalamgchppccbocnhonhbf"
   }
 }
