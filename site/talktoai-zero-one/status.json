@@ -4,7 +4,7 @@
   "desktop": {
     "version": "0.6.4",
     "windows": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v0.6.4/ZERO-ONE-0.6.4-win-x64.exe",
-    "sha256_windows": "published-in-release-SHA256SUMS.txt",
+    "sha256_windows": "80ebd59ec8dd9d977a5e6332e31366eb5aeb08dc4c1d338b41783e270ea35f5e",
     "release": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v0.6.4"
   },
   "mobile": {
