@@ -477,7 +477,8 @@ function ServiceWorkspace({ service, settings, probe, active }: { service: Servi
           <span>The top-right drawer is fast everyday chat.</span>
           <i aria-hidden="true" />
           <strong>Tab Pilot</strong>
-          <span>The Brave extension handles approved browser-tab actions.</span>
+          <span>Chrome or Brave actions stay tab-scoped and require your approval.</span>
+          <button type="button" className="context-link" onClick={() => window.zeroOne.openExternal("https://chromewebstore.google.com/detail/openzero-tab-pilot/cgaalobjjknalamgchppccbocnhonhbf")}>Install extension ↗</button>
         </div>
       )}
       {probe?.state === "offline" && service.id === "openzero" && (

@@ -138,7 +138,7 @@ describe("responsive desktop shell", () => {
     expect(app).toContain("chatLocalOpenZero");
     expect(app).toContain("getLocalOpenZeroStatus");
     expect(main).toContain('ipcMain.handle("openzero:connect-desktop"');
-    expect(main).toContain('new URL("/api/openzero/desktop-key", settings.openZeroUrl)');
+    expect(main).toContain('new URL("/api/openzero/key", settings.openZeroUrl)');
     expect(main).toContain('new URL("/v1/models", settings.openZeroUrl)');
     expect(main).toContain('await provisionOpenZeroDesktop(runtimeSettings)');
     expect(main).toContain('["127.0.0.1", "localhost", "::1"].includes(endpoint.hostname)');
@@ -155,7 +155,10 @@ describe("responsive desktop shell", () => {
     expect(app).not.toContain('service.id === "openzero" ? settings.openZeroPublicUrl');
     expect(app).toContain("Full OpenZero panel");
     expect(app).toContain("The top-right drawer is fast everyday chat.");
-    expect(app).toContain("The Brave extension handles approved browser-tab actions.");
+    expect(app).toContain("Chrome or Brave actions stay tab-scoped and require your approval.");
+    expect(app).toContain("cgaalobjjknalamgchppccbocnhonhbf");
+    expect(main).toContain('"https://chromewebstore.google.com"');
+    expect(main).toContain('new URL("/api/openzero/key", settings.openZeroUrl)');
     expect(app).toContain('field("openZeroUrl", "OpenZero full panel and API"');
   });
 

@@ -50,6 +50,7 @@ const ALLOWED_ORIGINS = new Set([
   "https://openzero.talktoai.org",
   "https://talktoai.org",
   "https://github.com",
+  "https://chromewebstore.google.com",
   "https://platform.openai.com",
   "https://console.groq.com",
   "https://callchat.org",
@@ -1243,16 +1244,16 @@ ipcMain.handle("openzero:local-chat", async (event, request) => {
 async function provisionOpenZeroDesktop(settings = null) {
   if (!credentialStorageIsSecure()) throw new Error("Secure operating-system credential storage is unavailable.");
   settings = settings || await loadSettingsInternal();
-  const pairingEndpoint = new URL("/api/openzero/desktop-key", settings.openZeroUrl).toString();
+  const pairingEndpoint = new URL("/api/openzero/key", settings.openZeroUrl).toString();
   const paired = await fetch(pairingEndpoint, {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/json", "User-Agent": `ZERO-ONE/${app.getVersion()}` },
-    body: JSON.stringify({ client: "zero-one-desktop", version: app.getVersion() }),
+    body: JSON.stringify({ action: "rotate" }),
   });
   const payload = await paired.json().catch(() => ({}));
   if (!paired.ok) throw new Error(payload?.error?.message || `OpenZero automatic connection returned HTTP ${paired.status}.`);
   const token = String(payload.api_key || "");
-  if (!/^ozd_[A-Za-z0-9_-]{32,128}$/.test(token)) throw new Error("OpenZero returned an invalid desktop credential.");
+  if (!/^oz_[A-Za-z0-9_-]{32,128}$/.test(token)) throw new Error("OpenZero returned an invalid API credential.");
 
   const modelsEndpoint = new URL("/v1/models", settings.openZeroUrl).toString();
   const verified = await fetch(modelsEndpoint, { headers: { Authorization: `Bearer ${token}`, "User-Agent": `ZERO-ONE/${app.getVersion()}` } });
