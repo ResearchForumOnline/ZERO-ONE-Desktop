@@ -48,6 +48,13 @@ describe("responsive desktop shell", () => {
     expect(app).not.toContain("{activeService && <ServiceWorkspace");
   });
 
+  it("offers bounded ZMail assistant actions without automatic sending", () => {
+    expect(app).toContain("Check visible inbox");
+    expect(app).toContain("Compose email");
+    expect(app).toContain("zero-one:zmail-action");
+    expect(app).toContain("review everything in ZMail before you press Send");
+  });
+
   it("exposes bounded zoom to the renderer and embedded workspaces", () => {
     expect(main).toContain("const ZOOM_LEVELS");
     expect(main).toContain("webContents.getAllWebContents()");

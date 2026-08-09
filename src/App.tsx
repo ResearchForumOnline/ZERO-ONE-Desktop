@@ -363,6 +363,35 @@ function ServiceWorkspace({ service, settings, probe, active }: { service: Servi
     void window.zeroOne.keepZmailSessionAlive?.();
   }, [service.id]);
   useEffect(() => {
+    if (service.id !== "zmail") return;
+    const handleMailAction = async (event: Event) => {
+      const request = (event as CustomEvent<{ id: string; action: "inbox" | "compose" }>).detail;
+      if (!request?.id) return;
+      if (request.action === "compose") {
+        try {
+          const origin = new URL(settings.zmailUrl).origin;
+          setWorkspaceUrl(`${origin}/?_task=mail&_action=compose`);
+          window.dispatchEvent(new CustomEvent("zero-one:zmail-result", { detail: { id: request.id, ok: true, message: "ZMail compose is open. Tell me the recipient, subject and key points and I’ll help draft it; review everything in ZMail before you press Send." } }));
+        } catch {
+          window.dispatchEvent(new CustomEvent("zero-one:zmail-result", { detail: { id: request.id, ok: false, message: "The configured ZMail address is invalid." } }));
+        }
+        return;
+      }
+      try {
+        const webview = webviewRef.current as HTMLElement & { executeJavaScript?: (code: string, userGesture?: boolean) => Promise<unknown> };
+        if (!webview?.executeJavaScript) throw new Error("Open ZMail once, then try Check inbox again.");
+        const rows = await webview.executeJavaScript(`(() => Array.from(document.querySelectorAll('#messagelist tbody tr, table.messagelist tbody tr')).slice(0,10).map((row) => ({ sender: (row.querySelector('.fromto, .sender, [class*="from"]')?.textContent || '').trim().replace(/\\s+/g,' ').slice(0,120), subject: (row.querySelector('.subject, [class*="subject"]')?.textContent || '').trim().replace(/\\s+/g,' ').slice(0,180), date: (row.querySelector('.date, [class*="date"]')?.textContent || '').trim().replace(/\\s+/g,' ').slice(0,80), unread: row.classList.contains('unread') || row.getAttribute('aria-label')?.toLowerCase().includes('unread') })))()`, false) as Array<{ sender: string; subject: string; date: string; unread: boolean }>;
+        const clean = Array.isArray(rows) ? rows.filter((row) => row.sender || row.subject).slice(0, 10) : [];
+        const message = clean.length ? `Visible ZMail messages (${clean.length}):\n${clean.map((row, index) => `${index + 1}. ${row.unread ? "UNREAD · " : ""}${row.sender || "Unknown sender"} — ${row.subject || "No subject"}${row.date ? ` · ${row.date}` : ""}`).join("\n")}` : "No message rows are visible. Open the ZMail inbox and try again; ZERO ONE does not bypass login or read hidden mailbox data.";
+        window.dispatchEvent(new CustomEvent("zero-one:zmail-result", { detail: { id: request.id, ok: true, message } }));
+      } catch (error) {
+        window.dispatchEvent(new CustomEvent("zero-one:zmail-result", { detail: { id: request.id, ok: false, message: error instanceof Error ? error.message : "The visible inbox could not be read." } }));
+      }
+    };
+    window.addEventListener("zero-one:zmail-action", handleMailAction);
+    return () => window.removeEventListener("zero-one:zmail-action", handleMailAction);
+  }, [service.id, settings.zmailUrl]);
+  useEffect(() => {
     if (service.id !== "zerothink") return;
     if (!settings.hasZeroThinkAccount) {
       setRestoringAccount(false);
@@ -818,6 +847,27 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
     }
   };
 
+  const runMailAction = (action: "inbox" | "compose") => {
+    if (busy) return;
+    const id = crypto.randomUUID();
+    setBusy(true);
+    const timeout = window.setTimeout(() => {
+      window.removeEventListener("zero-one:zmail-result", receive as EventListener);
+      setMessages((current) => [...current, { role: "assistant", content: "Open the ZMail workspace and try again. ZERO ONE only reads the mailbox view you are already signed into." }]);
+      setBusy(false);
+    }, 8000);
+    const receive = (event: Event) => {
+      const result = (event as CustomEvent<{ id: string; message: string }>).detail;
+      if (result?.id !== id) return;
+      window.clearTimeout(timeout);
+      window.removeEventListener("zero-one:zmail-result", receive as EventListener);
+      setMessages((current) => [...current, { role: "assistant", content: result.message }]);
+      setBusy(false);
+    };
+    window.addEventListener("zero-one:zmail-result", receive as EventListener);
+    window.dispatchEvent(new CustomEvent("zero-one:zmail-action", { detail: { id, action } }));
+  };
+
   const send = async () => {
     const text = input.trim();
     if (!text || busy || !ready) return;
@@ -873,6 +923,7 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
         </div>
       )}
       <div className="copilot-report"><button type="button" onClick={() => window.zeroOne.openExternal("https://talktoai.org/report-ai/")}>Report AI output</button><span>Opens privacy-aware support guidance</span></div>
+      <div className="assistant-mail-actions" aria-label="ZMail assistant actions"><button type="button" disabled={busy} onClick={() => runMailAction("inbox")}><Icon name="mail" size={14} /> Check visible inbox</button><button type="button" disabled={busy} onClick={() => runMailAction("compose")}><Icon name="send" size={14} /> Compose email</button></div>
       <div className="chat-compose"><textarea disabled={!ready} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={keyDown} placeholder={ready ? `Ask ${providerLabel}…` : "Install the local model above — no keys needed"} rows={2} /><button onClick={send} disabled={busy || !input.trim() || !ready} aria-label="Send"><Icon name="send" size={18} /></button><small>{ready ? "Enter to send · Shift+Enter newline · Ctrl+L clear · Ctrl+J toggle" : "OpenZero Local is the zero-config private default"}</small></div>
     </aside>
   );
