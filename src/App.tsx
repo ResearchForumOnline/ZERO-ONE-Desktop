@@ -352,6 +352,8 @@ function ServiceWorkspace({ service, settings, probe, active }: { service: Servi
   const [zeroThinkDockOpen, setZeroThinkDockOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [openZeroSetup, setOpenZeroSetup] = useState<"idle" | "connecting" | "ready" | "error">(settings.hasOpenZeroToken ? "ready" : "idle");
+  const [openZeroSetupMessage, setOpenZeroSetupMessage] = useState(settings.hasOpenZeroToken ? `${settings.model || "OpenZero"} connected` : "");
   const webviewRef = useRef<HTMLElement>(null);
 
   useEffect(() => { setWorkspaceUrl(configuredUrl); setReloadKey((value) => value + 1); }, [configuredUrl]);
@@ -434,6 +436,18 @@ function ServiceWorkspace({ service, settings, probe, active }: { service: Servi
   const zeroThinkStudioPath = (() => { try { return new URL(settings.zeroThinkUrl).pathname || "/studio"; } catch { return "/studio"; } })();
   const zeroThinkPath = (() => { try { return new URL(workspaceUrl).pathname; } catch { return "/"; } })();
   const openZeroThinkPath = (path: string) => { setLoadError(""); setLoading(true); setWorkspaceUrl(`${zeroThinkOrigin}${path}`); };
+  const connectLocalOpenZero = async () => {
+    setOpenZeroSetup("connecting"); setOpenZeroSetupMessage("Checking OpenZero and selecting the browser model…");
+    try {
+      const result = await window.zeroOne.connectOpenZeroDesktop();
+      const gemmaReady = result.models.includes("openzerogemma:latest");
+      setOpenZeroSetup("ready");
+      setOpenZeroSetupMessage(gemmaReady ? "OpenZero Gemma 4 is connected and ready for Assistant/API use." : `Connected with ${result.model}. Install openzerogemma:latest in the OpenZero panel for the recommended browser-agent model.`);
+    } catch (error) {
+      setOpenZeroSetup("error");
+      setOpenZeroSetupMessage(error instanceof Error ? error.message : "OpenZero could not be connected. Start the local OpenZero panel and try again.");
+    }
+  };
   const workspaceSurface = (
     <div className="workspace-surface">
       {loading && <div className="workspace-loading" role="status"><span /><strong>Loading {service.name}…</strong><small>You can keep using the tray or another workspace.</small></div>}
@@ -460,7 +474,7 @@ function ServiceWorkspace({ service, settings, probe, active }: { service: Servi
         <div className="permission-banner"><Icon name="call" size={18} /><span>Camera and microphone are locked. Enable CallChat media in Settings when you want to make a call.</span></div>
       )}
       {service.id === "zmail" && (
-        <div className="openzero-context-banner" role="note">
+        <div className={`openzero-context-banner ${openZeroSetup}`} role="status" aria-live="polite">
           <strong>Save login is optional</strong>
           <span>Tick “Save login in ZERO ONE” on the sign-in form only if you want an encrypted copy in your operating-system vault.</span>
           <i aria-hidden="true" />
@@ -478,7 +492,9 @@ function ServiceWorkspace({ service, settings, probe, active }: { service: Servi
           <i aria-hidden="true" />
           <strong>Tab Pilot</strong>
           <span>Chrome or Brave actions stay tab-scoped and require your approval.</span>
+          <button type="button" className="context-link" disabled={openZeroSetup === "connecting"} onClick={connectLocalOpenZero}>{openZeroSetup === "connecting" ? "Connecting…" : openZeroSetup === "ready" ? "Reconnect OpenZero" : "Connect OpenZero + Gemma"}</button>
           <button type="button" className="context-link" onClick={() => window.zeroOne.openExternal("https://chromewebstore.google.com/detail/openzero-tab-pilot/cgaalobjjknalamgchppccbocnhonhbf")}>Install extension ↗</button>
+          {openZeroSetupMessage && <span className={`context-status ${openZeroSetup}`}>{openZeroSetupMessage}</span>}
         </div>
       )}
       {probe?.state === "offline" && service.id === "openzero" && (
@@ -665,11 +681,11 @@ function SettingsView({ settings, openZeroProbe, onSaved }: { settings: ZeroOneS
         </section>
         <section className="settings-section glass-card assistant-setup">
           <div className="settings-heading"><div><p>ASSISTANT DRAWER</p><h2>Choose how the quick chat answers</h2></div><span>Local model recommended</span></div>
-          <p className="setup-lead">The top-right Assistant is fast everyday chat. It is separate from the full OpenZero panel and the Brave Tab Pilot extension, so each can be used without configuring the others.</p>
+          <p className="setup-lead">The top-right Assistant uses the fast local Qwen model for everyday chat. OpenZero browser planning uses <strong>openzerogemma:latest</strong> when available. They stay separate so a slower browser model does not make normal chat feel broken.</p>
           <div className="product-role-map" aria-label="How the connected OpenZero tools differ">
             <article><strong>Assistant drawer</strong><span>Quick questions and private local chat inside ZERO ONE.</span></article>
             <article><strong>OpenZero panel</strong><span>The full runtime for models, runs, tools and automation.</span></article>
-            <article><strong>Tab Pilot</strong><span>The Brave extension for approved actions in browser tabs.</span></article>
+            <article><strong>Tab Pilot</strong><span>Chrome/Brave browser actions planned by OpenZero Gemma, with explicit tab and action consent.</span></article>
           </div>
           <div className="provider-picker" role="radiogroup" aria-label="Assistant provider">
             <button type="button" role="radio" aria-checked={draft.assistantProvider === "openzero"} className={draft.assistantProvider === "openzero" ? "selected" : ""} onClick={() => chooseProvider("openzero")}><strong>Private Assistant</strong><span>Recommended · private</span><small>Run a fast local model, or use your OpenZero server</small></button>

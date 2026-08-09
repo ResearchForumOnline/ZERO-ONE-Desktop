@@ -1258,11 +1258,14 @@ async function provisionOpenZeroDesktop(settings = null) {
   const modelsEndpoint = new URL("/v1/models", settings.openZeroUrl).toString();
   const verified = await fetch(modelsEndpoint, { headers: { Authorization: `Bearer ${token}`, "User-Agent": `ZERO-ONE/${app.getVersion()}` } });
   if (!verified.ok) throw new Error("OpenZero created desktop access, but verification failed. Try again.");
-  const next = { ...settings, assistantProvider: "openzero", openZeroTokenEncrypted: safeStorage.encryptString(token).toString("base64") };
+  const modelPayload = await verified.json().catch(() => ({}));
+  const models = Array.isArray(modelPayload?.data) ? modelPayload.data.map((entry) => String(entry?.id || "").trim()).filter(Boolean) : [];
+  const browserModel = models.includes("openzerogemma:latest") ? "openzerogemma:latest" : String(modelPayload?.recommended_model || models[0] || settings.model);
+  const next = { ...settings, assistantProvider: "openzero", model: browserModel, openZeroTokenEncrypted: safeStorage.encryptString(token).toString("base64") };
   await fs.mkdir(path.dirname(settingsPath()), { recursive: true });
   await fs.writeFile(settingsPath(), JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
   runtimeSettings = next;
-  return { settings: publicSettings(next), hint: String(payload.hint || "") };
+  return { settings: publicSettings(next), hint: String(payload.hint || ""), model: browserModel, models };
 }
 
 ipcMain.handle("openzero:connect-desktop", async (event) => {
