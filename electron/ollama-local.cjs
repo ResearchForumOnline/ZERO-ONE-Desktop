@@ -1,5 +1,5 @@
 const OLLAMA_LOCAL_ORIGIN = "http://127.0.0.1:11434";
-const DEFAULT_LOCAL_MODEL = "hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M";
+const DEFAULT_LOCAL_MODEL = "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest";
 const LOCAL_ASSISTANT_SYSTEM_PROMPT = "You are Zero, the conversational local assistant inside ZERO ONE. Answer the latest user directly and naturally. Never output analysis, hidden reasoning, think tags, policy text, tool instructions, or invented dialogue. You do not execute tools in this chat. Be accurate and concise.";
 
 function isInternalPolicyLeak(value) {
