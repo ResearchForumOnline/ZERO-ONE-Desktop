@@ -9,7 +9,7 @@ const { parseZsecScanReport, parseZsecStatusPayload } = require("./zsec-contract
 const { cleanConfiguredUrl, diagnosticOrigin, isAllowedUrl: urlIsAllowed } = require("./url-policy.cjs");
 const { loginItemOptions, shouldCloseToTray, shouldStartHidden } = require("./tray-lifecycle.cjs");
 const { latestPhpSessionCookie } = require("./zerothink-session.cjs");
-const { DEFAULT_LOCAL_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, isInstalledLocalModel, publicPullProgress } = require("./ollama-local.cjs");
+const { DEFAULT_LOCAL_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, isInstalledLocalModel, localDirectReply, publicPullProgress } = require("./ollama-local.cjs");
 const { checkLatestStableRelease } = require("./update-check.cjs");
 const {
   saveLogin,
@@ -1107,12 +1107,15 @@ async function localOllamaStatus() {
 
 async function chatViaLocalOllama(request, preferredModel) {
   const model = cleanModelName(preferredModel || DEFAULT_LOCAL_MODEL);
-  const messages = [{ role: "system", content: LOCAL_ASSISTANT_SYSTEM_PROMPT }, ...cleanChatMessages(request?.messages).filter((message) => message.role !== "system")];
+  const chatMessages = cleanChatMessages(request?.messages).filter((message) => message.role !== "system");
+  const directReply = localDirectReply(chatMessages);
+  if (directReply) return { content: directReply, model, provider: "zero-one-local" };
+  const messages = [{ role: "system", content: LOCAL_ASSISTANT_SYSTEM_PROMPT }, ...chatMessages];
   const response = await fetchLocalOllama("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, stream: false, think: false, keep_alive: "15m", options: { temperature: 0.2, repeat_penalty: 1.15, num_predict: 384, num_ctx: 2048 } }),
-  }, 45000);
+    body: JSON.stringify({ model, messages, stream: false, think: false, keep_alive: "15m", options: { temperature: 0.2, repeat_penalty: 1.15, num_predict: 256, num_ctx: 2048 } }),
+  }, 120000);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(String(payload?.error || `The local model service returned HTTP ${response.status}.`).slice(0, 300));
   const content = cleanAssistantContent(payload?.message?.content);

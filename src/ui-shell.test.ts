@@ -179,7 +179,8 @@ describe("responsive desktop shell", () => {
     expect(main).toContain('fetchLocalOllama("/api/pull"');
     expect(main).toContain('fetchLocalOllama("/api/chat"');
     expect(main).toContain('think: false');
-    expect(main).toContain('num_predict: 384');
+    expect(main).toContain('num_predict: 256');
+    expect(main).toContain('}, 120000);');
     expect(main).toContain('repeat_penalty: 1.15');
     expect(main).toContain('LOCAL_ASSISTANT_SYSTEM_PROMPT');
     expect(main).toContain('keep_alive: "15m"');
