@@ -1,6 +1,6 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
-const { DEFAULT_LOCAL_MODEL, cleanAssistantContent, cleanChatMessages, cleanModelName, publicPullProgress } = require("./ollama-local.cjs");
+const { DEFAULT_LOCAL_MODEL, cleanAssistantContent, cleanChatMessages, cleanModelName, isInstalledLocalModel, publicPullProgress } = require("./ollama-local.cjs");
 
 describe("local Ollama boundary", () => {
   it("accepts normal model aliases and rejects path-like input", () => {
@@ -20,7 +20,15 @@ describe("local Ollama boundary", () => {
   it("removes local thinking-template markers from visible replies", () => {
     assert.equal(cleanAssistantContent("</think>\n\nZERO ONE OPENZERO READY"), "ZERO ONE OPENZERO READY");
     assert.equal(cleanAssistantContent("<think>internal draft</think>\nFinal answer"), "Final answer");
+    assert.equal(cleanAssistantContent("Internal reasoning without an opening marker.\n</think>\nFUSION LOCAL READY"), "FUSION LOCAL READY");
     assert.equal(cleanAssistantContent("Normal answer"), "Normal answer");
+  });
+
+  it("keeps an installed custom OpenZero GGUF on the local Ollama route", () => {
+    const fusion = "hf.co/shafire/OpenZero-Fusion-Qwen3-4B-Agentic-GGUF:Q4_K_M";
+    assert.equal(isInstalledLocalModel(fusion, [{ name: fusion }]), true);
+    assert.equal(isInstalledLocalModel(fusion, [{ name: "openzerogemma:latest" }]), false);
+    assert.equal(isInstalledLocalModel("../bad", [{ name: "../bad" }]), false);
   });
 
   it("publishes progress without leaking daemon payload fields", () => {

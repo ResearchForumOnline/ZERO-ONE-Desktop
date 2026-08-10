@@ -800,8 +800,11 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
   const [pullProgress, setPullProgress] = useState<LocalOpenZeroProgress | null>(null);
   const streamRef = useRef<HTMLDivElement>(null);
   const clearChat = () => setMessages(initialAssistant);
-  // Local Assistant: OpenZero provider with the default model, or OpenZero without a server token.
-  const localSelected = settings.assistantProvider === "openzero" && (settings.model === LOCAL_OPENZERO_MODEL || !settings.hasOpenZeroToken);
+  // Published OpenZero GGUF selections are local even when a separate panel
+  // token is retained for browser workflows.
+  const selectedModel = (settings.model || "").toLowerCase();
+  const publishedLocalModel = selectedModel.startsWith("hf.co/shafire/openzero-") && selectedModel.includes("-gguf:");
+  const localSelected = settings.assistantProvider === "openzero" && (publishedLocalModel || settings.model === LOCAL_OPENZERO_MODEL || !settings.hasOpenZeroToken);
   const providerLabel = settings.assistantProvider === "groq" ? "Groq" : settings.assistantProvider === "openai" ? "OpenAI" : localSelected ? "OpenZero Local" : "OpenZero Server";
   const ready = settings.assistantProvider === "groq" ? settings.hasGroqKey : settings.assistantProvider === "openai" ? settings.hasOpenAiKey : localSelected ? localReady : settings.hasOpenZeroToken;
 
