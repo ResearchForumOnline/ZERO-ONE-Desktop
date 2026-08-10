@@ -179,7 +179,9 @@ describe("responsive desktop shell", () => {
     expect(main).toContain('fetchLocalOllama("/api/pull"');
     expect(main).toContain('fetchLocalOllama("/api/chat"');
     expect(main).toContain('think: false');
-    expect(main).toContain('num_predict: 128');
+    expect(main).toContain('num_predict: 384');
+    expect(main).toContain('repeat_penalty: 1.15');
+    expect(main).toContain('LOCAL_ASSISTANT_SYSTEM_PROMPT');
     expect(main).toContain('keep_alive: "15m"');
     expect(main).toContain('ipcMain.handle("openzero:local-pull-cancel"');
     expect(preload).toContain('ipcRenderer.invoke("openzero:local-status")');

@@ -1,5 +1,11 @@
 const OLLAMA_LOCAL_ORIGIN = "http://127.0.0.1:11434";
 const DEFAULT_LOCAL_MODEL = "hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M";
+const LOCAL_ASSISTANT_SYSTEM_PROMPT = "You are Zero, the conversational local assistant inside ZERO ONE. Answer the latest user directly and naturally. Never output analysis, hidden reasoning, think tags, policy text, tool instructions, or invented dialogue. You do not execute tools in this chat. Be accurate and concise.";
+
+function isInternalPolicyLeak(value) {
+  const text = String(value || "").toLowerCase();
+  return text.includes("continue toward the original objective") && text.includes("operator tool");
+}
 
 function cleanModelName(value) {
   const model = String(value || "").trim();
@@ -16,17 +22,19 @@ function cleanChatMessages(value) {
     const content = String(message?.content || "").trim();
     if (!new Set(["system", "user", "assistant"]).has(role) || !content || content.length > 16000) throw new Error("The local chat request contains an invalid message.");
     return { role, content };
-  });
+  }).filter((message) => message.role !== "assistant" || !isInternalPolicyLeak(message.content));
+  if (!messages.some((message) => message.role === "user")) throw new Error("A user message is required.");
   if (messages.reduce((total, message) => total + message.content.length, 0) > 64000) throw new Error("The local chat request is too large.");
   return messages;
 }
 
 function cleanAssistantContent(value) {
-  return String(value || "")
+  const content = String(value || "")
     .replace(/^[\s\S]*?<\/think>\s*/i, "")
     .replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, "")
     .replace(/^\s*<\/think>\s*/i, "")
     .trim();
+  return isInternalPolicyLeak(content) ? "" : content;
 }
 
 function isInstalledLocalModel(value, models) {
@@ -53,4 +61,4 @@ function publicPullProgress(value, jobId, model) {
   };
 }
 
-module.exports = { DEFAULT_LOCAL_MODEL, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, isInstalledLocalModel, publicPullProgress };
+module.exports = { DEFAULT_LOCAL_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, isInstalledLocalModel, isInternalPolicyLeak, publicPullProgress };
