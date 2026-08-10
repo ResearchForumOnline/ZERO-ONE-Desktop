@@ -1236,7 +1236,7 @@ ipcMain.handle("openzero:local-chat", async (event, request) => {
   try {
     return await chatViaLocalOllama(request, request?.model || DEFAULT_LOCAL_MODEL);
   } catch (error) {
-    if (error?.name === "AbortError") throw new Error("The local assistant took too long. ZERO ONE recommends OpenZero Qwen3-1.7B Agentic; check Settings and try again.");
+    if (error?.name === "AbortError") throw new Error("The local assistant took too long. Check Ollama and the tested OpenZero Gemma E4B selection in Settings, then try again.");
     throw error;
   }
 });
@@ -1294,7 +1294,7 @@ ipcMain.handle("openzero:chat", async (event, request) => {
       return await chatViaLocalOllama(request, requestedLocalModel);
     } catch (error) {
       if (error?.name === "AbortError") throw new Error("The local assistant took too long. Install or start Ollama, then try again.");
-      throw new Error(error?.message || "Local Assistant is unavailable. Install Ollama and download OpenZero Qwen3-1.7B Agentic once — no API key required.");
+      throw new Error(error?.message || "Local Assistant is unavailable. Install Ollama and download OpenZero Gemma E4B once — no API key required.");
     }
   }
 

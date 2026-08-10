@@ -11,7 +11,7 @@ if (!window.zeroOne && import.meta.env.DEV) {
     openZeroPublicUrl: "https://openzero.talktoai.org/",
     callChatUrl: "https://callchat.org/app/",
     assistantProvider: "openzero",
-    model: "hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M",
+    model: "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest",
     mediaEnabled: false,
     launchAtLogin: false,
     closeToTray: true,
