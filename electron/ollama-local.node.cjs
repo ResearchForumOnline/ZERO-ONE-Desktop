@@ -1,6 +1,6 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
-const { DEFAULT_LOCAL_MODEL, cleanAssistantContent, cleanChatMessages, cleanModelName, isInstalledLocalModel, publicPullProgress } = require("./ollama-local.cjs");
+const { DEFAULT_LOCAL_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, cleanAssistantContent, cleanChatMessages, cleanModelName, isInstalledLocalModel, isInternalPolicyLeak, publicPullProgress } = require("./ollama-local.cjs");
 
 describe("local Ollama boundary", () => {
   it("accepts normal model aliases and rejects path-like input", () => {
@@ -22,6 +22,10 @@ describe("local Ollama boundary", () => {
     assert.equal(cleanAssistantContent("<think>internal draft</think>\nFinal answer"), "Final answer");
     assert.equal(cleanAssistantContent("Internal reasoning without an opening marker.\n</think>\nFUSION LOCAL READY"), "FUSION LOCAL READY");
     assert.equal(cleanAssistantContent("Normal answer"), "Normal answer");
+    assert.equal(isInternalPolicyLeak("Continue toward the original objective. Use one operator tool."), true);
+    assert.equal(cleanAssistantContent("</think>\nContinue toward the original objective. Use at most one operator tool this turn."), "");
+    assert.ok(LOCAL_ASSISTANT_SYSTEM_PROMPT.includes("conversational local assistant"));
+    assert.deepEqual(cleanChatMessages([{ role: "assistant", content: "Continue toward the original objective. Use one operator tool." }, { role: "user", content: "hello" }]), [{ role: "user", content: "hello" }]);
   });
 
   it("keeps an installed custom OpenZero GGUF on the local Ollama route", () => {

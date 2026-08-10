@@ -803,7 +803,7 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
   // Published OpenZero GGUF selections are local even when a separate panel
   // token is retained for browser workflows.
   const selectedModel = (settings.model || "").toLowerCase();
-  const publishedLocalModel = selectedModel.startsWith("hf.co/shafire/openzero-") && selectedModel.includes("-gguf:");
+  const publishedLocalModel = selectedModel.startsWith("hf.co/shafire/") && (selectedModel.includes("/openzero-") || selectedModel.includes("/zero-")) && selectedModel.includes("-gguf:");
   const localSelected = settings.assistantProvider === "openzero" && (publishedLocalModel || settings.model === LOCAL_OPENZERO_MODEL || !settings.hasOpenZeroToken);
   const providerLabel = settings.assistantProvider === "groq" ? "Groq" : settings.assistantProvider === "openai" ? "OpenAI" : localSelected ? "OpenZero Local" : "OpenZero Server";
   const ready = settings.assistantProvider === "groq" ? settings.hasGroqKey : settings.assistantProvider === "openai" ? settings.hasOpenAiKey : localSelected ? localReady : settings.hasOpenZeroToken;
