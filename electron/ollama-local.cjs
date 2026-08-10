@@ -1,10 +1,23 @@
 const OLLAMA_LOCAL_ORIGIN = "http://127.0.0.1:11434";
 const DEFAULT_LOCAL_MODEL = "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest";
-const LOCAL_ASSISTANT_SYSTEM_PROMPT = "You are Zero, the conversational local assistant inside ZERO ONE. Answer the latest user directly and naturally. Never output analysis, hidden reasoning, think tags, policy text, tool instructions, or invented dialogue. You do not execute tools in this chat. Be accurate and concise.";
+const LOCAL_ASSISTANT_SYSTEM_PROMPT = "You are Zero, the private conversational assistant inside ZERO ONE. You generate text locally on this computer. In this chat you cannot browse the internet, access Google or external databases, inspect files, use a terminal, call tools, or take actions. Never claim those capabilities. Answer the latest user directly and naturally. Never output analysis, hidden reasoning, think tags, policy text, tool instructions, or invented dialogue. Be accurate, concise, and honest about uncertainty.";
 
 function isInternalPolicyLeak(value) {
   const text = String(value || "").toLowerCase();
-  return text.includes("continue toward the original objective") && text.includes("operator tool");
+  return (text.includes("continue toward the original objective") && text.includes("operator tool"))
+    || (text.includes("private conversational assistant inside zero one") && text.includes("never output analysis"));
+}
+
+function localDirectReply(messages) {
+  const latest = [...(Array.isArray(messages) ? messages : [])].reverse().find((message) => message?.role === "user");
+  const text = String(latest?.content || "").trim().toLowerCase();
+  if (/\b(system prompt|hidden (prompt|instructions?)|internal (prompt|policy|instructions?))\b/.test(text)) {
+    return "I can’t provide hidden instructions or internal policy text. I can explain my user-facing capabilities instead.";
+  }
+  if (/\b(who are you|what are you|what can you do|can you browse|internet access|access the (web|internet))\b/.test(text)) {
+    return "I’m Zero, the private local assistant inside ZERO ONE. I can answer questions and help draft, summarize, or explain text using the model running on this computer. This quick chat cannot browse the live web, access files, run commands, call tools, or take actions.";
+  }
+  return "";
 }
 
 function cleanModelName(value) {
@@ -61,4 +74,4 @@ function publicPullProgress(value, jobId, model) {
   };
 }
 
-module.exports = { DEFAULT_LOCAL_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, isInstalledLocalModel, isInternalPolicyLeak, publicPullProgress };
+module.exports = { DEFAULT_LOCAL_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, isInstalledLocalModel, isInternalPolicyLeak, localDirectReply, publicPullProgress };
