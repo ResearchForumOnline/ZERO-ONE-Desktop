@@ -7,7 +7,7 @@ type ZeroThinkAccountState = "checking" | "linking" | "linked" | "signed-out" | 
 type LocalOpenZeroStatus = { reachable: boolean; origin: string; defaultModel: string; version: string; models: Array<{ name: string; size: number; modifiedAt: string }>; message?: string };
 type LocalOpenZeroProgress = { status: string; completed: number; total: number; percent?: number; done: boolean };
 
-const LOCAL_OPENZERO_MODEL = "qwen3:1.7b";
+const LOCAL_OPENZERO_MODEL = "hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M";
 const ZOOM_STEPS = [0.75, 0.85, 1, 1.1, 1.25, 1.4, 1.5] as const;
 function nearestZoom(value: number) {
   return ZOOM_STEPS.reduce((closest, candidate) =>
@@ -24,7 +24,7 @@ const localOpenZeroApi = () => window.zeroOne as typeof window.zeroOne & {
 const initialAssistant: ChatMessage[] = [
   {
     role: "assistant",
-    content: "I’m your ZERO ONE Assistant. Private Local mode uses OpenZero + Ollama on this PC with no API keys. If the model is installed, just ask — otherwise open Settings once to download qwen3:1.7b (~1.4 GB).",
+    content: "I’m your ZERO ONE Assistant. Private Local mode uses OpenZero + Ollama on this PC with no API keys. If the model is installed, just ask — otherwise open Settings once to download OpenZero Qwen3-1.7B Agentic (~1.1 GB).",
   },
 ];
 
@@ -727,10 +727,10 @@ function SettingsView({ settings, openZeroProbe, onSaved }: { settings: ZeroOneS
               <button type="button" role="radio" aria-checked={openZeroMode === "server"} className={openZeroMode === "server" ? "selected" : ""} onClick={() => chooseOpenZeroMode("server")}><span>ADVANCED</span><strong>Use my OpenZero server</strong><small>Uses an existing OpenZero runtime for Assistant replies.</small></button>
             </div>
             {openZeroMode === "local" ? <div className={`local-openzero-setup ${localOpenZeroReady ? "ready" : localPulling || localChecking ? "connecting" : ""}`} aria-live="polite" aria-busy={localPulling || localChecking}>
-              <div className="local-openzero-status"><span className={`status-dot ${localOpenZeroReady || localOpenZeroRunning ? "online" : localPulling || localChecking ? "checking" : "offline"}`} /><div><strong>{localOpenZeroReady ? "Local Qwen Assistant is ready" : localPulling ? "Downloading the local Qwen Assistant…" : localChecking ? "Checking this computer…" : localOpenZeroRunning ? "Local engine ready—one model download remains" : "Install or start Ollama to continue"}</strong><small>{localOpenZeroReady ? "Quick chat runs on this computer. Open Assistant and start chatting." : localPulling ? `${localProgress?.status || "Preparing download"}${Number.isFinite(localProgress?.percent) ? ` · ${Math.round(localProgress?.percent || 0)}%` : ""}` : localOpenZeroRunning ? "The recommended fast model is about 1.4 GB. Keep at least 3 GB of disk space free." : "Ollama is the small local engine that runs the private Assistant model."}</small></div></div>
+              <div className="local-openzero-status"><span className={`status-dot ${localOpenZeroReady || localOpenZeroRunning ? "online" : localPulling || localChecking ? "checking" : "offline"}`} /><div><strong>{localOpenZeroReady ? "OpenZero Qwen Assistant is ready" : localPulling ? "Downloading the OpenZero Qwen Assistant…" : localChecking ? "Checking this computer…" : localOpenZeroRunning ? "Local engine ready—one model download remains" : "Install or start Ollama to continue"}</strong><small>{localOpenZeroReady ? "Quick chat runs on this computer. Open Assistant and start chatting." : localPulling ? `${localProgress?.status || "Preparing download"}${Number.isFinite(localProgress?.percent) ? ` · ${Math.round(localProgress?.percent || 0)}%` : ""}` : localOpenZeroRunning ? "The recommended OpenZero fine-tune is about 1.1 GB. Keep at least 3 GB of disk space free." : "Ollama is the small local engine that runs the private Assistant model."}</small></div></div>
               {localPulling && <div className="model-download-bar" role="progressbar" aria-label="Local Qwen Assistant download" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(localProgress?.percent || 0)}><span style={{ width: `${Math.max(2, localProgress?.percent || 0)}%` }} /></div>}
               <div className="connection-progress" aria-label="Local Assistant setup progress"><span className={localOpenZeroRunning ? "done" : "current"}>1<i>Local engine</i></span><b /><span className={localModelInstalled ? "done" : localPulling || localOpenZeroRunning ? "current" : ""}>2<i>Qwen model</i></span><b /><span className={localOpenZeroReady ? "done" : ""}>3<i>Ready to chat</i></span></div>
-              <div className="setup-actions">{!localOpenZeroRunning && <button type="button" className="primary-action" onClick={() => localOpenZeroApi().openOllamaDownload?.() || window.zeroOne.openExternal("https://ollama.com/download")}>Install Ollama ↗</button>}{localOpenZeroRunning && !localModelInstalled && <button type="button" className="primary-action" disabled={localPulling} onClick={installLocalOpenZeroModel}>{localPulling ? "Downloading…" : "Download local Qwen Assistant · ~1.4 GB"}</button>}{localPulling && <button type="button" className="secondary-action" onClick={() => localOpenZeroApi().cancelLocalOpenZeroModelPull?.()}>Cancel download</button>}<button type="button" className="secondary-action" disabled={localChecking || localPulling} onClick={refreshLocalOpenZero}>{localChecking ? "Checking…" : "Check again"}</button></div>
+              <div className="setup-actions">{!localOpenZeroRunning && <button type="button" className="primary-action" onClick={() => localOpenZeroApi().openOllamaDownload?.() || window.zeroOne.openExternal("https://ollama.com/download")}>Install Ollama ↗</button>}{localOpenZeroRunning && !localModelInstalled && <button type="button" className="primary-action" disabled={localPulling} onClick={installLocalOpenZeroModel}>{localPulling ? "Downloading…" : "Download OpenZero Qwen Assistant · ~1.1 GB"}</button>}{localPulling && <button type="button" className="secondary-action" onClick={() => localOpenZeroApi().cancelLocalOpenZeroModelPull?.()}>Cancel download</button>}<button type="button" className="secondary-action" disabled={localChecking || localPulling} onClick={refreshLocalOpenZero}>{localChecking ? "Checking…" : "Check again"}</button></div>
               <p className="no-token-note"><Icon name="shield" size={15} /> Local Assistant mode needs no API key or token. Prompts and answers stay on this computer.</p>
             </div> : <details className="server-openzero-setup" open><summary>Use OpenZero server for Assistant</summary><p>Enter these only if you already have an OpenZero server. The same address opens its full panel from the OpenZero tile.</p><div className="settings-grid">{field("openZeroUrl", "Full panel and API address", "The approved OpenZero runtime address, including https:// or a secure loopback tunnel.")}<label className="setting-field"><span>Assistant/API desktop token</span><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder={draft.hasOpenZeroToken ? "Stored securely · leave blank to keep" : "Paste the token supplied by your server"} autoComplete="off" /><small>Stored with this operating-system account and sent only to your configured OpenZero server.</small></label>{field("model", "Assistant model", "The model installed on your OpenZero server.")}</div></details>}
           </>}
@@ -778,7 +778,7 @@ function SettingsView({ settings, openZeroProbe, onSaved }: { settings: ZeroOneS
           <div className="settings-heading"><div><p>ABOUT</p><h2>ZERO ONE</h2></div><span>Open-core desktop shell</span></div>
           <dl className="system-list about-list">
             <div><dt>Version</dt><dd className="mono">{appVersion || "—"}</dd></div>
-            <div><dt>Assistant default</dt><dd>OpenZero Local · qwen3:1.7b</dd></div>
+            <div><dt>Assistant default</dt><dd>OpenZero Local · Qwen3-1.7B Agentic Q4_K_M</dd></div>
             <div><dt>Security</dt><dd>TLS · OS credential store · ZSEC Shield on-demand</dd></div>
             <div><dt>Source</dt><dd><button type="button" className="linkish" onClick={() => window.zeroOne.openExternal("https://github.com/ResearchForumOnline/ZERO-ONE-Desktop")}>GitHub ↗</button></dd></div>
           </dl>
@@ -912,7 +912,7 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
           {localSelected ? (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button className="token-prompt" disabled={pulling} onClick={pullLocalModel}>
-                <Icon name="shield" size={16} /> {pulling ? (pullProgress?.percent != null ? `Downloading ${pullProgress.percent}%` : "Downloading…") : "Download local model · ~1.4 GB"}
+                <Icon name="shield" size={16} /> {pulling ? (pullProgress?.percent != null ? `Downloading ${pullProgress.percent}%` : "Downloading…") : "Download OpenZero model · ~1.1 GB"}
               </button>
               <button className="token-prompt" onClick={() => localOpenZeroApi().openOllamaDownload?.()}>Get Ollama ↗</button>
               <button className="token-prompt" onClick={onOpenSettings}>Settings</button>

@@ -1,5 +1,5 @@
 const OLLAMA_LOCAL_ORIGIN = "http://127.0.0.1:11434";
-const DEFAULT_LOCAL_MODEL = "qwen3:1.7b";
+const DEFAULT_LOCAL_MODEL = "hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M";
 
 function cleanModelName(value) {
   const model = String(value || "").trim();
@@ -21,6 +21,13 @@ function cleanChatMessages(value) {
   return messages;
 }
 
+function cleanAssistantContent(value) {
+  return String(value || "")
+    .replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, "")
+    .replace(/^\s*<\/think>\s*/i, "")
+    .trim();
+}
+
 function publicPullProgress(value, jobId, model) {
   const total = Math.max(0, Number(value?.total) || 0);
   const completed = Math.max(0, Number(value?.completed) || 0);
@@ -35,4 +42,4 @@ function publicPullProgress(value, jobId, model) {
   };
 }
 
-module.exports = { DEFAULT_LOCAL_MODEL, OLLAMA_LOCAL_ORIGIN, cleanChatMessages, cleanModelName, publicPullProgress };
+module.exports = { DEFAULT_LOCAL_MODEL, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, publicPullProgress };
