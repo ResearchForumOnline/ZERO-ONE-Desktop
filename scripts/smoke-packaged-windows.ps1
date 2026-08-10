@@ -113,8 +113,8 @@ try {
   }
 
   if ($TestLocalChat) {
-    $chat = Invoke-CdpExpression -WebSocketUrl $page.webSocketDebuggerUrl -Expression 'window.zeroOne.chatLocalOpenZero({model:"qwen3:1.7b",messages:[{role:"user",content:"Reply with exactly: ZERO ONE FAST READY"}]}).then(value=>JSON.stringify(value))'
-    if ($chat.model -ne "qwen3:1.7b" -or $chat.content -notmatch "ZERO ONE FAST READY") {
+    $chat = Invoke-CdpExpression -WebSocketUrl $page.webSocketDebuggerUrl -Expression 'window.zeroOne.chatLocalOpenZero({model:"hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M",messages:[{role:"user",content:"Reply with exactly: ZERO ONE FAST READY"}]}).then(value=>JSON.stringify(value))'
+    if ($chat.model -ne "hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M" -or $chat.content -notmatch "ZERO ONE FAST READY") {
       throw "Packaged local Assistant chat failed: $($chat | ConvertTo-Json -Compress)"
     }
   }

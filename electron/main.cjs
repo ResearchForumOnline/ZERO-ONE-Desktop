@@ -9,7 +9,7 @@ const { parseZsecScanReport, parseZsecStatusPayload } = require("./zsec-contract
 const { cleanConfiguredUrl, diagnosticOrigin, isAllowedUrl: urlIsAllowed } = require("./url-policy.cjs");
 const { loginItemOptions, shouldCloseToTray, shouldStartHidden } = require("./tray-lifecycle.cjs");
 const { latestPhpSessionCookie } = require("./zerothink-session.cjs");
-const { DEFAULT_LOCAL_MODEL, OLLAMA_LOCAL_ORIGIN, cleanChatMessages, cleanModelName, publicPullProgress } = require("./ollama-local.cjs");
+const { DEFAULT_LOCAL_MODEL, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, publicPullProgress } = require("./ollama-local.cjs");
 const { checkLatestStableRelease } = require("./update-check.cjs");
 const {
   saveLogin,
@@ -712,7 +712,7 @@ app.whenReady().then(async () => {
   // Upgrade the former loopback-server default to the verified on-device
   // model only when that model is already installed. Existing remote/server
   // configurations remain untouched and can still be selected in Advanced.
-  const legacySlowLocalModels = new Set(["openzerogemma:latest", "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest"]);
+  const legacySlowLocalModels = new Set(["qwen3:1.7b", "openzerogemma:latest", "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest"]);
   if (runtimeSettings.assistantProvider === "openzero" && !runtimeSettings.fastLocalModelMigrationCompleted && legacySlowLocalModels.has(runtimeSettings.model)) {
     const local = await localOllamaStatus();
     if (local.reachable && local.models.some((model) => model.name.toLowerCase() === DEFAULT_LOCAL_MODEL.toLowerCase())) {
@@ -1115,7 +1115,7 @@ async function chatViaLocalOllama(request, preferredModel) {
   }, 45000);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(String(payload?.error || `The local model service returned HTTP ${response.status}.`).slice(0, 300));
-  const content = String(payload?.message?.content || "").trim();
+  const content = cleanAssistantContent(payload?.message?.content);
   if (!content) throw new Error("The local model returned no assistant message.");
   return { content, model: String(payload.model || model).slice(0, 192), provider: "ollama-local" };
 }
@@ -1236,7 +1236,7 @@ ipcMain.handle("openzero:local-chat", async (event, request) => {
   try {
     return await chatViaLocalOllama(request, request?.model || DEFAULT_LOCAL_MODEL);
   } catch (error) {
-    if (error?.name === "AbortError") throw new Error("The local assistant took too long. ZERO ONE recommends qwen3:1.7b; check Settings and try again.");
+    if (error?.name === "AbortError") throw new Error("The local assistant took too long. ZERO ONE recommends OpenZero Qwen3-1.7B Agentic; check Settings and try again.");
     throw error;
   }
 });
@@ -1290,7 +1290,7 @@ ipcMain.handle("openzero:chat", async (event, request) => {
       return await chatViaLocalOllama(request, request?.model || settings.model || DEFAULT_LOCAL_MODEL);
     } catch (error) {
       if (error?.name === "AbortError") throw new Error("The local assistant took too long. Install or start Ollama, then try again.");
-      throw new Error(error?.message || "Local Assistant is unavailable. Install Ollama and pull qwen3:1.7b once — no API key required.");
+      throw new Error(error?.message || "Local Assistant is unavailable. Install Ollama and download OpenZero Qwen3-1.7B Agentic once — no API key required.");
     }
   }
 
