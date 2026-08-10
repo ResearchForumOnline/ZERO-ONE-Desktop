@@ -9,7 +9,7 @@ const { parseZsecScanReport, parseZsecStatusPayload } = require("./zsec-contract
 const { cleanConfiguredUrl, diagnosticOrigin, isAllowedUrl: urlIsAllowed } = require("./url-policy.cjs");
 const { loginItemOptions, shouldCloseToTray, shouldStartHidden } = require("./tray-lifecycle.cjs");
 const { latestPhpSessionCookie } = require("./zerothink-session.cjs");
-const { DEFAULT_LOCAL_MODEL, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, publicPullProgress } = require("./ollama-local.cjs");
+const { DEFAULT_LOCAL_MODEL, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, isInstalledLocalModel, publicPullProgress } = require("./ollama-local.cjs");
 const { checkLatestStableRelease } = require("./update-check.cjs");
 const {
   saveLogin,
@@ -1284,10 +1284,14 @@ ipcMain.handle("openzero:chat", async (event, request) => {
   };
   const selected = providers[provider] || providers.openzero;
 
-  // Zero-config path: OpenZero without a token uses local Ollama automatically.
-  if (provider === "openzero" && !selected.token) {
+  // An explicitly selected model that exists in local Ollama stays local even
+  // when a separate OpenZero panel token is stored for browser workflows.
+  const requestedLocalModel = request?.model || settings.model || DEFAULT_LOCAL_MODEL;
+  const localStatus = provider === "openzero" ? await localOllamaStatus() : null;
+  const useLocalOllama = provider === "openzero" && (!selected.token || (localStatus?.reachable && isInstalledLocalModel(requestedLocalModel, localStatus.models)));
+  if (useLocalOllama) {
     try {
-      return await chatViaLocalOllama(request, request?.model || settings.model || DEFAULT_LOCAL_MODEL);
+      return await chatViaLocalOllama(request, requestedLocalModel);
     } catch (error) {
       if (error?.name === "AbortError") throw new Error("The local assistant took too long. Install or start Ollama, then try again.");
       throw new Error(error?.message || "Local Assistant is unavailable. Install Ollama and download OpenZero Qwen3-1.7B Agentic once — no API key required.");

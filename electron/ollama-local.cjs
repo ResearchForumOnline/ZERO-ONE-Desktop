@@ -23,9 +23,20 @@ function cleanChatMessages(value) {
 
 function cleanAssistantContent(value) {
   return String(value || "")
+    .replace(/^[\s\S]*?<\/think>\s*/i, "")
     .replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, "")
     .replace(/^\s*<\/think>\s*/i, "")
     .trim();
+}
+
+function isInstalledLocalModel(value, models) {
+  let requested;
+  try {
+    requested = cleanModelName(value).toLowerCase();
+  } catch {
+    return false;
+  }
+  return Array.isArray(models) && models.some((model) => String(model?.name || model || "").trim().toLowerCase() === requested);
 }
 
 function publicPullProgress(value, jobId, model) {
@@ -42,4 +53,4 @@ function publicPullProgress(value, jobId, model) {
   };
 }
 
-module.exports = { DEFAULT_LOCAL_MODEL, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, publicPullProgress };
+module.exports = { DEFAULT_LOCAL_MODEL, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, isInstalledLocalModel, publicPullProgress };
