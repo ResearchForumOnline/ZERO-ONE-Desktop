@@ -726,7 +726,9 @@ app.whenReady().then(async () => {
   if (runtimeSettings.assistantProvider === "openzero") {
     const local = await localOllamaStatus();
     const hasLocalDefault = local.reachable && local.models.some((model) => model.name.toLowerCase() === DEFAULT_LOCAL_MODEL.toLowerCase());
-    if (hasLocalDefault && (runtimeSettings.model !== DEFAULT_LOCAL_MODEL || !runtimeSettings.fastLocalModelMigrationCompleted) && !decryptToken(runtimeSettings)) {
+    // Only migrate a legacy selection. A user may deliberately select a
+    // different installed OpenZero GGUF; do not silently replace that choice.
+    if (hasLocalDefault && (!runtimeSettings.fastLocalModelMigrationCompleted || legacySlowLocalModels.has(runtimeSettings.model)) && !decryptToken(runtimeSettings)) {
       runtimeSettings = { ...runtimeSettings, model: DEFAULT_LOCAL_MODEL, assistantProvider: "openzero", fastLocalModelMigrationCompleted: true };
       await fs.mkdir(path.dirname(settingsPath()), { recursive: true });
       await fs.writeFile(settingsPath(), JSON.stringify(runtimeSettings, null, 2), { encoding: "utf8", mode: 0o600 });
