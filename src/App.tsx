@@ -7,11 +7,12 @@ type ZeroThinkAccountState = "checking" | "linking" | "linked" | "signed-out" | 
 type LocalOpenZeroStatus = { reachable: boolean; origin: string; defaultModel: string; version: string; models: Array<{ name: string; size: number; modifiedAt: string }>; message?: string };
 type LocalOpenZeroProgress = { status: string; completed: number; total: number; percent?: number; done: boolean };
 
-const LOCAL_OPENZERO_MODEL = "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest";
 const OPENZERO_MINISTRAL_RUNTIME_MODEL = "hf.co/shafire/OpenZero-Ministral3-8B-Runtime-Agent-GGUF:Q5_K_M";
+const OPENZERO_GEMMA_COMPAT_MODEL = "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest";
+const LOCAL_OPENZERO_MODEL = OPENZERO_MINISTRAL_RUNTIME_MODEL;
 const LOCAL_MODEL_PROFILES = [
-  { id: LOCAL_OPENZERO_MODEL, label: "OpenZero Gemma4 E4B", detail: "Behavior-tested local default · about 5.9 GB" },
-  { id: OPENZERO_MINISTRAL_RUNTIME_MODEL, label: "OpenZero Ministral 8B Runtime Agent", detail: "Optional higher-capacity runtime edition · about 6.1 GB · upstream weights unchanged" },
+  { id: OPENZERO_MINISTRAL_RUNTIME_MODEL, label: "OpenZero Ministral 8B Runtime Agent", detail: "Default runtime edition · about 6.1 GB · upstream weights unchanged" },
+  { id: OPENZERO_GEMMA_COMPAT_MODEL, label: "OpenZero Gemma4 E4B", detail: "Compatibility fallback · about 5.9 GB" },
 ] as const;
 const isPublishedLocalModel = (model: string) => model.startsWith("hf.co/shafire/") && (model.includes("/openzero-") || model.includes("/zero-")) && model.includes("-gguf:");
 const ZOOM_STEPS = [0.75, 0.85, 1, 1.1, 1.25, 1.4, 1.5] as const;
@@ -808,7 +809,7 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
           <div className="settings-heading"><div><p>ABOUT</p><h2>ZERO ONE</h2></div><span>Open-core desktop shell</span></div>
           <dl className="system-list about-list">
             <div><dt>Version</dt><dd className="mono">{appVersion || "—"}</dd></div>
-            <div><dt>Assistant default</dt><dd>OpenZero Local · Gemma4 E4B Q5_K_M</dd></div>
+            <div><dt>Assistant default</dt><dd>OpenZero Local · Ministral 3 8B Q5_K_M</dd></div>
             <div><dt>Security</dt><dd>TLS · OS credential store · ZSEC Shield on-demand</dd></div>
             <div><dt>Source</dt><dd><button type="button" className="linkish" onClick={() => window.zeroOne.openExternal("https://github.com/ResearchForumOnline/ZERO-ONE-Desktop")}>GitHub ↗</button></dd></div>
           </dl>

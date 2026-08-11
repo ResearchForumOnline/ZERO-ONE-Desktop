@@ -4,7 +4,7 @@ const { DEFAULT_LOCAL_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, cleanAssistantConten
 
 describe("local Ollama boundary", () => {
   it("accepts normal model aliases and rejects path-like input", () => {
-    assert.equal(cleanModelName(DEFAULT_LOCAL_MODEL), "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest");
+    assert.equal(cleanModelName(DEFAULT_LOCAL_MODEL), "hf.co/shafire/OpenZero-Ministral3-8B-Runtime-Agent-GGUF:Q5_K_M");
     assert.equal(cleanModelName("openzerogemma:latest"), "openzerogemma:latest");
     assert.equal(cleanModelName("library/qwen2.5:7b"), "library/qwen2.5:7b");
     assert.throws(() => cleanModelName("../secret"));

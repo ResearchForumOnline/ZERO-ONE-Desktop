@@ -1,7 +1,7 @@
 {
   "name": "zero-one-desktop",
   "desktopName": "zero-one.desktop",
-  "version": "7.8.7",
+  "version": "7.8.8",
   "private": true,
   "description": "ZERO ONE desktop command center for ZMail, ZeroThink, OpenZero, CallChat, and the local ZSEC Shield preview.",
   "author": "QUANTUMENCRYPTION1 LTD",

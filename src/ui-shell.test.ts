@@ -151,7 +151,7 @@ describe("responsive desktop shell", () => {
     expect(app).toContain('key === "j"');
     expect(app).toContain("lastView");
     expect(app).toContain("Apache-2.0 open shell");
-    expect(app).toContain('const LOCAL_OPENZERO_MODEL = "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest"');
+    expect(app).toContain('const LOCAL_OPENZERO_MODEL = OPENZERO_MINISTRAL_RUNTIME_MODEL');
     expect(app).toContain("chatLocalOpenZero");
     expect(app).toContain("getLocalOpenZeroStatus");
     expect(main).toContain('ipcMain.handle("openzero:connect-desktop"');
