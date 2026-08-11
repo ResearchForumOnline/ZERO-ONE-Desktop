@@ -8,11 +8,15 @@ type LocalOpenZeroStatus = { reachable: boolean; origin: string; defaultModel: s
 type LocalOpenZeroProgress = { status: string; completed: number; total: number; percent?: number; done: boolean };
 
 const OPENZERO_MINISTRAL_RUNTIME_MODEL = "hf.co/shafire/OpenZero-Ministral3-8B-Runtime-Agent-GGUF:Q5_K_M";
+const OPENZERO_GEMMA_E2B_MODEL = "hf.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF:Q4_K_M";
 const OPENZERO_GEMMA_COMPAT_MODEL = "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest";
-const LOCAL_OPENZERO_MODEL = OPENZERO_MINISTRAL_RUNTIME_MODEL;
+const OPENZERO_QWEN_COMPACT_MODEL = "hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M";
+const LOCAL_OPENZERO_MODEL = OPENZERO_GEMMA_E2B_MODEL;
 const LOCAL_MODEL_PROFILES = [
-  { id: OPENZERO_MINISTRAL_RUNTIME_MODEL, label: "OpenZero Ministral 8B Runtime Agent", detail: "Default runtime edition · about 6.1 GB · upstream weights unchanged" },
-  { id: OPENZERO_GEMMA_COMPAT_MODEL, label: "OpenZero Gemma4 E4B", detail: "Compatibility fallback · about 5.9 GB" },
+  { id: OPENZERO_GEMMA_E2B_MODEL, label: "OpenZero Gemma4 E2B Agentic", detail: "Recommended ZERO ONE Assistant · about 3.4 GB" },
+  { id: OPENZERO_MINISTRAL_RUNTIME_MODEL, label: "OpenZero Ministral 8B Runtime Agent", detail: "Full OpenZero default · about 6.1 GB · upstream weights unchanged" },
+  { id: OPENZERO_QWEN_COMPACT_MODEL, label: "OpenZero Qwen3 1.7B Agentic", detail: "Experimental compact option · about 1.1 GB" },
+  { id: OPENZERO_GEMMA_COMPAT_MODEL, label: "OpenZero Gemma4 E4B", detail: "Legacy compatibility option · about 5.9 GB" },
 ] as const;
 const isPublishedLocalModel = (model: string) => model.startsWith("hf.co/shafire/") && (model.includes("/openzero-") || model.includes("/zero-")) && model.includes("-gguf:");
 const ZOOM_STEPS = [0.75, 0.85, 1, 1.1, 1.25, 1.4, 1.5] as const;
@@ -31,7 +35,7 @@ const localOpenZeroApi = () => window.zeroOne as typeof window.zeroOne & {
 const initialAssistant: ChatMessage[] = [
   {
     role: "assistant",
-    content: "I’m your ZERO ONE Assistant. Private Local mode uses OpenZero + Ollama on this PC with no API keys. If the model is installed, just ask — otherwise open Settings once to download the tested OpenZero Gemma E4B model (~5.9 GB).",
+    content: "I’m your ZERO ONE Assistant. Private Local mode uses OpenZero + Ollama on this PC with no API keys. If the model is installed, just ask — otherwise open Settings once to download the recommended OpenZero Gemma E2B model (~3.4 GB).",
   },
 ];
 
@@ -809,7 +813,7 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
           <div className="settings-heading"><div><p>ABOUT</p><h2>ZERO ONE</h2></div><span>Open-core desktop shell</span></div>
           <dl className="system-list about-list">
             <div><dt>Version</dt><dd className="mono">{appVersion || "—"}</dd></div>
-            <div><dt>Assistant default</dt><dd>OpenZero Local · Ministral 3 8B Q5_K_M</dd></div>
+            <div><dt>Assistant default</dt><dd>OpenZero Local · Gemma4 E2B Q4_K_M</dd></div>
             <div><dt>Security</dt><dd>TLS · OS credential store · ZSEC Shield on-demand</dd></div>
             <div><dt>Source</dt><dd><button type="button" className="linkish" onClick={() => window.zeroOne.openExternal("https://github.com/ResearchForumOnline/ZERO-ONE-Desktop")}>GitHub ↗</button></dd></div>
           </dl>
@@ -946,7 +950,7 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
           {localSelected ? (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button className="token-prompt" disabled={pulling} onClick={pullLocalModel}>
-                <Icon name="shield" size={16} /> {pulling ? (pullProgress?.percent != null ? `Downloading ${pullProgress.percent}%` : "Downloading…") : "Download OpenZero model · ~5.9 GB"}
+                <Icon name="shield" size={16} /> {pulling ? (pullProgress?.percent != null ? `Downloading ${pullProgress.percent}%` : "Downloading…") : "Download selected OpenZero model"}
               </button>
               <button className="token-prompt" onClick={() => localOpenZeroApi().openOllamaDownload?.()}>Get Ollama ↗</button>
               <button className="token-prompt" onClick={onOpenSettings}>Settings</button>
