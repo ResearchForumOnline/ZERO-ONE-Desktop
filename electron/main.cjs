@@ -712,7 +712,7 @@ app.whenReady().then(async () => {
   // Upgrade the former loopback-server default to the verified on-device
   // model only when that model is already installed. Existing remote/server
   // configurations remain untouched and can still be selected in Advanced.
-  const legacySlowLocalModels = new Set(["qwen3:1.7b", "openzerogemma:latest", "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest"]);
+  const legacySlowLocalModels = new Set(["qwen3:1.7b", "openzerogemma:latest", "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest", "hf.co/shafire/OpenZero-Ministral3-8B-Runtime-Agent-GGUF:Q5_K_M"]);
   if (runtimeSettings.assistantProvider === "openzero" && !runtimeSettings.fastLocalModelMigrationCompleted && legacySlowLocalModels.has(runtimeSettings.model)) {
     const local = await localOllamaStatus();
     if (local.reachable && local.models.some((model) => model.name.toLowerCase() === DEFAULT_LOCAL_MODEL.toLowerCase())) {
@@ -1241,7 +1241,7 @@ ipcMain.handle("openzero:local-chat", async (event, request) => {
   try {
     return await chatViaLocalOllama(request, request?.model || DEFAULT_LOCAL_MODEL);
   } catch (error) {
-    if (error?.name === "AbortError") throw new Error("The local assistant took too long. Check Ollama and the tested OpenZero Gemma E4B selection in Settings, then try again.");
+    if (error?.name === "AbortError") throw new Error("The local assistant took too long. Check Ollama and the selected local model in Settings, then try again. A smaller model may respond faster on CPU-only systems.");
     throw error;
   }
 });

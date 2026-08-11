@@ -144,14 +144,14 @@ describe("responsive desktop shell", () => {
     expect(app).toContain("Local Assistant model");
     expect(app).toContain("Use my OpenZero server");
     expect(app).toContain("Local Assistant mode needs no API key or token");
-    expect(app).toContain("Download OpenZero model · ~5.9 GB");
+    expect(app).toContain("Download selected OpenZero model");
     expect(app).toContain("no API key required");
     expect(app).toContain("Assistant needs no config");
     expect(app).toContain("chat-clear");
     expect(app).toContain('key === "j"');
     expect(app).toContain("lastView");
     expect(app).toContain("Apache-2.0 open shell");
-    expect(app).toContain('const LOCAL_OPENZERO_MODEL = OPENZERO_MINISTRAL_RUNTIME_MODEL');
+    expect(app).toContain('const LOCAL_OPENZERO_MODEL = OPENZERO_GEMMA_E2B_MODEL');
     expect(app).toContain("chatLocalOpenZero");
     expect(app).toContain("getLocalOpenZeroStatus");
     expect(main).toContain('ipcMain.handle("openzero:connect-desktop"');
