@@ -75,6 +75,16 @@ describe("responsive desktop shell", () => {
     expect(main).not.toContain("autoUpdater");
   });
 
+  it("always identifies the installed version and offers a visible update status", () => {
+    expect(app).toContain('className="sidebar-version"');
+    expect(app).toContain("VERSION &amp; UPDATES");
+    expect(app).toContain("Check for updates");
+    expect(app).toContain("You have the latest version");
+    expect(app).toContain("Official stable releases only");
+    expect(css).toContain(".sidebar-version");
+    expect(css).toContain(".settings-update-section");
+  });
+
   it("uses the ZeroThink CLI device flow through the system browser", () => {
     expect(main).toContain('zeroThinkApi("device_start"');
     expect(main).toContain('zeroThinkApi("device_poll"');

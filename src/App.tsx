@@ -74,7 +74,7 @@ function StatusDot({ state }: { state?: ServiceProbe["state"] }) {
   return <span className={`status-dot ${state || "checking"}`} aria-label={state || "checking"} />;
 }
 
-function Sidebar({ view, mountedServiceIds, onNavigate }: { view: View; mountedServiceIds: readonly ServiceId[]; onNavigate: (view: View) => void }) {
+function Sidebar({ view, mountedServiceIds, version, onNavigate }: { view: View; mountedServiceIds: readonly ServiceId[]; version: string; onNavigate: (view: View) => void }) {
   return (
     <aside className="sidebar">
       <button className="brand-mark" onClick={() => onNavigate("home")} aria-label="ZERO ONE home">
@@ -101,6 +101,7 @@ function Sidebar({ view, mountedServiceIds, onNavigate }: { view: View; mountedS
         ))}
       </nav>
       <NavButton active={view === "settings"} label="Settings" onClick={() => onNavigate("settings")} icon="settings" compact />
+      <span className="sidebar-version" aria-label={`ZERO ONE version ${version || "unknown"}`}>v{version || "—"}</span>
     </aside>
   );
 }
@@ -578,7 +579,7 @@ function AgentLattice({ settings, openZeroProbe, onOpenZero }: { settings: ZeroO
   );
 }
 
-function SettingsView({ settings, openZeroProbe, onSaved }: { settings: ZeroOneSettings; openZeroProbe?: ServiceProbe; onSaved: (settings: ZeroOneSettings) => void }) {
+function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settings: ZeroOneSettings; appVersion: string; openZeroProbe?: ServiceProbe; onSaved: (settings: ZeroOneSettings) => void }) {
   const [draft, setDraft] = useState<ZeroOneSettings>(settings);
   const [token, setToken] = useState("");
   const [openAiKey, setOpenAiKey] = useState("");
@@ -591,11 +592,17 @@ function SettingsView({ settings, openZeroProbe, onSaved }: { settings: ZeroOneS
   const [localProgress, setLocalProgress] = useState<LocalOpenZeroProgress | null>(null);
   const [openZeroMode, setOpenZeroMode] = useState<"local" | "server">(() => isPublishedLocalModel((settings.model || "").toLowerCase()) ? "local" : "server");
   const [zmath, setZmath] = useState<ZmathSecurityStatus | null>(null);
-  const [appVersion, setAppVersion] = useState("");
+  const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   useEffect(() => { setDraft(settings); setOpenZeroMode(isPublishedLocalModel((settings.model || "").toLowerCase()) ? "local" : "server"); }, [settings]);
   useEffect(() => { window.zeroOne.getZmathSecurityStatus().then(setZmath); }, []);
-  useEffect(() => { window.zeroOne.getAppInfo?.().then((info) => setAppVersion(info.version)).catch(() => setAppVersion("")); }, []);
+  const checkForUpdate = async () => {
+    setCheckingUpdate(true);
+    try { setUpdateInfo(await window.zeroOne.checkForAppUpdate()); }
+    catch { setUpdateInfo({ status: "unavailable", updateAvailable: false, currentVersion: appVersion, latestVersion: appVersion, releaseUrl: "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/latest", checkedAt: new Date().toISOString() }); }
+    finally { setCheckingUpdate(false); }
+  };
   const refreshLocalOpenZero = useCallback(async () => {
     const getStatus = localOpenZeroApi().getLocalOpenZeroStatus;
     if (!getStatus) return;
@@ -695,6 +702,19 @@ function SettingsView({ settings, openZeroProbe, onSaved }: { settings: ZeroOneS
           <label className="check-row"><input type="checkbox" checked={draft.closeToTray} onChange={(event) => setDraft({ ...draft, closeToTray: event.target.checked })} /><span><strong>Keep ZERO ONE ready in the system tray</strong><small>Closing or minimising hides the window. Choose Quit from the tray when you want to stop it.</small></span></label>
           <label className="check-row"><input type="checkbox" checked={draft.launchAtLogin} onChange={(event) => setDraft({ ...draft, launchAtLogin: event.target.checked })} /><span><strong>Start when I sign in to this computer</strong><small>Starts quietly in the tray.</small></span></label>
           <label className="check-row"><input type="checkbox" checked={draft.mediaEnabled} onChange={(event) => setDraft({ ...draft, mediaEnabled: event.target.checked })} /><span><strong>Allow camera and microphone in CallChat</strong><small>Other workspaces remain blocked from camera and microphone access.</small></span></label>
+        </section>
+        <section className="settings-section glass-card settings-update-section" aria-labelledby="version-updates-heading">
+          <div className="settings-heading"><div><p>VERSION &amp; UPDATES</p><h2 id="version-updates-heading">ZERO ONE v{appVersion || "—"}</h2></div><span>Official stable releases only</span></div>
+          <div className="settings-update-row">
+            <div className={`settings-update-state ${updateInfo?.status || "idle"}`}>
+              <span aria-hidden="true">{updateInfo?.status === "available" ? "↑" : updateInfo?.status === "current" ? "✓" : "i"}</span>
+              <div><strong>{updateInfo?.status === "available" ? `Version ${updateInfo.latestVersion} is available` : updateInfo?.status === "current" ? "You have the latest version" : updateInfo?.status === "unavailable" ? "Update service is temporarily unavailable" : "Ready to check for updates"}</strong><small>{updateInfo?.checkedAt ? `Last checked ${new Date(updateInfo.checkedAt).toLocaleString("en-GB")}` : "ZERO ONE checks the official GitHub release channel. Nothing installs without you reviewing it."}</small></div>
+            </div>
+            <div className="settings-update-actions">
+              <button type="button" className="secondary-action" disabled={checkingUpdate} onClick={checkForUpdate}>{checkingUpdate ? "Checking…" : "Check for updates"}</button>
+              {updateInfo?.updateAvailable && <button type="button" className="primary-action" onClick={() => window.zeroOne.openExternal(updateInfo.releaseUrl)}>Review official release ↗</button>}
+            </div>
+          </div>
         </section>
         <section className="settings-section glass-card account-setup">
           <div className="settings-heading"><div><p>ZEROTHINK</p><h2>Account access</h2></div><span>Sign in once</span></div>
@@ -1000,6 +1020,7 @@ export default function App() {
   const [restoredLayout, setRestoredLayout] = useState(false);
   const [mountedServiceIds, setMountedServiceIds] = useState<ServiceId[]>([]);
   const [appUpdate, setAppUpdate] = useState<AppUpdateInfo | null>(null);
+  const [appVersion, setAppVersion] = useState("");
   const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState("");
   const searchButtonRef = useRef<HTMLButtonElement>(null);
   const bridgeUnavailable = "ZERO ONE could not start its secure desktop bridge. Restart the app; if this continues, install the latest update.";
@@ -1007,6 +1028,7 @@ export default function App() {
   useEffect(() => {
     if (!window.zeroOne?.getUserInterfaceScale) { setBootError(bridgeUnavailable); return; }
     window.zeroOne.getUserInterfaceScale().then(setZoom).catch(() => setZoom(1));
+    window.zeroOne.getAppInfo?.().then((info) => setAppVersion(info.version)).catch(() => setAppVersion(""));
   }, []);
 
   useEffect(() => {
@@ -1014,7 +1036,7 @@ export default function App() {
     let active = true;
     const check = () => {
       window.zeroOne.checkForAppUpdate().then((result) => {
-        if (active && result.updateAvailable && result.status === "available") setAppUpdate(result);
+        if (active) setAppUpdate(result);
       }).catch(() => {});
     };
     const startup = window.setTimeout(check, 1_500);
@@ -1124,15 +1146,15 @@ export default function App() {
   return (
     <div className={`app-shell ${copilotOpen ? "" : "copilot-collapsed"}`}>
       <a className="skip-link" href="#main-content">Skip to main content</a>
-      <Sidebar view={view} mountedServiceIds={renderedServiceIds} onNavigate={(next) => navigate(next)} />
+      <Sidebar view={view} mountedServiceIds={renderedServiceIds} version={appVersion} onNavigate={(next) => navigate(next)} />
       <main className="main-stage">
         <Topbar view={view} probes={probes} system={system} zoom={zoom} copilotOpen={copilotOpen} onZoom={updateZoom} onToggleCopilot={() => setCopilotOpen((value) => !value)} onRefresh={refresh} onSearch={() => setPalette(true)} searchRef={searchButtonRef} />
-        {appUpdate && appUpdate.latestVersion !== dismissedUpdateVersion && <UpdateBanner update={appUpdate} onDismiss={() => setDismissedUpdateVersion(appUpdate.latestVersion)} />}
+        {appUpdate?.updateAvailable && appUpdate.status === "available" && appUpdate.latestVersion !== dismissedUpdateVersion && <UpdateBanner update={appUpdate} onDismiss={() => setDismissedUpdateVersion(appUpdate.latestVersion)} />}
         <div className="content-frame" id="main-content">
           {view === "home" && <Dashboard settings={settings} probes={probes} system={system} zsec={zsec} onOpen={(id) => navigate(`service:${id}`)} onOpenShield={() => navigate("shield")} />}
           {view === "shield" && <ZsecView snapshot={zsec} onRefresh={refresh} />}
           {view === "agents" && <AgentLattice settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onOpenZero={() => navigate("service:openzero")} />}
-          {view === "settings" && <SettingsView settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onSaved={(saved) => { setSettings(saved); refresh(); }} />}
+          {view === "settings" && <SettingsView settings={settings} appVersion={appVersion} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onSaved={(saved) => { setSettings(saved); refresh(); }} />}
           {renderedServiceIds.map((serviceId) => {
             const service = serviceById(serviceId);
             return <ServiceWorkspace key={serviceId} service={service} settings={settings} probe={probes.find((probe) => probe.name === serviceId)} active={serviceId === activeService?.id} />;
