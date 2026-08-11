@@ -564,6 +564,7 @@ function AgentLattice({ settings, openZeroProbe, onOpenZero }: { settings: ZeroO
       <section className="automation-grid">
         <article className="glass-card"><Icon name="pulse" /><strong>Local runtime</strong><p>{openZeroProbe?.state === "online" ? `Ready with ${settings.model}` : "Optional local OpenZero connection is not currently reachable."}</p></article>
         <article className="glass-card"><Icon name="shield" /><strong>Permission boundaries</strong><p>Tools and browser actions remain governed by OpenZero permissions and confirmation rules.</p></article>
+        <article className="glass-card"><Icon name="agents" /><strong>Recursive Lab</strong><p>Agent Zero can persist code workspaces, inspect diffs, run approved tests, and promote or roll back verified changes through OpenZero.</p></article>
         <article className="glass-card"><Icon name="agents" /><strong>Real activity only</strong><p>Open the automation console to see actual runs, progress and results.</p></article>
       </section>
       <div className="agent-action-bar"><div><Icon name="shield" /><span>Execution remains bounded by OpenZero tool permissions and confirmations.</span></div><button className="primary-action" onClick={onOpenZero}>Open autonomous console ↗</button></div>

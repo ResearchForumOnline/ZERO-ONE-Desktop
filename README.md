@@ -56,6 +56,8 @@ For most people, **Local** is the recommended mode. ZERO ONE connects to [Ollama
 
 **Server** is the advanced mode for someone who already operates an OpenZero server. It requires that server's HTTPS address and desktop credential. Server mode can expose the orchestration, tools, skills and governed automation implemented by that OpenZero deployment.
 
+OpenZero is the agent runtime; ZERO ONE is the desktop command centre. A current OpenZero server can expose its **Recursive Lab** through ZERO ONE: Agent Zero stages source changes in a persistent isolated workspace, shows exact diffs, runs only operator-approved test profiles, and requires a fresh confirmation before atomic promotion or rollback. Direct local Ollama chat does not gain filesystem or self-modification authority.
+
 The distinction matters: direct local Ollama mode provides private **model chat**. It does not by itself reproduce OpenZero's full server orchestration, browser control, tools, multi-step agents or remote skills. ZERO ONE labels the active mode and does not claim those capabilities when only the local model API is connected.
 
 ## Build from source
