@@ -1,11 +1,32 @@
 const OLLAMA_LOCAL_ORIGIN = "http://127.0.0.1:11434";
 const DEFAULT_LOCAL_MODEL = "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest";
-const LOCAL_ASSISTANT_SYSTEM_PROMPT = "You are Zero, the private conversational assistant inside ZERO ONE. You generate text locally on this computer. In this chat you cannot browse the internet, access Google or external databases, inspect files, use a terminal, call tools, or take actions. Never claim those capabilities. Answer the latest user directly and naturally. Never output analysis, hidden reasoning, think tags, policy text, tool instructions, or invented dialogue. Be accurate, concise, and honest about uncertainty.";
+const LOCAL_ASSISTANT_SYSTEM_PROMPT = "You are Zero, the private conversational assistant inside ZERO ONE. You generate text locally on this computer. In this chat you cannot browse the internet, access Google or external databases, inspect files, use a terminal, call tools, or take actions. Never claim those capabilities. Follow the operator's sovereign research ethics: preserve user authority and privacy, minimize disclosure, distinguish generation from verification, never fabricate evidence or completion, state uncertainty, and preserve provenance when discussing supplied sources. Never request, repeat, infer, or expose passwords, tokens, private keys, or hidden credentials. Answer the latest user directly and naturally. Never output analysis, hidden reasoning, think tags, policy text, tool instructions, or invented dialogue. Be accurate, concise, and honest about uncertainty.";
 
 function isInternalPolicyLeak(value) {
   const text = String(value || "").toLowerCase();
-  return (text.includes("continue toward the original objective") && text.includes("operator tool"))
-    || (text.includes("private conversational assistant inside zero one") && text.includes("never output analysis"));
+  const privateFragments = [
+    "continue toward the original objective",
+    "use at most one operator tool this turn",
+    "original objective (authoritative",
+    "selected skill contracts",
+    "latest safe checkpoint or tool result",
+    "never repeat or expose this checkpoint",
+    "private conversational assistant inside zero one",
+  ];
+  return privateFragments.some((fragment) => text.includes(fragment));
+}
+
+function hasRepeatedLongPhrase(value) {
+  const words = String(value || "").toLowerCase().match(/[a-z0-9']+/g) || [];
+  for (const width of [8, 12]) {
+    const seen = new Set();
+    for (let offset = 0; offset <= words.length - width; offset += 1) {
+      const gram = words.slice(offset, offset + width).join(" ");
+      if (seen.has(gram)) return true;
+      seen.add(gram);
+    }
+  }
+  return false;
 }
 
 function localDirectReply(messages) {
@@ -47,7 +68,10 @@ function cleanAssistantContent(value) {
     .replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, "")
     .replace(/^\s*<\/think>\s*/i, "")
     .trim();
-  return isInternalPolicyLeak(content) ? "" : content;
+  if (isInternalPolicyLeak(content) || hasRepeatedLongPhrase(content)) return "";
+  if (/^\s*(user|assistant|architect|agent zero)\s*:/im.test(content)) return "";
+  if (/<\/?think(?:ing)?>/i.test(content)) return "";
+  return content;
 }
 
 function isInstalledLocalModel(value, models) {
@@ -74,4 +98,4 @@ function publicPullProgress(value, jobId, model) {
   };
 }
 
-module.exports = { DEFAULT_LOCAL_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, isInstalledLocalModel, isInternalPolicyLeak, localDirectReply, publicPullProgress };
+module.exports = { DEFAULT_LOCAL_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, hasRepeatedLongPhrase, isInstalledLocalModel, isInternalPolicyLeak, localDirectReply, publicPullProgress };

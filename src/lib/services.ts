@@ -16,10 +16,10 @@ export const SERVICES: ServiceDefinition[] = [
     id: "openzero",
     name: "OpenZero",
     eyebrow: "FULL RUNTIME PANEL",
-    description: "The full OpenZero panel for models, runs, tools, voice, automation, and Tab Pilot controls.",
+    description: "The full OpenZero panel for models, runs, tools, persistent recursive coding, voice, automation, and Tab Pilot controls.",
     accent: "#00ff85",
     glyph: "Ø",
-    capabilities: ["Full panel", "Runs & tools", "Tab Pilot"],
+    capabilities: ["Full panel", "Runs & tools", "Recursive Lab", "Tab Pilot"],
     settingKey: "openZeroUrl",
   },
   {

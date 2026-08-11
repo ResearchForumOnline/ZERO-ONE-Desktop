@@ -9,6 +9,7 @@ describe("service catalog", () => {
   it("describes OpenZero as the full runtime panel without inventing pool telemetry", () => {
     expect(serviceById("openzero").capabilities).toContain("Full panel");
     expect(serviceById("openzero").capabilities).toContain("Runs & tools");
+    expect(serviceById("openzero").capabilities).toContain("Recursive Lab");
     expect(serviceById("openzero").capabilities).toContain("Tab Pilot");
   });
 
