@@ -10,6 +10,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$expectedDefaultModel = "hf.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF:Q4_K_M"
 
 function Invoke-CdpExpression {
   param(
@@ -113,8 +114,12 @@ try {
   }
 
   if ($TestLocalChat) {
-    $chat = Invoke-CdpExpression -WebSocketUrl $page.webSocketDebuggerUrl -Expression 'window.zeroOne.chatLocalOpenZero({model:"hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M",messages:[{role:"user",content:"Reply with exactly: ZERO ONE FAST READY"}]}).then(value=>JSON.stringify(value))'
-    if ($chat.model -ne "hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M" -or $chat.content -notmatch "ZERO ONE FAST READY") {
+    $status = Invoke-CdpExpression -WebSocketUrl $page.webSocketDebuggerUrl -Expression 'window.zeroOne.getLocalOpenZeroStatus().then(value=>JSON.stringify(value))'
+    if ($status.defaultModel -ne $expectedDefaultModel) {
+      throw "Packaged local Assistant exposed an unexpected default model: $($status.defaultModel)"
+    }
+    $chat = Invoke-CdpExpression -WebSocketUrl $page.webSocketDebuggerUrl -Expression 'window.zeroOne.getLocalOpenZeroStatus().then(status=>window.zeroOne.chatLocalOpenZero({model:status.defaultModel,messages:[{role:"user",content:"Reply with exactly: ZERO ONE READY"}]})).then(value=>JSON.stringify(value))'
+    if ($chat.model -ne $expectedDefaultModel -or $chat.content -notmatch "ZERO ONE READY") {
       throw "Packaged local Assistant chat failed: $($chat | ConvertTo-Json -Compress)"
     }
   }

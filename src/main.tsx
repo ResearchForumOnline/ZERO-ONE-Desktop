@@ -1,7 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import packageMetadata from "../package.json";
 import "./styles.css";
+
+const previewVersion = `${packageMetadata.version.split(".").slice(0, 2).join(".")}-preview`;
 
 if (!window.zeroOne && import.meta.env.DEV) {
   const previewSettings: ZeroOneSettings = {
@@ -12,6 +15,9 @@ if (!window.zeroOne && import.meta.env.DEV) {
     callChatUrl: "https://callchat.org/app/",
     assistantProvider: "openzero",
     model: "hf.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF:Q4_K_M",
+    openZeroServerModel: "hf.co/shafire/OpenZero-Ministral3-8B-Runtime-Agent-GGUF:Q5_K_M",
+    openZeroAssistantMode: "local",
+    localResourceProfile: "balanced",
     mediaEnabled: false,
     launchAtLogin: false,
     closeToTray: true,
@@ -22,8 +28,8 @@ if (!window.zeroOne && import.meta.env.DEV) {
     hasZeroThinkAccount: false,
   };
   window.zeroOne = {
-    getAppInfo: async () => ({ name: "ZERO ONE", version: "7.8-preview", platform: navigator.platform.toLowerCase().includes("mac") ? "darwin" : navigator.platform.toLowerCase().includes("linux") ? "linux" : "win32", packaged: false }),
-    checkForAppUpdate: async () => ({ status: "current", updateAvailable: false, currentVersion: "7.8.5", latestVersion: "7.8.5", releaseUrl: "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v7.8.5", checkedAt: new Date().toISOString() }),
+    getAppInfo: async () => ({ name: "ZERO ONE", version: previewVersion, platform: navigator.platform.toLowerCase().includes("mac") ? "darwin" : navigator.platform.toLowerCase().includes("linux") ? "linux" : "win32", packaged: false }),
+    checkForAppUpdate: async () => ({ status: "current", updateAvailable: false, currentVersion: packageMetadata.version, latestVersion: packageMetadata.version, releaseUrl: `https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v${packageMetadata.version}`, checkedAt: new Date().toISOString() }),
     getUserInterfaceScale: async () => 1,
     setUserInterfaceScale: async (factor) => factor,
     startZeroThinkSignIn: async () => ({ status: "success", email: "preview@example.com", userCode: "PREVIEW" }),
@@ -41,7 +47,7 @@ if (!window.zeroOne && import.meta.env.DEV) {
       { name: "zmail", state: "online", status: 200, latencyMs: 38, url: previewSettings.zmailUrl },
       { name: "callchat", state: "online", status: 200, latencyMs: 29, url: previewSettings.callChatUrl },
     ],
-    connectOpenZeroDesktop: async () => ({ settings: { ...previewSettings, hasOpenZeroToken: true, model: "openzerogemma:latest" }, hint: "oz_preview", model: "openzerogemma:latest", models: ["openzerogemma:latest"] }),
+    connectOpenZeroDesktop: async () => ({ settings: { ...previewSettings, hasOpenZeroToken: true }, hint: "oz_preview", model: previewSettings.openZeroServerModel, models: [previewSettings.openZeroServerModel] }),
     chat: async () => ({ content: "Preview mode keeps all actions local and disabled.", model: previewSettings.model }),
     openExternal: async () => true,
     exportDiagnostics: async () => ({ saved: false }),

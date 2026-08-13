@@ -1,5 +1,11 @@
 const OLLAMA_LOCAL_ORIGIN = "http://127.0.0.1:11434";
 const DEFAULT_LOCAL_MODEL = "hf.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF:Q4_K_M";
+const DEFAULT_OPENZERO_SERVER_MODEL = "hf.co/shafire/OpenZero-Ministral3-8B-Runtime-Agent-GGUF:Q5_K_M";
+const BLOCKED_LOCAL_MODELS = new Set([
+  "qwen3:1.7b",
+  "hf.co/shafire/openzero-fusion-qwen3-4b-agentic-gguf",
+  "hf.co/shafire/openzero-qwen3-1.7b-agentic-gguf",
+]);
 const LOCAL_ASSISTANT_SYSTEM_PROMPT = "You are Zero, the private conversational assistant inside ZERO ONE. You generate text locally on this computer. In this chat you cannot browse the internet, access Google or external databases, inspect files, use a terminal, call tools, or take actions. Never claim those capabilities. Follow the operator's sovereign research ethics: preserve user authority and privacy, minimize disclosure, distinguish generation from verification, never fabricate evidence or completion, state uncertainty, and preserve provenance when discussing supplied sources. Never request, repeat, infer, or expose passwords, tokens, private keys, or hidden credentials. Answer the latest user directly and naturally. Never output analysis, hidden reasoning, think tags, policy text, tool instructions, or invented dialogue. Be accurate, concise, and honest about uncertainty.";
 
 function isInternalPolicyLeak(value) {
@@ -49,7 +55,38 @@ function cleanModelName(value) {
   if (!model || model.length > 192 || model.includes("..") || model.includes("//") || !/^[A-Za-z0-9][A-Za-z0-9._/-]*(?::[A-Za-z0-9][A-Za-z0-9._-]*)?$/.test(model)) {
     throw new Error("Choose a valid local model name.");
   }
+  const normalizedModel = model.toLowerCase();
+  const blocked = BLOCKED_LOCAL_MODELS.has(normalizedModel)
+    || [...BLOCKED_LOCAL_MODELS].some((entry) => entry.startsWith("hf.co/") && normalizedModel.startsWith(`${entry}:`));
+  if (blocked) {
+    throw new Error("That model is blocked because it failed ZERO ONE response-safety testing.");
+  }
   return model;
+}
+
+function isPublishedLocalModelName(value) {
+  const model = String(value || "").trim().toLowerCase();
+  return model.startsWith("hf.co/shafire/") && (model.includes("/openzero-") || model.includes("/zero-")) && model.includes("-gguf:");
+}
+
+function inferOpenZeroRoutingSettings(value) {
+  const stored = value && typeof value === "object" ? value : {};
+  const legacyModel = String(stored.model || "").trim();
+  const knownLegacyLocalModel = legacyModel.toLowerCase() === "qwen3:1.7b";
+  const explicitMode = stored.openZeroAssistantMode === "server" || stored.openZeroAssistantMode === "local" ? stored.openZeroAssistantMode : "";
+  const hasStoredToken = typeof stored.openZeroTokenEncrypted === "string" && stored.openZeroTokenEncrypted.length > 0;
+  const provider = ["openzero", "openai", "groq"].includes(stored.assistantProvider) ? stored.assistantProvider : "openzero";
+  const openZeroAssistantMode = explicitMode || (provider === "openzero" && hasStoredToken && legacyModel && !knownLegacyLocalModel && !isPublishedLocalModelName(legacyModel) ? "server" : "local");
+  return {
+    openZeroAssistantMode,
+    legacyServerModel: openZeroAssistantMode === "server" && legacyModel ? legacyModel : DEFAULT_OPENZERO_SERVER_MODEL,
+  };
+}
+
+function localResourceOptions(value) {
+  if (value === "low-memory") return { keep_alive: 0, num_ctx: 1536, num_predict: 192 };
+  if (value === "performance") return { keep_alive: "30m", num_ctx: 4096, num_predict: 384 };
+  return { keep_alive: "5m", num_ctx: 2048, num_predict: 256 };
 }
 
 function cleanChatMessages(value) {
@@ -101,4 +138,4 @@ function publicPullProgress(value, jobId, model) {
   };
 }
 
-module.exports = { DEFAULT_LOCAL_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, hasRepeatedLongPhrase, isInstalledLocalModel, isInternalPolicyLeak, localDirectReply, publicPullProgress };
+module.exports = { BLOCKED_LOCAL_MODELS, DEFAULT_LOCAL_MODEL, DEFAULT_OPENZERO_SERVER_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, hasRepeatedLongPhrase, inferOpenZeroRoutingSettings, isInstalledLocalModel, isInternalPolicyLeak, isPublishedLocalModelName, localDirectReply, localResourceOptions, publicPullProgress };

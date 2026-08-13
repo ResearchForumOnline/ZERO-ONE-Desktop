@@ -1,6 +1,6 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
-const { DEFAULT_LOCAL_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, cleanAssistantContent, cleanChatMessages, cleanModelName, hasRepeatedLongPhrase, isInstalledLocalModel, isInternalPolicyLeak, localDirectReply, publicPullProgress } = require("./ollama-local.cjs");
+const { DEFAULT_LOCAL_MODEL, DEFAULT_OPENZERO_SERVER_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, cleanAssistantContent, cleanChatMessages, cleanModelName, hasRepeatedLongPhrase, inferOpenZeroRoutingSettings, isInstalledLocalModel, isInternalPolicyLeak, isPublishedLocalModelName, localDirectReply, localResourceOptions, publicPullProgress } = require("./ollama-local.cjs");
 
 describe("local Ollama boundary", () => {
   it("accepts normal model aliases and rejects path-like input", () => {
@@ -9,6 +9,12 @@ describe("local Ollama boundary", () => {
     assert.equal(cleanModelName("library/qwen2.5:7b"), "library/qwen2.5:7b");
     assert.throws(() => cleanModelName("../secret"));
     assert.throws(() => cleanModelName("http://remote/model"));
+    assert.throws(() => cleanModelName("hf.co/shafire/OpenZero-Fusion-Qwen3-4B-Agentic-GGUF:Q4_K_M"), /failed ZERO ONE/);
+    assert.throws(() => cleanModelName("hf.co/shafire/OpenZero-Fusion-Qwen3-4B-Agentic-GGUF:Q8_0"), /failed ZERO ONE/);
+    assert.throws(() => cleanModelName("hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M"), /failed ZERO ONE/);
+    assert.throws(() => cleanModelName("hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:F16"), /failed ZERO ONE/);
+    assert.throws(() => cleanModelName("qwen3:1.7b"), /failed ZERO ONE/);
+    assert.equal(DEFAULT_OPENZERO_SERVER_MODEL, "hf.co/shafire/OpenZero-Ministral3-8B-Runtime-Agent-GGUF:Q5_K_M");
   });
 
   it("bounds local chat messages", () => {
@@ -46,11 +52,49 @@ describe("local Ollama boundary", () => {
     assert.equal(cleanAssistantContent(loop), "");
   });
 
-  it("keeps an installed custom OpenZero GGUF on the local Ollama route", () => {
+  it("keeps an installed custom GGUF local but blocks the rejected Fusion release", () => {
+    const custom = "hf.co/example/Custom-Agent-GGUF:Q4_K_M";
     const fusion = "hf.co/shafire/OpenZero-Fusion-Qwen3-4B-Agentic-GGUF:Q4_K_M";
-    assert.equal(isInstalledLocalModel(fusion, [{ name: fusion }]), true);
-    assert.equal(isInstalledLocalModel(fusion, [{ name: "openzerogemma:latest" }]), false);
+    assert.equal(isInstalledLocalModel(custom, [{ name: custom }]), true);
+    assert.equal(isInstalledLocalModel(fusion, [{ name: fusion }]), false);
     assert.equal(isInstalledLocalModel("../bad", [{ name: "../bad" }]), false);
+    assert.equal(isPublishedLocalModelName(DEFAULT_LOCAL_MODEL), true);
+    assert.equal(isPublishedLocalModelName(custom), false);
+  });
+
+  it("bounds local resource profiles and defaults to balanced", () => {
+    assert.deepEqual(localResourceOptions("low-memory"), { keep_alive: 0, num_ctx: 1536, num_predict: 192 });
+    assert.deepEqual(localResourceOptions("performance"), { keep_alive: "30m", num_ctx: 4096, num_predict: 384 });
+    assert.deepEqual(localResourceOptions("anything-else"), { keep_alive: "5m", num_ctx: 2048, num_predict: 256 });
+  });
+
+  it("preserves legacy server routing while keeping managed local models local", () => {
+    assert.deepEqual(inferOpenZeroRoutingSettings({
+      assistantProvider: "openzero",
+      model: "private-server-model:latest",
+      openZeroTokenEncrypted: "encrypted-token",
+    }), { openZeroAssistantMode: "server", legacyServerModel: "private-server-model:latest" });
+    assert.deepEqual(inferOpenZeroRoutingSettings({
+      assistantProvider: "openzero",
+      model: DEFAULT_LOCAL_MODEL,
+      openZeroTokenEncrypted: "encrypted-token",
+    }), { openZeroAssistantMode: "local", legacyServerModel: DEFAULT_OPENZERO_SERVER_MODEL });
+    assert.deepEqual(inferOpenZeroRoutingSettings({
+      assistantProvider: "openzero",
+      model: "qwen3:1.7b",
+      openZeroTokenEncrypted: "encrypted-token",
+    }), { openZeroAssistantMode: "local", legacyServerModel: DEFAULT_OPENZERO_SERVER_MODEL });
+    assert.deepEqual(inferOpenZeroRoutingSettings({
+      assistantProvider: "openzero",
+      model: "private-server-model:latest",
+      openZeroAssistantMode: "local",
+      openZeroTokenEncrypted: "encrypted-token",
+    }), { openZeroAssistantMode: "local", legacyServerModel: DEFAULT_OPENZERO_SERVER_MODEL });
+    assert.deepEqual(inferOpenZeroRoutingSettings({
+      assistantProvider: "openzero",
+      model: "private-server-model:latest",
+      openZeroAssistantMode: "server",
+    }), { openZeroAssistantMode: "server", legacyServerModel: "private-server-model:latest" });
   });
 
   it("publishes progress without leaking daemon payload fields", () => {
