@@ -8,6 +8,9 @@ interface ZeroOneSettings {
   callChatUrl: string;
   assistantProvider: "openzero" | "openai" | "groq";
   model: string;
+  openZeroServerModel: string;
+  openZeroAssistantMode: "local" | "server";
+  localResourceProfile: "low-memory" | "balanced" | "performance";
   mediaEnabled: boolean;
   launchAtLogin: boolean;
   closeToTray: boolean;
@@ -111,6 +114,12 @@ interface Window {
     clearLocalData(): Promise<{ cleared: boolean }>;
     probeServices(): Promise<ServiceProbe[]>;
     connectOpenZeroDesktop(): Promise<{ settings: ZeroOneSettings; hint: string; model: string; models: string[] }>;
+    getLocalOpenZeroStatus?(): Promise<{ reachable: boolean; origin: string; defaultModel: string; version: string; models: Array<{ name: string; size: number; modifiedAt: string }>; runningModels: Array<{ name: string; size: number; expiresAt: string }>; message?: string }>;
+    openOllamaDownload?(): Promise<boolean>;
+    pullLocalOpenZeroModel?(model: string, onProgress: (progress: { status: string; completed: number; total: number; percent?: number; done: boolean }) => void): Promise<{ status: string }>;
+    cancelLocalOpenZeroModelPull?(): Promise<{ cancelled: number }>;
+    unloadLocalOpenZeroModels?(input: { model?: string; all?: boolean }): Promise<{ unloaded: number }>;
+    chatLocalOpenZero?(request: { model?: string; messages: Array<{ role: "user" | "assistant"; content: string }> }): Promise<{ content: string; model: string }>;
     chat(request: { model: string; messages: Array<{ role: "user" | "assistant" | "system"; content: string }> }): Promise<{ content: string; model: string; provider?: string }>;
     openExternal(url: string): Promise<boolean>;
     exportDiagnostics(): Promise<{ saved: boolean; path?: string }>;

@@ -4,18 +4,16 @@ import { SERVICES, ServiceDefinition, ServiceId, retainMountedServiceTab, servic
 type View = "home" | "shield" | "agents" | "settings" | `service:${ServiceId}`;
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type ZeroThinkAccountState = "checking" | "linking" | "linked" | "signed-out" | "needs-link";
-type LocalOpenZeroStatus = { reachable: boolean; origin: string; defaultModel: string; version: string; models: Array<{ name: string; size: number; modifiedAt: string }>; message?: string };
+type LocalOpenZeroStatus = { reachable: boolean; origin: string; defaultModel: string; version: string; models: Array<{ name: string; size: number; modifiedAt: string }>; runningModels: Array<{ name: string; size: number; expiresAt: string }>; message?: string };
 type LocalOpenZeroProgress = { status: string; completed: number; total: number; percent?: number; done: boolean };
 
 const OPENZERO_MINISTRAL_RUNTIME_MODEL = "hf.co/shafire/OpenZero-Ministral3-8B-Runtime-Agent-GGUF:Q5_K_M";
 const OPENZERO_GEMMA_E2B_MODEL = "hf.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF:Q4_K_M";
 const OPENZERO_GEMMA_COMPAT_MODEL = "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest";
-const OPENZERO_QWEN_COMPACT_MODEL = "hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M";
 const LOCAL_OPENZERO_MODEL = OPENZERO_GEMMA_E2B_MODEL;
 const LOCAL_MODEL_PROFILES = [
   { id: OPENZERO_GEMMA_E2B_MODEL, label: "OpenZero Gemma4 E2B Agentic", detail: "Recommended ZERO ONE Assistant · about 3.4 GB" },
   { id: OPENZERO_MINISTRAL_RUNTIME_MODEL, label: "OpenZero Ministral 8B Runtime Agent", detail: "Full OpenZero default · about 6.1 GB · upstream weights unchanged" },
-  { id: OPENZERO_QWEN_COMPACT_MODEL, label: "OpenZero Qwen3 1.7B Agentic", detail: "Experimental compact option · about 1.1 GB" },
   { id: OPENZERO_GEMMA_COMPAT_MODEL, label: "OpenZero Gemma4 E4B", detail: "Legacy compatibility option · about 5.9 GB" },
 ] as const;
 const isPublishedLocalModel = (model: string) => model.startsWith("hf.co/shafire/") && (model.includes("/openzero-") || model.includes("/zero-")) && model.includes("-gguf:");
@@ -29,6 +27,7 @@ const localOpenZeroApi = () => window.zeroOne as typeof window.zeroOne & {
   openOllamaDownload?: () => Promise<boolean>;
   pullLocalOpenZeroModel?: (model: string, onProgress: (progress: LocalOpenZeroProgress) => void) => Promise<{ status: string }>;
   cancelLocalOpenZeroModelPull?: () => Promise<{ cancelled: number }>;
+  unloadLocalOpenZeroModels?: (input: { model?: string; all?: boolean }) => Promise<{ unloaded: number }>;
   chatLocalOpenZero?: (request: { model?: string; messages: ChatMessage[] }) => Promise<{ content: string; model: string }>;
 };
 
@@ -221,7 +220,7 @@ function Dashboard({ settings, probes, system, zsec, onOpen, onOpenShield }: { s
             <div><dt>Processor</dt><dd>{system ? `${system.cores} logical cores` : "—"}</dd></div>
             <div><dt>Memory</dt><dd>{system ? `${formatBytes(system.memoryUsed)} / ${formatBytes(system.memoryTotal)}` : "—"}</dd></div>
             <div><dt>Uptime</dt><dd>{system ? formatUptime(system.uptimeSeconds) : "—"}</dd></div>
-            <div><dt>Selected model</dt><dd className="mono">{settings.model}</dd></div>
+            <div><dt>Assistant model</dt><dd className="mono">{settings.openZeroAssistantMode === "server" ? settings.openZeroServerModel : settings.model}</dd></div>
           </dl>
         </div>
       </section>
@@ -365,7 +364,7 @@ function ServiceWorkspace({ service, settings, probe, active }: { service: Servi
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [openZeroSetup, setOpenZeroSetup] = useState<"idle" | "connecting" | "ready" | "error">(settings.hasOpenZeroToken ? "ready" : "idle");
-  const [openZeroSetupMessage, setOpenZeroSetupMessage] = useState(settings.hasOpenZeroToken ? `${settings.model || "OpenZero"} connected` : "");
+  const [openZeroSetupMessage, setOpenZeroSetupMessage] = useState(settings.hasOpenZeroToken ? `${settings.openZeroServerModel || "OpenZero"} connected` : "");
   const webviewRef = useRef<HTMLElement>(null);
 
   useEffect(() => { setWorkspaceUrl(configuredUrl); setReloadKey((value) => value + 1); }, [configuredUrl]);
@@ -478,12 +477,11 @@ function ServiceWorkspace({ service, settings, probe, active }: { service: Servi
   const zeroThinkPath = (() => { try { return new URL(workspaceUrl).pathname; } catch { return "/"; } })();
   const openZeroThinkPath = (path: string) => { setLoadError(""); setLoading(true); setWorkspaceUrl(`${zeroThinkOrigin}${path}`); };
   const connectLocalOpenZero = async () => {
-    setOpenZeroSetup("connecting"); setOpenZeroSetupMessage("Checking OpenZero and selecting the browser model…");
+    setOpenZeroSetup("connecting"); setOpenZeroSetupMessage("Checking OpenZero and selecting its recommended runtime model…");
     try {
       const result = await window.zeroOne.connectOpenZeroDesktop();
-      const gemmaReady = result.models.includes("openzerogemma:latest");
       setOpenZeroSetup("ready");
-      setOpenZeroSetupMessage(gemmaReady ? "OpenZero Gemma 4 is connected and ready for Assistant/API use." : `Connected with ${result.model}. Install openzerogemma:latest in the OpenZero panel for the recommended browser-agent model.`);
+      setOpenZeroSetupMessage(`Full OpenZero is connected with ${result.model}. Quick Assistant keeps its separate responsive local model.`);
     } catch (error) {
       setOpenZeroSetup("error");
       setOpenZeroSetupMessage(error instanceof Error ? error.message : "OpenZero could not be connected. Start the local OpenZero panel and try again.");
@@ -533,7 +531,7 @@ function ServiceWorkspace({ service, settings, probe, active }: { service: Servi
           <i aria-hidden="true" />
           <strong>Tab Pilot</strong>
           <span>Chrome or Brave actions stay tab-scoped and require your approval.</span>
-          <button type="button" className="context-link" disabled={openZeroSetup === "connecting"} onClick={connectLocalOpenZero}>{openZeroSetup === "connecting" ? "Connecting…" : openZeroSetup === "ready" ? "Reconnect OpenZero" : "Connect OpenZero + Gemma"}</button>
+          <button type="button" className="context-link" disabled={openZeroSetup === "connecting"} onClick={connectLocalOpenZero}>{openZeroSetup === "connecting" ? "Connecting…" : openZeroSetup === "ready" ? "Reconnect OpenZero" : "Connect full OpenZero"}</button>
           <button type="button" className="context-link" onClick={() => window.zeroOne.openExternal("https://chromewebstore.google.com/detail/openzero-tab-pilot/cgaalobjjknalamgchppccbocnhonhbf")}>Install extension ↗</button>
           {openZeroSetupMessage && <span className={`context-status ${openZeroSetup}`}>{openZeroSetupMessage}</span>}
         </div>
@@ -567,14 +565,15 @@ function ServiceWorkspace({ service, settings, probe, active }: { service: Servi
 }
 
 function AgentLattice({ settings, openZeroProbe, onOpenZero }: { settings: ZeroOneSettings; openZeroProbe?: ServiceProbe; onOpenZero: () => void }) {
+  const runtimeModel = settings.openZeroServerModel || OPENZERO_MINISTRAL_RUNTIME_MODEL;
   return (
     <div className="view-scroll agent-view">
       <section className="agent-hero glass-card">
         <div><p className="section-kicker">BOUNDED AUTOMATION</p><h2>Automate work.<br /><em>Stay in control.</em></h2><p>OpenZero handles multi-step work through the permissions and confirmations configured in your local runtime. ZERO ONE never invents background workers or claims jobs that are not actually running.</p></div>
-        <div className="agent-runtime"><StatusDot state={openZeroProbe?.state} /><span>OPENZERO ENDPOINT</span><strong>{openZeroProbe?.state || "CHECKING"}</strong><small>{settings.model}</small></div>
+        <div className="agent-runtime"><StatusDot state={openZeroProbe?.state} /><span>OPENZERO ENDPOINT</span><strong>{openZeroProbe?.state || "CHECKING"}</strong><small>{runtimeModel}</small></div>
       </section>
       <section className="automation-grid">
-        <article className="glass-card"><Icon name="pulse" /><strong>Local runtime</strong><p>{openZeroProbe?.state === "online" ? `Ready with ${settings.model}` : "Optional local OpenZero connection is not currently reachable."}</p></article>
+        <article className="glass-card"><Icon name="pulse" /><strong>Local runtime</strong><p>{openZeroProbe?.state === "online" ? `Ready with ${runtimeModel}` : "Optional local OpenZero connection is not currently reachable."}</p></article>
         <article className="glass-card"><Icon name="shield" /><strong>Permission boundaries</strong><p>Tools and browser actions remain governed by OpenZero permissions and confirmation rules.</p></article>
         <article className="glass-card"><Icon name="agents" /><strong>Recursive Lab</strong><p>Agent Zero can persist code workspaces, inspect diffs, run approved tests, and promote or roll back verified changes through OpenZero.</p></article>
         <article className="glass-card"><Icon name="agents" /><strong>Real activity only</strong><p>Open the automation console to see actual runs, progress and results.</p></article>
@@ -595,12 +594,12 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
   const [localPulling, setLocalPulling] = useState(false);
   const [localStatus, setLocalStatus] = useState<LocalOpenZeroStatus | null>(null);
   const [localProgress, setLocalProgress] = useState<LocalOpenZeroProgress | null>(null);
-  const [openZeroMode, setOpenZeroMode] = useState<"local" | "server">(() => isPublishedLocalModel((settings.model || "").toLowerCase()) ? "local" : "server");
+  const [openZeroMode, setOpenZeroMode] = useState<"local" | "server">(() => settings.openZeroAssistantMode || (isPublishedLocalModel((settings.model || "").toLowerCase()) ? "local" : "server"));
   const [zmath, setZmath] = useState<ZmathSecurityStatus | null>(null);
   const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo | null>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
 
-  useEffect(() => { setDraft(settings); setOpenZeroMode(isPublishedLocalModel((settings.model || "").toLowerCase()) ? "local" : "server"); }, [settings]);
+  useEffect(() => { setDraft(settings); setOpenZeroMode(settings.openZeroAssistantMode || (isPublishedLocalModel((settings.model || "").toLowerCase()) ? "local" : "server")); }, [settings]);
   useEffect(() => { window.zeroOne.getZmathSecurityStatus().then(setZmath); }, []);
   const checkForUpdate = async () => {
     setCheckingUpdate(true);
@@ -613,7 +612,7 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
     if (!getStatus) return;
     setLocalChecking(true);
     try { setLocalStatus(await getStatus()); }
-    catch { setLocalStatus({ reachable: false, origin: "http://127.0.0.1:11434", defaultModel: LOCAL_OPENZERO_MODEL, version: "", models: [], message: "The local model service could not be checked." }); }
+    catch { setLocalStatus({ reachable: false, origin: "http://127.0.0.1:11434", defaultModel: LOCAL_OPENZERO_MODEL, version: "", models: [], runningModels: [], message: "The local model service could not be checked." }); }
     finally { setLocalChecking(false); }
   }, []);
   useEffect(() => { if (draft.assistantProvider === "openzero" && openZeroMode === "local") refreshLocalOpenZero(); }, [draft.assistantProvider, openZeroMode, refreshLocalOpenZero]);
@@ -692,11 +691,20 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
   const selectedLocalModel = draft.model || LOCAL_OPENZERO_MODEL;
   const localModelInstalled = Boolean(localStatus?.models.some((model) => model.name.toLowerCase() === selectedLocalModel.toLowerCase()));
   const localOpenZeroReady = openZeroMode === "local" && localOpenZeroRunning && localModelInstalled;
+  const runningLocalModels = (localStatus?.runningModels || []).filter((model) => isPublishedLocalModel(model.name.toLowerCase()) || model.name.toLowerCase() === selectedLocalModel.toLowerCase());
+  const unloadLocalModels = async () => {
+    setMessage("");
+    try {
+      const result = await localOpenZeroApi().unloadLocalOpenZeroModels?.({ model: selectedLocalModel });
+      await refreshLocalOpenZero();
+      setMessage(result?.unloaded ? `Unloaded ${result.unloaded} local model${result.unloaded === 1 ? "" : "s"} from memory.` : "No local model was loaded in memory.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to unload the local model."); }
+  };
   const chooseOpenZeroMode = (mode: "local" | "server") => {
     setOpenZeroMode(mode);
     setMessage("");
-    if (mode === "local") { setToken(""); setDraft({ ...draft, assistantProvider: "openzero", model: localStatus?.defaultModel || LOCAL_OPENZERO_MODEL, clearOpenZeroToken: false }); }
-    else setDraft({ ...draft, assistantProvider: "openzero" });
+    if (mode === "local") { setToken(""); setDraft({ ...draft, assistantProvider: "openzero", openZeroAssistantMode: "local", model: localStatus?.defaultModel || LOCAL_OPENZERO_MODEL, clearOpenZeroToken: false }); }
+    else setDraft({ ...draft, assistantProvider: "openzero", openZeroAssistantMode: "server", openZeroServerModel: draft.openZeroServerModel || OPENZERO_MINISTRAL_RUNTIME_MODEL });
   };
 
   return (
@@ -744,11 +752,11 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
         </section>
         <section className="settings-section glass-card assistant-setup">
           <div className="settings-heading"><div><p>ASSISTANT DRAWER</p><h2>Choose how the quick chat answers</h2></div><span>Local model recommended</span></div>
-          <p className="setup-lead">The top-right Assistant uses the fast local Qwen model for everyday chat. OpenZero browser planning uses <strong>openzerogemma:latest</strong> when available. They stay separate so a slower browser model does not make normal chat feel broken.</p>
+          <p className="setup-lead">The top-right Assistant uses the responsive OpenZero Gemma4 E2B model by default. Full OpenZero and Tab Pilot use the server-recommended Ministral 8B runtime model. They stay separate so stronger orchestration does not make everyday chat feel broken.</p>
           <div className="product-role-map" aria-label="How the connected OpenZero tools differ">
             <article><strong>Assistant drawer</strong><span>Quick questions and private local chat inside ZERO ONE.</span></article>
             <article><strong>OpenZero panel</strong><span>The full runtime for models, runs, tools and automation.</span></article>
-            <article><strong>Tab Pilot</strong><span>Chrome/Brave browser actions planned by OpenZero Gemma, with explicit tab and action consent.</span></article>
+            <article><strong>Tab Pilot</strong><span>Chrome/Brave browser actions planned by full OpenZero, with explicit tab and action consent.</span></article>
           </div>
           <div className="provider-picker" role="radiogroup" aria-label="Assistant provider">
             <button type="button" role="radio" aria-checked={draft.assistantProvider === "openzero"} className={draft.assistantProvider === "openzero" ? "selected" : ""} onClick={() => chooseProvider("openzero")}><strong>Private Assistant</strong><span>Recommended · private</span><small>Run a fast local model, or use your OpenZero server</small></button>
@@ -763,11 +771,13 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
             {openZeroMode === "local" ? <div className={`local-openzero-setup ${localOpenZeroReady ? "ready" : localPulling || localChecking ? "connecting" : ""}`} aria-live="polite" aria-busy={localPulling || localChecking}>
               <label className="setting-field"><span>Local Assistant model</span><select value={selectedLocalModel} onChange={(event) => setDraft({ ...draft, assistantProvider: "openzero", model: event.target.value })}>{LOCAL_MODEL_PROFILES.map((profile) => <option key={profile.id} value={profile.id}>{profile.label}</option>)}</select><small>{LOCAL_MODEL_PROFILES.find((profile) => profile.id === selectedLocalModel)?.detail || "A locally installed OpenZero GGUF."}</small></label>
               <div className="local-openzero-status"><span className={`status-dot ${localOpenZeroReady || localOpenZeroRunning ? "online" : localPulling || localChecking ? "checking" : "offline"}`} /><div><strong>{localOpenZeroReady ? "Local OpenZero Assistant is ready" : localPulling ? "Downloading the selected local Assistant…" : localChecking ? "Checking this computer…" : localOpenZeroRunning ? "Local engine ready—one model download remains" : "Install or start Ollama to continue"}</strong><small>{localOpenZeroReady ? "Quick chat runs on this computer. Open Assistant and start chatting." : localPulling ? `${localProgress?.status || "Preparing download"}${Number.isFinite(localProgress?.percent) ? ` · ${Math.round(localProgress?.percent || 0)}%` : ""}` : localOpenZeroRunning ? "Choose the compact default for responsiveness, or the 8B runtime edition on a capable CPU with at least 10 GB free disk space." : "Ollama is the small local engine that runs the private Assistant model."}</small></div></div>
-              {localPulling && <div className="model-download-bar" role="progressbar" aria-label="Local Qwen Assistant download" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(localProgress?.percent || 0)}><span style={{ width: `${Math.max(2, localProgress?.percent || 0)}%` }} /></div>}
+              {localPulling && <div className="model-download-bar" role="progressbar" aria-label="Local Assistant model download" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(localProgress?.percent || 0)}><span style={{ width: `${Math.max(2, localProgress?.percent || 0)}%` }} /></div>}
               <div className="connection-progress" aria-label="Local Assistant setup progress"><span className={localOpenZeroRunning ? "done" : "current"}>1<i>Local engine</i></span><b /><span className={localModelInstalled ? "done" : localPulling || localOpenZeroRunning ? "current" : ""}>2<i>Selected model</i></span><b /><span className={localOpenZeroReady ? "done" : ""}>3<i>Ready to chat</i></span></div>
-              <div className="setup-actions">{!localOpenZeroRunning && <button type="button" className="primary-action" onClick={() => localOpenZeroApi().openOllamaDownload?.() || window.zeroOne.openExternal("https://ollama.com/download")}>Install Ollama ↗</button>}{localOpenZeroRunning && !localModelInstalled && <button type="button" className="primary-action" disabled={localPulling} onClick={installLocalOpenZeroModel}>{localPulling ? "Downloading…" : "Download selected local Assistant"}</button>}{localPulling && <button type="button" className="secondary-action" onClick={() => localOpenZeroApi().cancelLocalOpenZeroModelPull?.()}>Cancel download</button>}<button type="button" className="secondary-action" disabled={localChecking || localPulling} onClick={refreshLocalOpenZero}>{localChecking ? "Checking…" : "Check again"}</button></div>
+              <label className="setting-field"><span>Memory profile</span><select value={draft.localResourceProfile || "balanced"} onChange={(event) => setDraft({ ...draft, localResourceProfile: event.target.value as ZeroOneSettings["localResourceProfile"] })}><option value="low-memory">Low memory · unload after each answer</option><option value="balanced">Balanced · keep ready for 5 minutes</option><option value="performance">Performance · larger context, keep ready 30 minutes</option></select><small>Low memory prevents a model remaining resident after a reply. Only one local chat request runs at a time.</small></label>
+              {runningLocalModels.length > 0 && <p className="no-token-note"><Icon name="pulse" size={15} /> Loaded now: {runningLocalModels.map((model) => model.name).join(", ")}</p>}
+              <div className="setup-actions">{!localOpenZeroRunning && <button type="button" className="primary-action" onClick={() => localOpenZeroApi().openOllamaDownload?.() || window.zeroOne.openExternal("https://ollama.com/download")}>Install Ollama ↗</button>}{localOpenZeroRunning && !localModelInstalled && <button type="button" className="primary-action" disabled={localPulling} onClick={installLocalOpenZeroModel}>{localPulling ? "Downloading…" : "Download selected local Assistant"}</button>}{localPulling && <button type="button" className="secondary-action" onClick={() => localOpenZeroApi().cancelLocalOpenZeroModelPull?.()}>Cancel download</button>}{localOpenZeroRunning && <button type="button" className="secondary-action" disabled={localChecking || localPulling || runningLocalModels.length === 0} onClick={unloadLocalModels}>Unload local model</button>}<button type="button" className="secondary-action" disabled={localChecking || localPulling} onClick={refreshLocalOpenZero}>{localChecking ? "Checking…" : "Check again"}</button></div>
               <p className="no-token-note"><Icon name="shield" size={15} /> Local Assistant mode needs no API key or token. Prompts and answers stay on this computer.</p>
-            </div> : <details className="server-openzero-setup" open><summary>Use OpenZero server for Assistant</summary><p>Enter these only if you already have an OpenZero server. The same address opens its full panel from the OpenZero tile.</p><div className="settings-grid">{field("openZeroUrl", "Full panel and API address", "The approved OpenZero runtime address, including https:// or a secure loopback tunnel.")}<label className="setting-field"><span>Assistant/API desktop token</span><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder={draft.hasOpenZeroToken ? "Stored securely · leave blank to keep" : "Paste the token supplied by your server"} autoComplete="off" /><small>Stored with this operating-system account and sent only to your configured OpenZero server.</small></label>{field("model", "Assistant model", "The model installed on your OpenZero server.")}</div></details>}
+            </div> : <details className="server-openzero-setup" open><summary>Use OpenZero server for Assistant</summary><p>Enter these only if you already have an OpenZero server. The same address opens its full panel from the OpenZero tile.</p><div className="settings-grid">{field("openZeroUrl", "Full panel and API address", "The approved OpenZero runtime address, including https:// or a secure loopback tunnel.")}<label className="setting-field"><span>Assistant/API desktop token</span><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder={draft.hasOpenZeroToken ? "Stored securely · leave blank to keep" : "Paste the token supplied by your server"} autoComplete="off" /><small>Stored with this operating-system account and sent only to your configured OpenZero server.</small></label>{field("openZeroServerModel", "Server runtime model", "The model reported or recommended by your full OpenZero server.")}</div></details>}
           </>}
           <div className="settings-grid">
             {draft.assistantProvider !== "openzero" && field("model", "Assistant model", "The provider model ID used by Assistant.")}
@@ -839,9 +849,10 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
   // token is retained for browser workflows.
   const selectedModel = (settings.model || "").toLowerCase();
   const publishedLocalModel = selectedModel.startsWith("hf.co/shafire/") && (selectedModel.includes("/openzero-") || selectedModel.includes("/zero-")) && selectedModel.includes("-gguf:");
-  const localSelected = settings.assistantProvider === "openzero" && (publishedLocalModel || settings.model === LOCAL_OPENZERO_MODEL || !settings.hasOpenZeroToken);
+  const localSelected = settings.assistantProvider === "openzero" && settings.openZeroAssistantMode !== "server" && (publishedLocalModel || settings.model === LOCAL_OPENZERO_MODEL || !settings.hasOpenZeroToken);
   const providerLabel = settings.assistantProvider === "groq" ? "Groq" : settings.assistantProvider === "openai" ? "OpenAI" : localSelected ? "OpenZero Local" : "OpenZero Server";
   const ready = settings.assistantProvider === "groq" ? settings.hasGroqKey : settings.assistantProvider === "openai" ? settings.hasOpenAiKey : localSelected ? localReady : settings.hasOpenZeroToken;
+  const activeAssistantModel = localSelected ? (settings.model || LOCAL_OPENZERO_MODEL) : settings.assistantProvider === "openzero" ? (settings.openZeroServerModel || OPENZERO_MINISTRAL_RUNTIME_MODEL) : settings.model;
 
   const refreshLocal = useCallback(async () => {
     if (!localSelected || !localOpenZeroApi().getLocalOpenZeroStatus) { setLocalReady(false); return; }
@@ -849,7 +860,7 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
     try {
       const status = await localOpenZeroApi().getLocalOpenZeroStatus!();
       const modelName = (settings.model || status.defaultModel || LOCAL_OPENZERO_MODEL).toLowerCase();
-      setLocalReady(status.reachable && status.models.some((model) => model.name.toLowerCase() === modelName || model.name.toLowerCase().startsWith(`${modelName.split(":")[0]}:`)));
+      setLocalReady(status.reachable && status.models.some((model) => model.name.toLowerCase() === modelName));
     } catch {
       setLocalReady(false);
     } finally {
@@ -914,7 +925,7 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
     setInput("");
     setBusy(true);
     try {
-      const request = { model: settings.model || LOCAL_OPENZERO_MODEL, messages: next.map(({ role, content }) => ({ role, content })) };
+      const request = { model: activeAssistantModel || LOCAL_OPENZERO_MODEL, messages: next.map(({ role, content }) => ({ role, content })) };
       // Prefer direct local chat when in local mode; otherwise unified chat (which also falls back to Ollama).
       const response = localSelected && localOpenZeroApi().chatLocalOpenZero
         ? await localOpenZeroApi().chatLocalOpenZero!(request)
@@ -934,7 +945,7 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
   return (
     <aside className="copilot">
       <div className="copilot-header"><div className="copilot-symbol">Ø<span /></div><div><p>ZERO ONE ASSISTANT</p><h3>Zero</h3></div><span className={`copilot-state ${ready ? "ready" : "setup"}`}>{ready ? "READY" : localChecking ? "CHECK" : "SETUP"}</span></div>
-      <div className="copilot-context"><span>{providerLabel.toUpperCase()}</span><strong>{settings.model || LOCAL_OPENZERO_MODEL}</strong><button type="button" className="chat-clear" onClick={clearChat} title="Clear conversation (Ctrl+L)" aria-label="Clear conversation">Clear</button></div>
+      <div className="copilot-context"><span>{providerLabel.toUpperCase()}</span><strong>{activeAssistantModel || LOCAL_OPENZERO_MODEL}</strong><button type="button" className="chat-clear" onClick={clearChat} title="Clear conversation (Ctrl+L)" aria-label="Clear conversation">Clear</button></div>
       <div className="chat-stream" ref={streamRef}>
         {messages.map((message, index) => <div key={index} className={`chat-message ${message.role}`}><span>{message.role === "assistant" ? "Ø" : "YOU"}</span><p>{message.content}</p></div>)}
         {busy && <div className="thinking"><i /><i /><i /></div>}

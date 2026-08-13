@@ -2,7 +2,7 @@
 
 Status: **installable unsigned public preview; not submitted or approved by any Store**.
 
-## ZERO ONE 0.4.0 public preview
+## ZERO ONE 7.9.0 source and public-preview gate
 
 - Windows 10/11 x64: one-click NSIS installer, bundled native ZSEC, packaged and installed-app smoke tested.
 - macOS Apple silicon: DMG and ZIP built on macOS CI with the pinned native ZSEC runtime.
@@ -12,9 +12,9 @@ Status: **installable unsigned public preview; not submitted or approved by any 
 
 ## Verified source and package boundary
 
-- Thirteen desktop security/contract tests, TypeScript checking, and production Vite build pass on Windows.
+- Automated desktop security and contract suites, TypeScript checking, and the production Vite build pass on Windows.
 - Windows x64, macOS arm64 and Linux x64 are configured preview package targets.
-- Packaging fails unless ZERO ONE is version 0.4.0 and the matching ZSEC 0.1.2 asset, manifest, hashes, licences, source revision and native architecture verify.
+- Packaging fails unless the package version is internally consistent and the matching ZSEC 0.1.2 asset, manifest, hashes, licences, source revision and native architecture verify. Historical 0.4.0 evidence remains preserved in `store/RELEASE_EVIDENCE.md`; it is not evidence for the current 7.9.0 build.
 - ZSEC status v2 and scan v1 parsers reject malformed, legacy, contradictory, and exit-code-mismatched evidence.
 - Packaged smoke exercises launch, DOM, preload IPC, bundled ZSEC version, clean scan, and persisted incomplete scan.
 - An earlier unsigned one-click NSIS candidate installed silently to the current-user application directory and removed its install directory plus shortcuts on clean uninstall; repeat this on the exact final signed candidate.
@@ -60,7 +60,7 @@ Microsoft Store policy requires a means for users to report inappropriate live g
 
 ## Other platforms
 
-Advertise only the configured 0.4.0 targets: Windows x64, macOS arm64 and Linux x64. Windows arm64 and Intel macOS remain unsupported. Public-preview availability must not be described as publisher signing, notarization, Store approval or certification.
+Advertise only the currently configured targets: Windows x64, macOS arm64 and Linux x64. Windows arm64 and Intel macOS remain unsupported. Public-preview availability must not be described as publisher signing, notarization, Store approval or certification.
 
 ## Claims boundary
 

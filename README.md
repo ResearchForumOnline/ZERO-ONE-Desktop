@@ -30,12 +30,12 @@ Use the authenticated [latest ZERO ONE release](https://github.com/ResearchForum
 | Linux x64 | `ZERO-ONE-*-linux-x86_64.AppImage` | Make executable and open |
 | Debian/Ubuntu x64 | `ZERO-ONE-*-linux-amd64.deb` | Open with the software installer or use `sudo apt install ./ZERO-ONE-*-linux-amd64.deb` |
 
-Current source version is **7.8**. Published installers are unsigned public builds until Authenticode/notarization ships. Windows SmartScreen or macOS Gatekeeper may show an unknown-publisher warning. Verify downloads against `SHA256SUMS.txt` when present.
+Current source version is **7.9.0**. Published installers are unsigned public builds until Authenticode/notarization ships. Windows SmartScreen or macOS Gatekeeper may show an unknown-publisher warning. Verify downloads against `SHA256SUMS.txt` when present.
 
 ## What is included
 
 - Four isolated workspaces with strict owned-origin navigation.
-- Guided Assistant setup with private local Qwen 3 1.7B as the responsive default and optional branded OpenZero, OpenAI or Groq providers.
+- Guided Assistant setup with private local OpenZero Gemma4 E2B as the recommended lightweight default and optional OpenZero server, OpenAI or Groq providers.
 - A truthful automation surface that reports real endpoint reachability and permissions, not invented worker telemetry.
 - OS-protected credential storage; insecure Linux fallback storage is refused.
 - The matching native ZSEC Shield 0.1.2 selected-folder scanner on every published platform.
@@ -52,9 +52,11 @@ Current source version is **7.8**. Published installers are unsigned public buil
 
 ## OpenZero: Local or Server
 
-For most people, **Local** is the recommended mode. ZERO ONE connects to [Ollama](https://ollama.com/download) on this computer at its loopback API and uses the verified `OpenZero-Qwen3-1.7B-Agentic-Q4_K_M` fine-tune as the fast everyday default (`hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M`). The GGUF is approximately 1.1 GB and is run with thinking disabled for responsive chat. Prompts and responses stay between ZERO ONE and the local Ollama process unless the user deliberately opens or connects another service. Ollama is a separate runtime and model readiness must complete before local chat can work. See the official [Ollama quickstart](https://docs.ollama.com/quickstart), [chat API documentation](https://docs.ollama.com/api/chat), and the [verified OpenZero model card](https://huggingface.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF).
+For most people, **Local** is the recommended mode. ZERO ONE connects to [Ollama](https://ollama.com/download) on this computer at its loopback API and recommends the behavior-tested `OpenZero-Gemma4-E2B-Agentic-Q4_K_M` model for lightweight everyday chat (`hf.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF:Q4_K_M`). The GGUF is approximately 3.4 GB and is run with thinking disabled for responsive chat. Prompts and responses stay between ZERO ONE and the local Ollama process unless the user deliberately opens or connects another service. Ollama is a separate runtime and model readiness must complete before local chat can work. See the official [Ollama quickstart](https://docs.ollama.com/quickstart), [chat API documentation](https://docs.ollama.com/api/chat), and the [verified OpenZero Gemma E2B model card](https://huggingface.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF).
 
-**Server** is the advanced mode for someone who already operates an OpenZero server. It requires that server's HTTPS address and desktop credential. Server mode can expose the orchestration, tools, skills and governed automation implemented by that OpenZero deployment.
+The model selector also offers the OpenZero Ministral 8B runtime edition for capable computers and legacy Gemma E4B compatibility. The rejected Fusion and Qwen3 1.7B releases are deliberately excluded from ZERO ONE local chat after response-quality testing. These are explicit choices: ZERO ONE does not silently replace a user-selected custom model.
+
+**Server** is the advanced mode for someone who already operates an OpenZero server. It requires that server's HTTPS address and desktop credential. Server mode uses the runtime model reported by that server—currently the OpenZero Ministral 8B runtime edition in the standard deployment—and can expose the orchestration, tools, skills and governed automation implemented by that OpenZero deployment. The server model setting is separate from the lightweight local Assistant selection.
 
 OpenZero is the agent runtime; ZERO ONE is the desktop command centre. A current OpenZero server can expose its **Recursive Lab** through ZERO ONE: Agent Zero stages source changes in a persistent isolated workspace, shows exact diffs, runs only operator-approved test profiles, and requires a fresh confirmation before atomic promotion or rollback. Direct local Ollama chat does not gain filesystem or self-modification authority.
 

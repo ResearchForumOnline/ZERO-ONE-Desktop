@@ -2,6 +2,7 @@ param([Parameter(Mandatory = $true)][string]$AppPath)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$expectedDefaultModel = "hf.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF:Q4_K_M"
 
 function Invoke-CdpExpression([string]$WebSocketUrl, [string]$Expression) {
   $env:ZERO_ONE_SMOKE_WS = $WebSocketUrl
@@ -27,9 +28,11 @@ try {
   $dom = Invoke-CdpExpression $page.webSocketDebuggerUrl 'JSON.stringify({title:document.title,h1:document.querySelector("h1")?.textContent,rootChildren:document.querySelector("#root")?.childElementCount})'
   if ($dom.title -ne "ZERO ONE" -or $dom.h1 -ne "Command center" -or [int]$dom.rootChildren -lt 1) { throw "Packaged UI did not render." }
   $watch = [Diagnostics.Stopwatch]::StartNew()
-  $chat = Invoke-CdpExpression $page.webSocketDebuggerUrl 'window.zeroOne.chatLocalOpenZero({model:"hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M",messages:[{role:"user",content:"Reply with exactly: ZERO ONE FAST READY"}]}).then(value=>JSON.stringify(value))'
+  $status = Invoke-CdpExpression $page.webSocketDebuggerUrl 'window.zeroOne.getLocalOpenZeroStatus().then(value=>JSON.stringify(value))'
+  if ($status.defaultModel -ne $expectedDefaultModel) { throw "Packaged local Assistant exposed an unexpected default model: $($status.defaultModel)" }
+  $chat = Invoke-CdpExpression $page.webSocketDebuggerUrl 'window.zeroOne.getLocalOpenZeroStatus().then(status=>window.zeroOne.chatLocalOpenZero({model:status.defaultModel,messages:[{role:"user",content:"Reply with exactly: ZERO ONE READY"}]})).then(value=>JSON.stringify(value))'
   $watch.Stop()
-  if ($chat.model -ne "hf.co/shafire/OpenZero-Qwen3-1.7B-Agentic-GGUF:Q4_K_M" -or $chat.content -notmatch "ZERO ONE FAST READY") { throw "Packaged local Assistant returned an unexpected result." }
+  if ($chat.model -ne $expectedDefaultModel -or $chat.content -notmatch "ZERO ONE READY") { throw "Packaged local Assistant returned an unexpected result." }
   [pscustomobject]@{ Ui = "rendered"; Model = $chat.model; Content = $chat.content; Seconds = [math]::Round($watch.Elapsed.TotalSeconds, 1) }
 } finally {
   Remove-Item Env:ZERO_ONE_SMOKE_WS -ErrorAction SilentlyContinue

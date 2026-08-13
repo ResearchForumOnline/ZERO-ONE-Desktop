@@ -9,7 +9,7 @@ const { parseZsecScanReport, parseZsecStatusPayload } = require("./zsec-contract
 const { cleanConfiguredUrl, diagnosticOrigin, isAllowedUrl: urlIsAllowed } = require("./url-policy.cjs");
 const { loginItemOptions, shouldCloseToTray, shouldStartHidden } = require("./tray-lifecycle.cjs");
 const { latestPhpSessionCookie } = require("./zerothink-session.cjs");
-const { DEFAULT_LOCAL_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, isInstalledLocalModel, localDirectReply, publicPullProgress } = require("./ollama-local.cjs");
+const { DEFAULT_LOCAL_MODEL, DEFAULT_OPENZERO_SERVER_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, inferOpenZeroRoutingSettings, isInstalledLocalModel, isPublishedLocalModelName, localDirectReply, localResourceOptions, publicPullProgress } = require("./ollama-local.cjs");
 const { checkLatestStableRelease } = require("./update-check.cjs");
 const {
   saveLogin,
@@ -31,6 +31,9 @@ const DEFAULT_SETTINGS = Object.freeze({
   callChatUrl: "https://callchat.org/app/",
   assistantProvider: "openzero",
   model: DEFAULT_LOCAL_MODEL,
+  openZeroServerModel: DEFAULT_OPENZERO_SERVER_MODEL,
+  openZeroAssistantMode: "local",
+  localResourceProfile: "balanced",
   mediaEnabled: false,
   launchAtLogin: false,
   closeToTray: true,
@@ -69,6 +72,7 @@ const configuredPermissionSessions = new WeakSet();
 const ZOOM_LEVELS = Object.freeze([0.75, 0.85, 1, 1.1, 1.25, 1.4, 1.5]);
 let currentZoomFactor = 1;
 const localModelPullControllers = new Map();
+let localChatActive = false;
 const APP_UPDATE_CACHE_MS = 30 * 60 * 1000;
 let appUpdateCache = null;
 
@@ -157,6 +161,11 @@ function cleanUrl(value, fallback) {
   return cleanConfiguredUrl(value, fallback, ALLOWED_ORIGINS);
 }
 
+function safeModelName(value, fallback) {
+  try { return cleanModelName(value || fallback); }
+  catch { return fallback; }
+}
+
 async function readSettingsFile() {
   try {
     return JSON.parse(await fs.readFile(settingsPath(), "utf8"));
@@ -167,6 +176,7 @@ async function readSettingsFile() {
 
 async function loadSettingsInternal() {
   const stored = await readSettingsFile();
+  const routing = inferOpenZeroRoutingSettings(stored);
   runtimeSettings = {
     ...DEFAULT_SETTINGS,
     ...stored,
@@ -176,7 +186,10 @@ async function loadSettingsInternal() {
     openZeroPublicUrl: cleanUrl(stored.openZeroPublicUrl, DEFAULT_SETTINGS.openZeroPublicUrl),
     callChatUrl: cleanUrl(stored.callChatUrl, DEFAULT_SETTINGS.callChatUrl),
     assistantProvider: ["openzero", "openai", "groq"].includes(stored.assistantProvider) ? stored.assistantProvider : DEFAULT_SETTINGS.assistantProvider,
-    model: String(stored.model || DEFAULT_SETTINGS.model).slice(0, 160),
+    model: safeModelName(stored.model, DEFAULT_SETTINGS.model),
+    openZeroServerModel: safeModelName(stored.openZeroServerModel, safeModelName(routing.legacyServerModel, DEFAULT_SETTINGS.openZeroServerModel)),
+    openZeroAssistantMode: routing.openZeroAssistantMode,
+    localResourceProfile: ["low-memory", "balanced", "performance"].includes(stored.localResourceProfile) ? stored.localResourceProfile : DEFAULT_SETTINGS.localResourceProfile,
     mediaEnabled: Boolean(stored.mediaEnabled),
     launchAtLogin: Boolean(stored.launchAtLogin),
     closeToTray: stored.closeToTray !== false,
@@ -227,7 +240,10 @@ async function saveSettingsInternal(input) {
     openZeroPublicUrl: cleanUrl(input.openZeroPublicUrl, current.openZeroPublicUrl),
     callChatUrl: cleanUrl(input.callChatUrl, current.callChatUrl),
     assistantProvider: ["openzero", "openai", "groq"].includes(input.assistantProvider) ? input.assistantProvider : current.assistantProvider,
-    model: String(input.model || current.model).trim().slice(0, 160),
+    model: safeModelName(input.model, current.model),
+    openZeroServerModel: safeModelName(input.openZeroServerModel, current.openZeroServerModel),
+    openZeroAssistantMode: input.openZeroAssistantMode === "server" ? "server" : input.openZeroAssistantMode === "local" ? "local" : current.openZeroAssistantMode,
+    localResourceProfile: ["low-memory", "balanced", "performance"].includes(input.localResourceProfile) ? input.localResourceProfile : current.localResourceProfile,
     mediaEnabled: typeof input.mediaEnabled === "boolean" ? input.mediaEnabled : current.mediaEnabled,
     launchAtLogin: typeof input.launchAtLogin === "boolean" ? input.launchAtLogin : current.launchAtLogin,
     closeToTray: typeof input.closeToTray === "boolean" ? input.closeToTray : current.closeToTray,
@@ -713,7 +729,7 @@ app.whenReady().then(async () => {
   // model only when that model is already installed. Existing remote/server
   // configurations remain untouched and can still be selected in Advanced.
   const legacySlowLocalModels = new Set(["qwen3:1.7b", "openzerogemma:latest", "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest", "hf.co/shafire/OpenZero-Ministral3-8B-Runtime-Agent-GGUF:Q5_K_M"]);
-  if (runtimeSettings.assistantProvider === "openzero" && !runtimeSettings.fastLocalModelMigrationCompleted && legacySlowLocalModels.has(runtimeSettings.model)) {
+  if (runtimeSettings.assistantProvider === "openzero" && runtimeSettings.openZeroAssistantMode !== "server" && !runtimeSettings.fastLocalModelMigrationCompleted && legacySlowLocalModels.has(runtimeSettings.model)) {
     const local = await localOllamaStatus();
     if (local.reachable && local.models.some((model) => model.name.toLowerCase() === DEFAULT_LOCAL_MODEL.toLowerCase())) {
       runtimeSettings = { ...runtimeSettings, model: DEFAULT_LOCAL_MODEL, fastLocalModelMigrationCompleted: true };
@@ -1090,9 +1106,10 @@ async function fetchLocalOllama(pathname, options = {}, timeoutMs = 8000) {
 
 async function localOllamaStatus() {
   try {
-    const [versionResponse, tagsResponse] = await Promise.all([
+    const [versionResponse, tagsResponse, runningResponse] = await Promise.all([
       fetchLocalOllama("/api/version"),
       fetchLocalOllama("/api/tags"),
+      fetchLocalOllama("/api/ps").catch(() => null),
     ]);
     if (!versionResponse.ok || !tagsResponse.ok) throw new Error("The local model service returned an error.");
     const [versionPayload, tagsPayload] = await Promise.all([versionResponse.json(), tagsResponse.json()]);
@@ -1101,28 +1118,51 @@ async function localOllamaStatus() {
       size: Math.max(0, Number(model?.size) || 0),
       modifiedAt: String(model?.modified_at || "").slice(0, 64),
     })).filter((model) => model.name) : [];
-    return { reachable: true, origin: OLLAMA_LOCAL_ORIGIN, defaultModel: DEFAULT_LOCAL_MODEL, version: String(versionPayload.version || "unknown").slice(0, 64), models };
+    const runningPayload = runningResponse?.ok ? await runningResponse.json().catch(() => ({})) : {};
+    const runningModels = Array.isArray(runningPayload.models) ? runningPayload.models.slice(0, 16).map((model) => ({
+      name: String(model?.name || model?.model || "").slice(0, 192),
+      size: Math.max(0, Number(model?.size) || 0),
+      expiresAt: String(model?.expires_at || "").slice(0, 64),
+    })).filter((model) => model.name) : [];
+    return { reachable: true, origin: OLLAMA_LOCAL_ORIGIN, defaultModel: DEFAULT_LOCAL_MODEL, version: String(versionPayload.version || "unknown").slice(0, 64), models, runningModels };
   } catch (error) {
-    return { reachable: false, origin: OLLAMA_LOCAL_ORIGIN, defaultModel: DEFAULT_LOCAL_MODEL, version: "", models: [], message: error?.name === "AbortError" ? "The local model service did not respond in time." : "Ollama is not running on this computer." };
+    return { reachable: false, origin: OLLAMA_LOCAL_ORIGIN, defaultModel: DEFAULT_LOCAL_MODEL, version: "", models: [], runningModels: [], message: error?.name === "AbortError" ? "The local model service did not respond in time." : "Ollama is not running on this computer." };
   }
 }
 
 async function chatViaLocalOllama(request, preferredModel) {
+  if (localChatActive) throw new Error("The local Assistant is already answering. Wait for it to finish before sending another request.");
+  localChatActive = true;
+  try {
   const model = cleanModelName(preferredModel || DEFAULT_LOCAL_MODEL);
   const chatMessages = cleanChatMessages(request?.messages).filter((message) => message.role !== "system");
   const directReply = localDirectReply(chatMessages);
   if (directReply) return { content: directReply, model, provider: "zero-one-local" };
+  const status = await localOllamaStatus();
+  for (const running of status.runningModels || []) {
+    if (running.name.toLowerCase() === model.toLowerCase()) continue;
+    if (!isPublishedLocalModelName(running.name)) continue;
+    await fetchLocalOllama("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: running.name, prompt: "", stream: false, keep_alive: 0 }),
+    }, 30_000).catch(() => null);
+  }
   const messages = [{ role: "system", content: LOCAL_ASSISTANT_SYSTEM_PROMPT }, ...chatMessages];
+  const resources = localResourceOptions(runtimeSettings.localResourceProfile);
   const response = await fetchLocalOllama("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, stream: false, think: false, keep_alive: "15m", options: { temperature: 0.2, repeat_penalty: 1.15, num_predict: 256, num_ctx: 2048 } }),
+    body: JSON.stringify({ model, messages, stream: false, think: false, keep_alive: resources.keep_alive, options: { temperature: 0.2, repeat_penalty: 1.15, num_predict: resources.num_predict, num_ctx: resources.num_ctx } }),
   }, 120000);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(String(payload?.error || `The local model service returned HTTP ${response.status}.`).slice(0, 300));
   const content = cleanAssistantContent(payload?.message?.content);
   if (!content) throw new Error("The local model returned no assistant message.");
   return { content, model: String(payload.model || model).slice(0, 192), provider: "ollama-local" };
+  } finally {
+    localChatActive = false;
+  }
 }
 
 /** Ask ZMail to refresh through its own server-controlled session policy. */
@@ -1236,6 +1276,26 @@ ipcMain.handle("openzero:local-pull-cancel", async (event) => {
   return { cancelled };
 });
 
+ipcMain.handle("openzero:local-unload", async (event, input) => {
+  requireTrustedIpcSender(event);
+  const status = await localOllamaStatus();
+  if (!status.reachable) throw new Error("Ollama is not running on this computer.");
+  const requested = input?.all === true
+    ? status.runningModels.filter((entry) => isPublishedLocalModelName(entry.name)).map((entry) => entry.name)
+    : [cleanModelName(input?.model || DEFAULT_LOCAL_MODEL)];
+  let unloaded = 0;
+  for (const model of [...new Set(requested)]) {
+    if (!model) continue;
+    const response = await fetchLocalOllama("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model, prompt: "", stream: false, keep_alive: 0 }),
+    }, 30_000);
+    if (response.ok) unloaded += 1;
+  }
+  return { unloaded };
+});
+
 ipcMain.handle("openzero:local-chat", async (event, request) => {
   requireTrustedIpcSender(event);
   try {
@@ -1265,8 +1325,9 @@ async function provisionOpenZeroDesktop(settings = null) {
   if (!verified.ok) throw new Error("OpenZero created desktop access, but verification failed. Try again.");
   const modelPayload = await verified.json().catch(() => ({}));
   const models = Array.isArray(modelPayload?.data) ? modelPayload.data.map((entry) => String(entry?.id || "").trim()).filter(Boolean) : [];
-  const browserModel = models.includes("openzerogemma:latest") ? "openzerogemma:latest" : String(modelPayload?.recommended_model || models[0] || settings.model);
-  const next = { ...settings, assistantProvider: "openzero", model: browserModel, openZeroTokenEncrypted: safeStorage.encryptString(token).toString("base64") };
+  const recommended = safeModelName(modelPayload?.recommended_model, DEFAULT_OPENZERO_SERVER_MODEL);
+  const browserModel = models.includes(recommended) ? recommended : models.includes(DEFAULT_OPENZERO_SERVER_MODEL) ? DEFAULT_OPENZERO_SERVER_MODEL : safeModelName(models[0], settings.openZeroServerModel || DEFAULT_OPENZERO_SERVER_MODEL);
+  const next = { ...settings, assistantProvider: "openzero", openZeroServerModel: browserModel, openZeroTokenEncrypted: safeStorage.encryptString(token).toString("base64") };
   await fs.mkdir(path.dirname(settingsPath()), { recursive: true });
   await fs.writeFile(settingsPath(), JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
   runtimeSettings = next;
@@ -1292,14 +1353,14 @@ ipcMain.handle("openzero:chat", async (event, request) => {
   // An explicitly selected model that exists in local Ollama stays local even
   // when a separate OpenZero panel token is stored for browser workflows.
   const requestedLocalModel = request?.model || settings.model || DEFAULT_LOCAL_MODEL;
-  const localStatus = provider === "openzero" ? await localOllamaStatus() : null;
-  const useLocalOllama = provider === "openzero" && (!selected.token || (localStatus?.reachable && isInstalledLocalModel(requestedLocalModel, localStatus.models)));
+  const localStatus = provider === "openzero" && settings.openZeroAssistantMode !== "server" ? await localOllamaStatus() : null;
+  const useLocalOllama = provider === "openzero" && settings.openZeroAssistantMode !== "server" && (!selected.token || (localStatus?.reachable && isInstalledLocalModel(requestedLocalModel, localStatus.models)));
   if (useLocalOllama) {
     try {
       return await chatViaLocalOllama(request, requestedLocalModel);
     } catch (error) {
       if (error?.name === "AbortError") throw new Error("The local assistant took too long. Install or start Ollama, then try again.");
-      throw new Error(error?.message || "Local Assistant is unavailable. Install Ollama and download OpenZero Gemma E4B once — no API key required.");
+      throw new Error(error?.message || "Local Assistant is unavailable. Install Ollama and download the selected model once — no API key required.");
     }
   }
 
@@ -1317,7 +1378,7 @@ ipcMain.handle("openzero:chat", async (event, request) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: String(request?.model || settings.model),
+        model: String(provider === "openzero" && settings.openZeroAssistantMode === "server" ? settings.openZeroServerModel : request?.model || settings.model),
         messages,
         temperature: 0.55,
         max_tokens: 1400,
