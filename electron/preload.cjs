@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld("zeroOne", {
     finally { ipcRenderer.removeListener("openzero:local-pull-progress", listener); }
   },
   cancelLocalOpenZeroModelPull: () => ipcRenderer.invoke("openzero:local-pull-cancel"),
+  unloadLocalOpenZeroModels: (input) => ipcRenderer.invoke("openzero:local-unload", input),
   chatLocalOpenZero: (request) => ipcRenderer.invoke("openzero:local-chat", request),
   chat: (request) => ipcRenderer.invoke("openzero:chat", request),
   openExternal: (url) => ipcRenderer.invoke("shell:open-external", url),

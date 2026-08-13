@@ -77,12 +77,21 @@ describe("responsive desktop shell", () => {
 
   it("always identifies the installed version and offers a visible update status", () => {
     expect(app).toContain('className="sidebar-version"');
+    expect(app).toContain('aria-label={`ZERO ONE version ${version || "unknown"}`}');
     expect(app).toContain("VERSION &amp; UPDATES");
     expect(app).toContain("Check for updates");
     expect(app).toContain("You have the latest version");
     expect(app).toContain("Official stable releases only");
     expect(css).toContain(".sidebar-version");
+    expect(css).toMatch(/\.sidebar-version\{[^}]*font:700 10px\/1\.2/);
     expect(css).toContain(".settings-update-section");
+  });
+
+  it("shows a consistent keyboard focus indicator on interactive controls", () => {
+    for (const selector of ["button:focus-visible", "input:focus-visible", "textarea:focus-visible", "select:focus-visible", "a:focus-visible", "summary:focus-visible", '[role="button"]:focus-visible']) {
+      expect(css).toContain(selector);
+    }
+    expect(css).toContain("outline:2px solid var(--cyan)");
   });
 
   it("uses the ZeroThink CLI device flow through the system browser", () => {
@@ -144,7 +153,7 @@ describe("responsive desktop shell", () => {
     expect(app).toContain("Local Assistant model");
     expect(app).toContain("Use my OpenZero server");
     expect(app).toContain("Local Assistant mode needs no API key or token");
-    expect(app).toContain("Download selected OpenZero model");
+    expect(app).toContain("Download selected local Assistant");
     expect(app).toContain("no API key required");
     expect(app).toContain("Assistant needs no config");
     expect(app).toContain("chat-clear");
@@ -154,6 +163,8 @@ describe("responsive desktop shell", () => {
     expect(app).toContain('const LOCAL_OPENZERO_MODEL = OPENZERO_GEMMA_E2B_MODEL');
     expect(app).toContain("chatLocalOpenZero");
     expect(app).toContain("getLocalOpenZeroStatus");
+    expect(app).toContain("model.name.toLowerCase() === modelName");
+    expect(app).not.toContain('startsWith(`${modelName.split(":")[0]}:`)');
     expect(main).toContain('ipcMain.handle("openzero:connect-desktop"');
     expect(main).toContain('new URL("/api/openzero/key", settings.openZeroUrl)');
     expect(main).toContain('new URL("/v1/models", settings.openZeroUrl)');
@@ -174,9 +185,11 @@ describe("responsive desktop shell", () => {
     expect(app).toContain("The top-right drawer is fast everyday chat.");
     expect(app).toContain("Chrome or Brave actions stay tab-scoped and require your approval.");
     expect(app).toContain("cgaalobjjknalamgchppccbocnhonhbf");
-    expect(app).toContain("Connect OpenZero + Gemma");
-    expect(app).toContain("openzerogemma:latest");
-    expect(main).toContain('models.includes("openzerogemma:latest")');
+    expect(app).toContain("Connect full OpenZero");
+    expect(app).toContain("openZeroServerModel");
+    expect(app).not.toMatch(/Install openzerogemma:latest[^\n]*recommended browser-agent model/);
+    expect(main).toContain("recommended_model");
+    expect(main).toContain("openZeroServerModel");
     expect(main).toContain('"https://chromewebstore.google.com"');
     expect(main).toContain('new URL("/api/openzero/key", settings.openZeroUrl)');
     expect(app).toContain('field("openZeroUrl", "OpenZero full panel and API"');
@@ -189,11 +202,19 @@ describe("responsive desktop shell", () => {
     expect(main).toContain('fetchLocalOllama("/api/pull"');
     expect(main).toContain('fetchLocalOllama("/api/chat"');
     expect(main).toContain('think: false');
-    expect(main).toContain('num_predict: 256');
+    expect(main).toContain("num_predict: resources.num_predict");
     expect(main).toContain('}, 120000);');
     expect(main).toContain('repeat_penalty: 1.15');
     expect(main).toContain('LOCAL_ASSISTANT_SYSTEM_PROMPT');
-    expect(main).toContain('keep_alive: "15m"');
+    expect(main).toContain("localResourceOptions(runtimeSettings.localResourceProfile)");
+    expect(main).toContain("inferOpenZeroRoutingSettings(stored)");
+    expect(main).toContain('provider === "openzero" && settings.openZeroAssistantMode !== "server" ? await localOllamaStatus() : null');
+    expect(main).toContain("if (!isPublishedLocalModelName(running.name)) continue;");
+    expect(main).toContain("status.runningModels.filter((entry) => isPublishedLocalModelName(entry.name))");
+    expect(app).toContain("unloadLocalOpenZeroModels?.({ model: selectedLocalModel })");
+    expect(app).not.toContain("unloadLocalOpenZeroModels?.({ all: true })");
+    expect(main).toContain('ipcMain.handle("openzero:local-unload"');
+    expect(preload).toContain('ipcRenderer.invoke("openzero:local-unload"');
     expect(main).toContain('ipcMain.handle("openzero:local-pull-cancel"');
     expect(preload).toContain('ipcRenderer.invoke("openzero:local-status")');
     expect(main).toContain('shell.openExternal("https://ollama.com/download")');
