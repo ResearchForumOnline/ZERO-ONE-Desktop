@@ -1,0 +1,14 @@
+{
+  "schema": "zero-one.qr-targets.v1",
+  "generator": "qrcode 1.5.4, error H, width 560, quiet zone 4",
+  "files": {
+    "win.png": {
+      "target": "https://talktoai.org/ZeroOne/#desktop",
+      "sha256": "58ea827178a7f4fa549e5f354c4a1727bf273e86fd6009f7a43ab0c449eb530e"
+    },
+    "apk.png": {
+      "target": "https://talktoai.org/ZeroOne/ZERO-ONE-android-latest.apk",
+      "sha256": "7b85e2b8f3be0861c1b475b82f4db97f1f0e1808794d7e5da4081244eeaea2ca"
+    }
+  }
+}
