@@ -10,6 +10,14 @@ Camera and microphone access is denied unless the user enables CallChat media. P
 
 OpenZero credentials are encrypted with Electron `safeStorage`. When Linux reports the insecure `basic_text` backend, credential storage is refused. Tokens are used only in the main process and are never returned to the renderer or included in diagnostics.
 
+## ZMail and zSign session boundary
+
+ZMail runs in its own persistent, sandboxed Electron partition. Optional saved workspace passwords are captured only after a trusted user checks the injected consent control on a single-password login form; password reset, recovery and password-change forms are excluded. Secrets are encrypted with Electron `safeStorage`, never returned through the preload bridge, and never included in diagnostics.
+
+The Assistant can summarize at most ten currently rendered rows from the signed-in inbox view and can open the ZMail composer. These actions do not query a hidden mailbox API, persist message metadata, populate recipients or content, or send mail. Final review and Send remain in ZMail.
+
+zSign uses ZMail's account-bound, short-lived, single-use SSO route. ZERO ONE keeps that exact reviewed handoff inside the isolated ZMail partition so the authenticated Roundcube cookie is not copied to or lost in a separate browser profile. Other new-window requests remain deny-by-default or open only in the system browser when their parsed origin is allowlisted. zSign document authority, signature workflows and audit records remain server-side; ZERO ONE does not sign documents itself.
+
 ## ZMath Secure platform layer
 
 ZMath Secure is a visible policy and compatibility layer, not a claim that an unpublished cipher is active. Remote owned products require HTTPS; the only allowed HTTP model target is a loopback OpenZero endpoint on this machine. The renderer can request a bounded status object but receives no generic PowerShell or shell primitive.

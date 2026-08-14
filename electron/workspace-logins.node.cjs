@@ -53,6 +53,9 @@ test("workspace logins encrypt and round-trip", async () => {
   assert.match(script, /event\.isTrusted && consent\.checked/);
   assert.match(script, /Fill saved ZERO ONE login/);
   assert.match(script, /if \(event\.isTrusted\) fill\(form\)/);
+  assert.match(script, /passwords\.length !== 1/);
+  assert.match(script, /new-password/);
+  assert.match(script, /change\[-_\]\?password/);
   assert.ok(!script.includes("fill(form);\n      form.addEventListener"));
   assert.ok(!script.includes("ZERO_ONE_SAVE_LOGIN:\" +"));
 });

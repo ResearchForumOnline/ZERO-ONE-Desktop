@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 const main = readFileSync(resolve(process.cwd(), "electron/main.cjs"), "utf8");
 const appSource = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+const zmailIntegration = readFileSync(resolve(process.cwd(), "electron/zmail-integration.cjs"), "utf8");
 const fuses = readFileSync(resolve(process.cwd(), "build/afterPack.cjs"), "utf8");
 const beforePack = readFileSync(resolve(process.cwd(), "build/beforePack.cjs"), "utf8");
 const zsecContract = readFileSync(resolve(process.cwd(), "electron/zsec-contract.cjs"), "utf8");
@@ -54,6 +55,14 @@ describe("desktop security contract", () => {
     expect(appSource).not.toContain("inference stays on your node");
     expect(appSource).toContain("PUBLIC PREVIEW");
     expect(main).not.toContain('url.startsWith("file:")');
+  });
+
+  it("keeps the exact zSign SSO hop in the isolated ZMail session", () => {
+    expect(main).toContain('const { ZSIGN_ORIGIN, isZmailWorkspaceUrl, isZmailZsignSsoUrl }');
+    expect(main).toContain("isZmailWorkspaceUrl(contents.getURL()) && isZmailZsignSsoUrl(url)");
+    expect(main).toContain("void contents.loadURL(url)");
+    expect(zmailIntegration).toContain('const ZSIGN_ORIGIN = "https://zsign.zmail.my"');
+    expect(zmailIntegration).toContain('url.searchParams.get("_action") === "plugin.zmail-zsign-sso"');
   });
 
   it("rejects URL credentials and secret-like configuration data from diagnostics", () => {

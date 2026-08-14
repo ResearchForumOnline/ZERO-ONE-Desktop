@@ -391,7 +391,7 @@ function ServiceWorkspace({ service, settings, probe, active }: { service: Servi
       try {
         const webview = webviewRef.current as HTMLElement & { executeJavaScript?: (code: string, userGesture?: boolean) => Promise<unknown> };
         if (!webview?.executeJavaScript) throw new Error("Open ZMail once, then try Check inbox again.");
-        const rows = await webview.executeJavaScript(`(() => Array.from(document.querySelectorAll('#messagelist tbody tr, table.messagelist tbody tr')).slice(0,10).map((row) => ({ sender: (row.querySelector('.fromto, .sender, [class*="from"]')?.textContent || '').trim().replace(/\\s+/g,' ').slice(0,120), subject: (row.querySelector('.subject, [class*="subject"]')?.textContent || '').trim().replace(/\\s+/g,' ').slice(0,180), date: (row.querySelector('.date, [class*="date"]')?.textContent || '').trim().replace(/\\s+/g,' ').slice(0,80), unread: row.classList.contains('unread') || row.getAttribute('aria-label')?.toLowerCase().includes('unread') })))()`, false) as Array<{ sender: string; subject: string; date: string; unread: boolean }>;
+        const rows = await webview.executeJavaScript(`(() => Array.from(document.querySelectorAll('#messagelist tbody tr, table.messagelist tbody tr')).filter((row) => row.getClientRects().length > 0 && row.getAttribute('aria-hidden') !== 'true').slice(0,10).map((row) => ({ sender: (row.querySelector('.fromto, .sender, [class*="from"]')?.textContent || '').trim().replace(/\\s+/g,' ').slice(0,120), subject: (row.querySelector('.subject, [class*="subject"]')?.textContent || '').trim().replace(/\\s+/g,' ').slice(0,180), date: (row.querySelector('.date, [class*="date"]')?.textContent || '').trim().replace(/\\s+/g,' ').slice(0,80), unread: row.classList.contains('unread') || row.getAttribute('aria-label')?.toLowerCase().includes('unread') })))()`, false) as Array<{ sender: string; subject: string; date: string; unread: boolean }>;
         const clean = Array.isArray(rows) ? rows.filter((row) => row.sender || row.subject).slice(0, 10) : [];
         const message = clean.length ? `Visible ZMail messages (${clean.length}):\n${clean.map((row, index) => `${index + 1}. ${row.unread ? "UNREAD · " : ""}${row.sender || "Unknown sender"} — ${row.subject || "No subject"}${row.date ? ` · ${row.date}` : ""}`).join("\n")}` : "No message rows are visible. Open the ZMail inbox and try again; ZERO ONE does not bypass login or read hidden mailbox data.";
         window.dispatchEvent(new CustomEvent("zero-one:zmail-result", { detail: { id: request.id, ok: true, message } }));
@@ -504,7 +504,7 @@ function ServiceWorkspace({ service, settings, probe, active }: { service: Servi
       <div className="workspace-toolbar" style={{ "--service-accent": service.accent } as React.CSSProperties}>
         <div className="workspace-identity"><span>{service.glyph}</span><div><p>{service.eyebrow}</p><h2>{service.name}</h2></div></div>
         <div className="workspace-address"><Icon name="shield" size={16} /><span>{workspaceUrl}</span></div>
-        <div className="workspace-actions"><span className="workspace-health"><StatusDot state={probe?.state} />{probe?.state === "online" ? "reachable" : probe?.state || "checking"}</span><button onClick={retry}>Retry</button><button onClick={() => window.zeroOne.openExternal(workspaceUrl)}><Icon name="external" size={17} /> Browser</button></div>
+        <div className="workspace-actions"><span className="workspace-health"><StatusDot state={probe?.state} />{probe?.state === "online" ? "reachable" : probe?.state || "checking"}</span>{service.id === "zmail" && <button onClick={() => { setWorkspaceUrl(configuredUrl); setReloadKey((value) => value + 1); }}>ZMail home</button>}<button onClick={retry}>Retry</button><button onClick={() => window.zeroOne.openExternal(workspaceUrl)}><Icon name="external" size={17} /> Browser</button></div>
       </div>
       {service.id === "zerothink" && (
         <div className={`account-banner ${accountLinked ? "linked" : accountState}`} role="status" aria-live="polite"><div><strong>{accountLinked ? "Signed in on this PC" : pairing ? "Finish Google approval in your browser…" : restoringAccount ? "Restoring your saved ZeroThink login…" : accountState === "needs-link" ? "Saved login needs a quick refresh" : "Sign in to ZeroThink (one time)"}</strong><span>{accountError || (accountLinked ? `${accountEmail || "ZeroThink account"} · Stays signed in after you close ZERO ONE.` : "Click Sign in with Google. Approve once in your browser, then return here. ZERO ONE saves the link so you should not need to do this every time.")}</span></div>{accountLinked ? <button className="secondary-action" onClick={signOutZeroThink}>Sign out</button> : <><button className="primary-action" disabled={pairing || restoringAccount} onClick={pairZeroThink}>{pairing ? "Waiting for approval…" : restoringAccount ? "Restoring login…" : accountState === "needs-link" ? "Sign in again ↗" : "Sign in with Google ↗"}</button><button className="secondary-action" disabled={restoringAccount} onClick={() => setWorkspaceUrl("https://zerothink.talktoai.org/guest")}>Continue as guest</button></>}</div>
@@ -840,7 +840,7 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
     </div>
   );}
 
-function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOpenSettings: () => void }) {
+function Copilot({ settings, onOpenSettings, onOpenZmail }: { settings: ZeroOneSettings; onOpenSettings: () => void; onOpenZmail: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialAssistant);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -903,6 +903,7 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
     if (busy) return;
     const id = crypto.randomUUID();
     setBusy(true);
+    onOpenZmail();
     const timeout = window.setTimeout(() => {
       window.removeEventListener("zero-one:zmail-result", receive as EventListener);
       setMessages((current) => [...current, { role: "assistant", content: "Open the ZMail workspace and try again. ZERO ONE only reads the mailbox view you are already signed into." }]);
@@ -917,7 +918,11 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
       setBusy(false);
     };
     window.addEventListener("zero-one:zmail-result", receive as EventListener);
-    window.dispatchEvent(new CustomEvent("zero-one:zmail-action", { detail: { id, action } }));
+    // Mount/activate the isolated ZMail webview before dispatching. This keeps
+    // the action one-click even when the user has not opened ZMail yet.
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("zero-one:zmail-action", { detail: { id, action } }));
+    }, 100);
   };
 
   const send = async () => {
@@ -1080,7 +1085,8 @@ export default function App() {
   const navigate = useCallback((next: View, options?: { collapseCopilot?: boolean }) => {
     setMountedServiceIds((current) => retainMountedServiceTab(current, serviceIdFromView(next)) as ServiceId[]);
     setView(next);
-    if (options?.collapseCopilot || next.startsWith("service:")) setCopilotOpen(false);
+    const collapseCopilot = options?.collapseCopilot ?? next.startsWith("service:");
+    if (collapseCopilot) setCopilotOpen(false);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -1180,7 +1186,7 @@ export default function App() {
           })}
         </div>
       </main>
-      <Copilot settings={settings} onOpenSettings={() => navigate("settings")} />
+      <Copilot settings={settings} onOpenSettings={() => navigate("settings")} onOpenZmail={() => navigate("service:zmail", { collapseCopilot: false })} />
       {palette && <CommandPalette onClose={closePalette} onNavigate={navigate} />}
       {!settings.onboardingCompleted && <Welcome onFinish={() => completeOnboarding()} onSetup={() => completeOnboarding("settings")} />}
     </div>
