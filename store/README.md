@@ -2,7 +2,7 @@
 
 Status: **validated unsigned Windows x64 internal metadata; blocked from Store upload**.
 
-Working-tree product version: `7.9.0`.
+Working-tree product version: `7.9.1`.
 
 This directory contains:
 
@@ -14,11 +14,11 @@ This directory contains:
 - `SCREENSHOT_REQUIREMENTS.md` — platform capture specifications and truthful-state rules.
 - `ASSET_MANIFEST.md` — current source assets and missing final assets.
 - `SUBMISSION_CHECKLIST.md` — per-channel submission and post-publication verification gates.
-- `RELEASE_EVIDENCE.md` — preserved 0.4.0 preview evidence and historical candidate records; never borrow hashes or tests across builds. Current release notes are version-specific files such as `RELEASE_NOTES_7.9.0.md`.
+- `RELEASE_EVIDENCE.md` — preserved 0.4.0 preview evidence and historical candidate records; never borrow hashes or tests across builds. Current release notes are version-specific files such as `RELEASE_NOTES_7.9.1.md`.
 
 ## Current boundary
 
-- Product: `ZERO ONE` 7.9.0 source by `QUANTUMENCRYPTION1 LTD`; signed-candidate evidence remains pending.
+- Product: `ZERO ONE` 7.9.1 source by `QUANTUMENCRYPTION1 LTD`; signed-candidate evidence remains pending.
 - Configured package: Windows x64 one-click NSIS.
 - Configured preview targets: Windows x64, macOS arm64 and Linux x64. Windows arm64 and Intel macOS are not configured.
 - Local security integration: user-selected-folder scan and status surface backed by exact immutable ZSEC Shield 0.1.2 Windows x86_64 payload.
