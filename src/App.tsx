@@ -691,13 +691,18 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
   const selectedLocalModel = draft.model || LOCAL_OPENZERO_MODEL;
   const localModelInstalled = Boolean(localStatus?.models.some((model) => model.name.toLowerCase() === selectedLocalModel.toLowerCase()));
   const localOpenZeroReady = openZeroMode === "local" && localOpenZeroRunning && localModelInstalled;
+  const selectedLocalProfileKnown = LOCAL_MODEL_PROFILES.some((profile) => profile.id === selectedLocalModel);
   const runningLocalModels = (localStatus?.runningModels || []).filter((model) => isPublishedLocalModel(model.name.toLowerCase()) || model.name.toLowerCase() === selectedLocalModel.toLowerCase());
   const unloadLocalModels = async () => {
     setMessage("");
     try {
-      const result = await localOpenZeroApi().unloadLocalOpenZeroModels?.({ model: selectedLocalModel });
+      let unloaded = 0;
+      for (const running of runningLocalModels) {
+        const result = await localOpenZeroApi().unloadLocalOpenZeroModels?.({ model: running.name });
+        unloaded += result?.unloaded || 0;
+      }
       await refreshLocalOpenZero();
-      setMessage(result?.unloaded ? `Unloaded ${result.unloaded} local model${result.unloaded === 1 ? "" : "s"} from memory.` : "No local model was loaded in memory.");
+      setMessage(unloaded ? `Unloaded ${unloaded} local model${unloaded === 1 ? "" : "s"} from memory.` : "No local model was loaded in memory.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to unload the local model."); }
   };
   const chooseOpenZeroMode = (mode: "local" | "server") => {
@@ -769,7 +774,7 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
               <button type="button" role="radio" aria-checked={openZeroMode === "server"} className={openZeroMode === "server" ? "selected" : ""} onClick={() => chooseOpenZeroMode("server")}><span>ADVANCED</span><strong>Use my OpenZero server</strong><small>Uses an existing OpenZero runtime for Assistant replies.</small></button>
             </div>
             {openZeroMode === "local" ? <div className={`local-openzero-setup ${localOpenZeroReady ? "ready" : localPulling || localChecking ? "connecting" : ""}`} aria-live="polite" aria-busy={localPulling || localChecking}>
-              <label className="setting-field"><span>Local Assistant model</span><select value={selectedLocalModel} onChange={(event) => setDraft({ ...draft, assistantProvider: "openzero", model: event.target.value })}>{LOCAL_MODEL_PROFILES.map((profile) => <option key={profile.id} value={profile.id}>{profile.label}</option>)}</select><small>{LOCAL_MODEL_PROFILES.find((profile) => profile.id === selectedLocalModel)?.detail || "A locally installed OpenZero GGUF."}</small></label>
+              <label className="setting-field"><span>Local Assistant model</span><select value={selectedLocalModel} onChange={(event) => setDraft({ ...draft, assistantProvider: "openzero", model: event.target.value })}>{!selectedLocalProfileKnown && <option value={selectedLocalModel}>Current custom model · {selectedLocalModel}</option>}{LOCAL_MODEL_PROFILES.map((profile) => <option key={profile.id} value={profile.id}>{profile.label}</option>)}</select><small>{LOCAL_MODEL_PROFILES.find((profile) => profile.id === selectedLocalModel)?.detail || "Your preserved custom Ollama model. ZERO ONE will use it only in explicit Local mode."}</small></label>
               <div className="local-openzero-status"><span className={`status-dot ${localOpenZeroReady || localOpenZeroRunning ? "online" : localPulling || localChecking ? "checking" : "offline"}`} /><div><strong>{localOpenZeroReady ? "Local OpenZero Assistant is ready" : localPulling ? "Downloading the selected local Assistant…" : localChecking ? "Checking this computer…" : localOpenZeroRunning ? "Local engine ready—one model download remains" : "Install or start Ollama to continue"}</strong><small>{localOpenZeroReady ? "Quick chat runs on this computer. Open Assistant and start chatting." : localPulling ? `${localProgress?.status || "Preparing download"}${Number.isFinite(localProgress?.percent) ? ` · ${Math.round(localProgress?.percent || 0)}%` : ""}` : localOpenZeroRunning ? "Choose the compact default for responsiveness, or the 8B runtime edition on a capable CPU with at least 10 GB free disk space." : "Ollama is the small local engine that runs the private Assistant model."}</small></div></div>
               {localPulling && <div className="model-download-bar" role="progressbar" aria-label="Local Assistant model download" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(localProgress?.percent || 0)}><span style={{ width: `${Math.max(2, localProgress?.percent || 0)}%` }} /></div>}
               <div className="connection-progress" aria-label="Local Assistant setup progress"><span className={localOpenZeroRunning ? "done" : "current"}>1<i>Local engine</i></span><b /><span className={localModelInstalled ? "done" : localPulling || localOpenZeroRunning ? "current" : ""}>2<i>Selected model</i></span><b /><span className={localOpenZeroReady ? "done" : ""}>3<i>Ready to chat</i></span></div>
@@ -847,9 +852,7 @@ function Copilot({ settings, onOpenSettings }: { settings: ZeroOneSettings; onOp
   const clearChat = () => setMessages(initialAssistant);
   // Published OpenZero GGUF selections are local even when a separate panel
   // token is retained for browser workflows.
-  const selectedModel = (settings.model || "").toLowerCase();
-  const publishedLocalModel = selectedModel.startsWith("hf.co/shafire/") && (selectedModel.includes("/openzero-") || selectedModel.includes("/zero-")) && selectedModel.includes("-gguf:");
-  const localSelected = settings.assistantProvider === "openzero" && settings.openZeroAssistantMode !== "server" && (publishedLocalModel || settings.model === LOCAL_OPENZERO_MODEL || !settings.hasOpenZeroToken);
+  const localSelected = settings.assistantProvider === "openzero" && settings.openZeroAssistantMode !== "server";
   const providerLabel = settings.assistantProvider === "groq" ? "Groq" : settings.assistantProvider === "openai" ? "OpenAI" : localSelected ? "OpenZero Local" : "OpenZero Server";
   const ready = settings.assistantProvider === "groq" ? settings.hasGroqKey : settings.assistantProvider === "openai" ? settings.hasOpenAiKey : localSelected ? localReady : settings.hasOpenZeroToken;
   const activeAssistantModel = localSelected ? (settings.model || LOCAL_OPENZERO_MODEL) : settings.assistantProvider === "openzero" ? (settings.openZeroServerModel || OPENZERO_MINISTRAL_RUNTIME_MODEL) : settings.model;

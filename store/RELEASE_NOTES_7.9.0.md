@@ -2,6 +2,7 @@
 
 - Keeps **OpenZero Gemma4 E2B Agentic Q4_K_M** as the recommended lightweight local Assistant and **OpenZero Ministral 8B Runtime Agent** as the standard full OpenZero server model.
 - Separates the local Assistant selection from the full OpenZero server model, so connecting the full runtime cannot silently replace everyday local chat.
+- Makes explicit Local mode authoritative even when a server credential is also stored, preserving an operator-selected custom Ollama model without silently routing its prompt to the server.
 - Preserves legacy OpenZero server routing and its selected server model when upgrading settings that predate the explicit local/server mode field.
 - The rejected Fusion model and Qwen3 1.7B release are blocked at the local-model boundary and excluded from the visible selector after response-quality testing.
 - Adds low-memory, balanced and performance profiles, reports relevant loaded Ollama models, unloads competing OpenZero models before chat without disturbing unrelated Ollama workloads, prevents concurrent local chats and exposes an explicit unload action.
