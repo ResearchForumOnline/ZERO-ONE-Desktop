@@ -46,6 +46,9 @@ $headers = @{
   "X-GitHub-Api-Version" = "2026-03-10"
   "User-Agent" = "ZERO-ONE-ZSEC-Vendor-Stager/$packageVersion"
 }
+if ($env:GH_TOKEN) {
+  $headers.Authorization = "Bearer $($env:GH_TOKEN)"
+}
 $releaseUri = "https://api.github.com/repos/$($lock.repository)/releases/tags/$($lock.release.tag)"
 $release = Invoke-RestMethod -Uri $releaseUri -Headers $headers -TimeoutSec 30
 Assert-Condition ([int64]$release.id -eq [int64]$lock.release.id) "release ID mismatch"

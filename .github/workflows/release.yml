@@ -73,6 +73,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release verify v0.1.2 --repo ResearchForumOnline/ZSEC-Shield
       - name: Stage pinned Windows ZSEC runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: ./scripts/stage-zsec-vendor.ps1
       - run: npm run dist:win
