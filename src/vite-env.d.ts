@@ -89,13 +89,37 @@ interface AppUpdateInfo {
   currentVersion: string;
   latestVersion: string;
   releaseUrl: string;
+  assetName: string;
+  assetUrl: string;
+  assetSize: number;
+  assetDigest: string;
+  checksumUrl: string;
+  installSupported: boolean;
   checkedAt: string;
+}
+
+interface AppUpdateProgress {
+  status: "checking" | "downloading" | "verified" | "error";
+  percent: number;
+  completed?: number;
+  total?: number;
+  message: string;
+}
+
+interface BrowserPilotState {
+  status: "idle" | "running" | "paused" | "finished" | "stopped" | "error";
+  runId: string;
+  step: number;
+  message: string;
+  pending: null | { preview: string; reason: string };
 }
 
 interface Window {
   zeroOne: {
     getAppInfo(): Promise<{ name: string; version: string; platform: string; packaged: boolean }>;
     checkForAppUpdate(): Promise<AppUpdateInfo>;
+    installAppUpdate(): Promise<{ status: string; version?: string; message: string }>;
+    onAppUpdateProgress(callback: (progress: AppUpdateProgress) => void): () => void;
     getUserInterfaceScale(): Promise<number>;
     setUserInterfaceScale(factor: number): Promise<number>;
     startZeroThinkSignIn(): Promise<{ status: string; email: string; userCode: string; url?: string }>;
@@ -114,6 +138,11 @@ interface Window {
     clearLocalData(): Promise<{ cleared: boolean }>;
     probeServices(): Promise<ServiceProbe[]>;
     connectOpenZeroDesktop(): Promise<{ settings: ZeroOneSettings; hint: string; model: string; models: string[] }>;
+    startBrowserPilot(input: { targetId: number; task: string }): Promise<BrowserPilotState>;
+    approveBrowserPilot(runId: string): Promise<BrowserPilotState>;
+    denyBrowserPilot(runId: string): Promise<BrowserPilotState>;
+    stopBrowserPilot(runId: string): Promise<BrowserPilotState>;
+    onBrowserPilotState(callback: (state: BrowserPilotState) => void): () => void;
     getLocalOpenZeroStatus?(): Promise<{ reachable: boolean; origin: string; defaultModel: string; version: string; models: Array<{ name: string; size: number; modifiedAt: string }>; runningModels: Array<{ name: string; size: number; expiresAt: string }>; message?: string }>;
     openOllamaDownload?(): Promise<boolean>;
     pullLocalOpenZeroModel?(model: string, onProgress: (progress: { status: string; completed: number; total: number; percent?: number; done: boolean }) => void): Promise<{ status: string }>;

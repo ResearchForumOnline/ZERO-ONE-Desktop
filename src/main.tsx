@@ -29,7 +29,9 @@ if (!window.zeroOne && import.meta.env.DEV) {
   };
   window.zeroOne = {
     getAppInfo: async () => ({ name: "ZERO ONE", version: previewVersion, platform: navigator.platform.toLowerCase().includes("mac") ? "darwin" : navigator.platform.toLowerCase().includes("linux") ? "linux" : "win32", packaged: false }),
-    checkForAppUpdate: async () => ({ status: "current", updateAvailable: false, currentVersion: packageMetadata.version, latestVersion: packageMetadata.version, releaseUrl: `https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v${packageMetadata.version}`, checkedAt: new Date().toISOString() }),
+    checkForAppUpdate: async () => ({ status: "current", updateAvailable: false, currentVersion: packageMetadata.version, latestVersion: packageMetadata.version, releaseUrl: `https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v${packageMetadata.version}`, assetName: "", assetUrl: "", assetSize: 0, assetDigest: "", checksumUrl: "", installSupported: false, checkedAt: new Date().toISOString() }),
+    installAppUpdate: async () => ({ status: "current", message: "Preview mode does not install updates." }),
+    onAppUpdateProgress: () => () => undefined,
     getUserInterfaceScale: async () => 1,
     setUserInterfaceScale: async (factor) => factor,
     startZeroThinkSignIn: async () => ({ status: "success", email: "preview@example.com", userCode: "PREVIEW" }),
@@ -48,6 +50,11 @@ if (!window.zeroOne && import.meta.env.DEV) {
       { name: "callchat", state: "online", status: 200, latencyMs: 29, url: previewSettings.callChatUrl },
     ],
     connectOpenZeroDesktop: async () => ({ settings: { ...previewSettings, hasOpenZeroToken: true }, hint: "oz_preview", model: previewSettings.openZeroServerModel, models: [previewSettings.openZeroServerModel] }),
+    startBrowserPilot: async () => ({ status: "finished", runId: "preview", step: 1, message: "Preview Browser Pilot completed without controlling the page.", pending: null }),
+    approveBrowserPilot: async (runId) => ({ status: "finished", runId, step: 1, message: "Preview action approved.", pending: null }),
+    denyBrowserPilot: async (runId) => ({ status: "stopped", runId, step: 1, message: "Preview action denied.", pending: null }),
+    stopBrowserPilot: async (runId) => ({ status: "stopped", runId, step: 1, message: "Preview run stopped.", pending: null }),
+    onBrowserPilotState: () => () => undefined,
     chat: async () => ({ content: "Preview mode keeps all actions local and disabled.", model: previewSettings.model }),
     openExternal: async () => true,
     exportDiagnostics: async () => ({ saved: false }),

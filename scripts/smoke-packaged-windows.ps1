@@ -113,6 +113,13 @@ try {
     throw "Packaged app rendered an unexpected DOM: $($dom | ConvertTo-Json -Compress)"
   }
 
+  $pilotUi = Invoke-CdpExpression -WebSocketUrl $page.webSocketDebuggerUrl -Expression 'new Promise(resolve=>{const button=[...document.querySelectorAll("button")].find(entry=>entry.textContent?.includes("Browser Pilot"));button?.click();setTimeout(()=>{const view=document.querySelector("webview[partition=\"persist:zero-one-browser-pilot\"]");resolve(JSON.stringify({heading:document.querySelector("h1")?.textContent,task:document.body.innerText.includes("Grant this tab & start"),guard:document.body.innerText.includes("12-step hard limit"),targetId:view?.getWebContentsId?.()||0}))},2500)})'
+  if ($pilotUi.heading -ne "Browser Pilot" -or -not $pilotUi.task -or -not $pilotUi.guard -or [int]$pilotUi.targetId -lt 1) {
+    throw "Packaged Browser Pilot workspace did not mount its isolated target: $($pilotUi | ConvertTo-Json -Compress)"
+  }
+  $homeState = Invoke-CdpExpression -WebSocketUrl $page.webSocketDebuggerUrl -Expression 'new Promise(resolve=>{document.querySelector("button[title=Command]")?.click();setTimeout(()=>resolve(JSON.stringify({heading:document.querySelector("h1")?.textContent})),500)})'
+  if ($homeState.heading -ne "Command center") { throw "Packaged Browser Pilot did not return cleanly to Command center." }
+
   if ($TestLocalChat) {
     $status = Invoke-CdpExpression -WebSocketUrl $page.webSocketDebuggerUrl -Expression 'window.zeroOne.getLocalOpenZeroStatus().then(value=>JSON.stringify(value))'
     if ($status.defaultModel -ne $expectedDefaultModel) {
@@ -158,7 +165,7 @@ try {
     throw "Packaged UI did not remove the clean label after incomplete evidence."
   }
 
-  Write-Output "Packaged launch, DOM, ZSEC identity, clean-scan, fail-closed incomplete-scan$(if ($TestLocalChat) { ', and local Assistant chat' }) smoke passed for PID $($process.Id)."
+  Write-Output "Packaged launch, DOM, isolated Browser Pilot, ZSEC identity, clean-scan, fail-closed incomplete-scan$(if ($TestLocalChat) { ', and local Assistant chat' }) smoke passed for PID $($process.Id)."
 } finally {
   Remove-Item Env:ZERO_ONE_SMOKE_WS -ErrorAction SilentlyContinue
   Remove-Item Env:ZERO_ONE_SMOKE_EXPR -ErrorAction SilentlyContinue

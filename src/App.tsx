@@ -1,7 +1,7 @@
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SERVICES, ServiceDefinition, ServiceId, retainMountedServiceTab, serviceById, serviceIdFromView, serviceUrl } from "./lib/services";
 
-type View = "home" | "shield" | "agents" | "settings" | `service:${ServiceId}`;
+type View = "home" | "shield" | "agents" | "pilot" | "settings" | `service:${ServiceId}`;
 type ChatMessage = { role: "user" | "assistant"; content: string };
 type ZeroThinkAccountState = "checking" | "linking" | "linked" | "signed-out" | "needs-link";
 type LocalOpenZeroStatus = { reachable: boolean; origin: string; defaultModel: string; version: string; models: Array<{ name: string; size: number; modifiedAt: string }>; runningModels: Array<{ name: string; size: number; expiresAt: string }>; message?: string };
@@ -48,6 +48,7 @@ const iconPaths: Record<string, string> = {
   search: "m20 20-4.3-4.3M18 10.5a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z",
   shield: "M12 3 5 6v5c0 4.8 2.9 8 7 10 4.1-2 7-5.2 7-10V6z",
   pulse: "M3 12h4l2-5 4 10 2-5h6",
+  browser: "M3 5h18v14H3zM3 9h18M7 7h.01M10 7h.01",
   mail: "M3 6h18v12H3zM3 7l9 7 9-7",
   call: "M7 4h3l2 5-2 1.5a14 14 0 0 0 3.5 3.5L15 12l5 2v3c0 1.7-1.3 3-3 3C9.8 20 4 14.2 4 7c0-1.7 1.3-3 3-3Z",
 };
@@ -89,6 +90,7 @@ function Sidebar({ view, mountedServiceIds, version, onNavigate }: { view: View;
         <NavButton active={view === "home"} label="Command" onClick={() => onNavigate("home")} icon="home" />
         <NavButton active={view === "shield"} label="ZSEC" onClick={() => onNavigate("shield")} icon="shield" />
         <NavButton active={view === "agents"} label="Automation" onClick={() => onNavigate("agents")} icon="agents" />
+        <NavButton active={view === "pilot"} label="Browser Pilot" onClick={() => onNavigate("pilot")} icon="browser" />
         <div className="nav-separator" />
         {SERVICES.map((service) => (
           <button
@@ -121,7 +123,7 @@ function NavButton({ active, label, onClick, icon, compact = false }: { active: 
 
 function Topbar({ view, probes, system, zoom, copilotOpen, onZoom, onToggleCopilot, onRefresh, onSearch, searchRef }: { view: View; probes: ServiceProbe[]; system: SystemSnapshot | null; zoom: number; copilotOpen: boolean; onZoom: (factor: number) => void; onToggleCopilot: () => void; onRefresh: () => void; onSearch: () => void; searchRef: React.RefObject<HTMLButtonElement | null> }) {
   const online = probes.filter((probe) => probe.state === "online").length;
-  const title = view === "home" ? "Command center" : view === "shield" ? "ZSEC Shield" : view === "agents" ? "Automation" : view === "settings" ? "Settings" : serviceById(view.split(":")[1] as ServiceId).name;
+  const title = view === "home" ? "Command center" : view === "shield" ? "ZSEC Shield" : view === "agents" ? "Automation" : view === "pilot" ? "Browser Pilot" : view === "settings" ? "Settings" : serviceById(view.split(":")[1] as ServiceId).name;
   return (
     <header className="topbar">
       <div>
@@ -152,13 +154,30 @@ function Topbar({ view, probes, system, zoom, copilotOpen, onZoom, onToggleCopil
   );
 }
 
+function InstallUpdateButton({ update, className, onMessage }: { update: AppUpdateInfo; className: string; onMessage?: (message: string) => void }) {
+  const [installing, setInstalling] = useState(false);
+  const [progress, setProgress] = useState<AppUpdateProgress | null>(null);
+  useEffect(() => window.zeroOne.onAppUpdateProgress?.((value) => setProgress(value)), []);
+  const install = async () => {
+    setInstalling(true);
+    try {
+      const result = await window.zeroOne.installAppUpdate();
+      onMessage?.(result.message);
+    } catch (error) {
+      onMessage?.(error instanceof Error ? error.message : "The update stopped safely.");
+    } finally { setInstalling(false); }
+  };
+  return <button type="button" className={className} disabled={installing || !update.installSupported} onClick={install}>{installing ? progress?.status === "downloading" ? `Downloading ${progress.percent || 0}%` : "Preparing update…" : "Install verified update"}</button>;
+}
+
 function UpdateBanner({ update, onDismiss }: { update: AppUpdateInfo; onDismiss: () => void }) {
   const reviewRelease = () => { void window.zeroOne.openExternal(update.releaseUrl); };
   return (
     <aside className="app-update-banner" role="status" aria-live="polite">
       <span className="app-update-mark" aria-hidden="true">↑</span>
-      <div><strong>ZERO ONE {update.latestVersion} is available</strong><small>Review the official GitHub release when convenient. Nothing is downloaded or installed automatically.</small></div>
-      <button type="button" className="app-update-review" onClick={reviewRelease}>Review download ↗</button>
+      <div><strong>ZERO ONE {update.latestVersion} is available</strong><small>{update.installSupported ? "One click downloads the official package, verifies its release digest and SHA-256, then starts the updater." : "Review the official GitHub release for this platform."}</small></div>
+      {update.installSupported && <InstallUpdateButton update={update} className="app-update-install" />}
+      <button type="button" className="app-update-review" onClick={reviewRelease}>Release notes ↗</button>
       <button type="button" className="app-update-dismiss" onClick={onDismiss} aria-label={`Dismiss ZERO ONE ${update.latestVersion} update notice`}>×</button>
     </aside>
   );
@@ -583,6 +602,113 @@ function AgentLattice({ settings, openZeroProbe, onOpenZero }: { settings: ZeroO
   );
 }
 
+type PilotWebview = HTMLElement & {
+  getWebContentsId: () => number;
+  getURL?: () => string;
+  reload?: () => void;
+  goBack?: () => void;
+  goForward?: () => void;
+  canGoBack?: () => boolean;
+  canGoForward?: () => boolean;
+};
+
+function browserAddress(value: string) {
+  const raw = String(value || "").trim();
+  if (!raw) throw new Error("Enter a web address first.");
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`;
+  const parsed = new URL(candidate);
+  if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error("Browser Pilot accepts credential-free HTTP(S) addresses only.");
+  return parsed.href;
+}
+
+function BrowserPilotWorkspace({ settings }: { settings: ZeroOneSettings }) {
+  const [address, setAddress] = useState("https://openzero.talktoai.org/");
+  const [pageUrl, setPageUrl] = useState("https://openzero.talktoai.org/");
+  const [task, setTask] = useState("");
+  const [ready, setReady] = useState(false);
+  const [pageBusy, setPageBusy] = useState(true);
+  const [message, setMessage] = useState("Open a page, describe one bounded task, then grant this exact tab.");
+  const [pilot, setPilot] = useState<BrowserPilotState>({ status: "idle", runId: "", step: 0, message: "Ready for a user-granted task.", pending: null });
+  const [paired, setPaired] = useState(settings.hasOpenZeroToken);
+  const webviewRef = useRef<HTMLElement>(null);
+
+  useEffect(() => window.zeroOne.onBrowserPilotState((state) => { setPilot(state); setMessage(state.message); }), []);
+  useEffect(() => {
+    const view = webviewRef.current as PilotWebview | null;
+    if (!view) return;
+    const started = () => { setPageBusy(true); setReady(false); };
+    const stopped = () => { setPageBusy(false); setReady(true); const current = view.getURL?.(); if (current) { setAddress(current); setPageUrl(current); } };
+    const navigated = (event: Event) => { const url = String((event as Event & { url?: string }).url || view.getURL?.() || ""); if (url) { setAddress(url); setPageUrl(url); } };
+    view.addEventListener("did-start-loading", started);
+    view.addEventListener("did-stop-loading", stopped);
+    view.addEventListener("did-navigate", navigated);
+    view.addEventListener("did-navigate-in-page", navigated);
+    return () => {
+      view.removeEventListener("did-start-loading", started);
+      view.removeEventListener("did-stop-loading", stopped);
+      view.removeEventListener("did-navigate", navigated);
+      view.removeEventListener("did-navigate-in-page", navigated);
+    };
+  }, [pageUrl]);
+  useEffect(() => () => { if (pilot.runId && ["running", "paused"].includes(pilot.status)) void window.zeroOne.stopBrowserPilot(pilot.runId); }, [pilot.runId, pilot.status]);
+
+  const navigatePage = () => {
+    try {
+      const url = browserAddress(address);
+      if (pilot.runId && ["running", "paused"].includes(pilot.status)) void window.zeroOne.stopBrowserPilot(pilot.runId);
+      setReady(false);
+      setPageUrl(url);
+      setAddress(url);
+      setMessage("Loading the isolated Browser Pilot tab…");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "That address could not be opened."); }
+  };
+  const start = async () => {
+    const view = webviewRef.current as PilotWebview | null;
+    if (!view || !ready) { setMessage("Wait for the page to finish loading first."); return; }
+    if (!task.trim()) { setMessage("Describe one bounded browser task first."); return; }
+    try {
+      if (!paired) {
+        setMessage("Pairing securely with local OpenZero…");
+        await window.zeroOne.connectOpenZeroDesktop();
+        setPaired(true);
+      }
+      const targetId = view.getWebContentsId();
+      if (!Number.isSafeInteger(targetId) || targetId <= 0) throw new Error("The isolated browser tab is not ready yet.");
+      setPilot(await window.zeroOne.startBrowserPilot({ targetId, task: task.trim() }));
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Browser Pilot stopped safely."); }
+  };
+  const act = async (action: "approve" | "deny" | "stop") => {
+    try {
+      const next = action === "approve" ? await window.zeroOne.approveBrowserPilot(pilot.runId) : action === "deny" ? await window.zeroOne.denyBrowserPilot(pilot.runId) : await window.zeroOne.stopBrowserPilot(pilot.runId);
+      setPilot(next);
+    } catch (error) { setMessage(error instanceof Error ? error.message : "The request stopped safely."); }
+  };
+  const running = ["running", "paused"].includes(pilot.status);
+  return (
+    <div className="pilot-view">
+      <section className="pilot-browser glass-card" aria-label="Built-in Browser Pilot">
+        <div className="pilot-toolbar">
+          <div className="pilot-history-controls"><button type="button" aria-label="Back" onClick={() => (webviewRef.current as PilotWebview | null)?.goBack?.()}>←</button><button type="button" aria-label="Forward" onClick={() => (webviewRef.current as PilotWebview | null)?.goForward?.()}>→</button><button type="button" aria-label="Reload" onClick={() => (webviewRef.current as PilotWebview | null)?.reload?.()}>↻</button></div>
+          <form onSubmit={(event) => { event.preventDefault(); navigatePage(); }}><Icon name="shield" size={15} /><input aria-label="Browser address" value={address} onChange={(event) => setAddress(event.target.value)} spellCheck={false} /><button type="submit">Go</button></form>
+          <span className={`pilot-page-state ${pageBusy ? "busy" : "ready"}`}>{pageBusy ? "LOADING" : "ISOLATED"}</span>
+        </div>
+        <webview key={pageUrl} ref={webviewRef} className="pilot-webview" src={pageUrl} partition="persist:zero-one-browser-pilot" />
+      </section>
+      <aside className="pilot-control glass-card">
+        <div className="pilot-heading"><span><Icon name="browser" size={21} /></span><div><p>BUILT INTO ZERO ONE</p><h2>Browser Pilot</h2></div></div>
+        <p className="pilot-intro">Give OpenZero one bounded task on this exact isolated tab. Page labels and visible structure go only to your configured OpenZero endpoint; form values, URL queries, passwords, payment fields, secrets, files and CAPTCHA values are omitted.</p>
+        <label><span>One browser task</span><textarea value={task} onChange={(event) => setTask(event.target.value)} disabled={running} rows={5} placeholder="Example: Open the documentation page and find the Windows install steps. Do not submit anything." /></label>
+        <button type="button" className="primary-action pilot-start" disabled={!ready || running || !task.trim()} onClick={start}>{running ? `Working · step ${pilot.step}/12` : "Grant this tab & start"}</button>
+        <div className={`pilot-run-state ${pilot.status}`} role="status" aria-live="polite"><strong>{pilot.status === "paused" ? "Approval required" : pilot.status === "running" ? "Pilot active" : pilot.status === "finished" ? "Task finished" : pilot.status === "error" ? "Stopped safely" : "Ready"}</strong><span>{message}</span></div>
+        {pilot.status === "paused" && pilot.pending && <div className="pilot-approval"><p><strong>Proposed action</strong>{pilot.pending.preview}</p><small>{pilot.pending.reason}</small><div><button type="button" className="primary-action" onClick={() => act("approve")}>Approve once</button><button type="button" className="secondary-action" onClick={() => act("deny")}>Deny</button></div></div>}
+        {running && <button type="button" className="pilot-stop" onClick={() => act("stop")}>Stop &amp; revoke now</button>}
+        <ul className="pilot-guardrails"><li>One tab grant; 12-step hard limit</li><li>Cross-site and consequential actions pause</li><li>Typed personal data always needs approval</li><li>The page overlay includes an immediate STOP control</li></ul>
+        <button type="button" className="pilot-extension-link" onClick={() => window.zeroOne.openExternal("https://chromewebstore.google.com/detail/openzero-tab-pilot/cgaalobjjknalamgchppccbocnhonhbf")}>Optional Chrome/Brave Tab Pilot ↗</button>
+      </aside>
+    </div>
+  );
+}
+
 function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settings: ZeroOneSettings; appVersion: string; openZeroProbe?: ServiceProbe; onSaved: (settings: ZeroOneSettings) => void }) {
   const [draft, setDraft] = useState<ZeroOneSettings>(settings);
   const [token, setToken] = useState("");
@@ -604,7 +730,7 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
   const checkForUpdate = async () => {
     setCheckingUpdate(true);
     try { setUpdateInfo(await window.zeroOne.checkForAppUpdate()); }
-    catch { setUpdateInfo({ status: "unavailable", updateAvailable: false, currentVersion: appVersion, latestVersion: appVersion, releaseUrl: "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/latest", checkedAt: new Date().toISOString() }); }
+    catch { setUpdateInfo({ status: "unavailable", updateAvailable: false, currentVersion: appVersion, latestVersion: appVersion, releaseUrl: "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/latest", assetName: "", assetUrl: "", assetSize: 0, assetDigest: "", checksumUrl: "", installSupported: false, checkedAt: new Date().toISOString() }); }
     finally { setCheckingUpdate(false); }
   };
   const refreshLocalOpenZero = useCallback(async () => {
@@ -723,11 +849,12 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
           <div className="settings-update-row">
             <div className={`settings-update-state ${updateInfo?.status || "idle"}`}>
               <span aria-hidden="true">{updateInfo?.status === "available" ? "↑" : updateInfo?.status === "current" ? "✓" : "i"}</span>
-              <div><strong>{updateInfo?.status === "available" ? `Version ${updateInfo.latestVersion} is available` : updateInfo?.status === "current" ? "You have the latest version" : updateInfo?.status === "unavailable" ? "Update service is temporarily unavailable" : "Ready to check for updates"}</strong><small>{updateInfo?.checkedAt ? `Last checked ${new Date(updateInfo.checkedAt).toLocaleString("en-GB")}` : "ZERO ONE checks the official GitHub release channel. Nothing installs without you reviewing it."}</small></div>
+              <div><strong>{updateInfo?.status === "available" ? `Version ${updateInfo.latestVersion} is available` : updateInfo?.status === "current" ? "You have the latest version" : updateInfo?.status === "unavailable" ? "Update service is temporarily unavailable" : "Ready to check for updates"}</strong><small>{updateInfo?.checkedAt ? `Last checked ${new Date(updateInfo.checkedAt).toLocaleString("en-GB")}` : "ZERO ONE checks the official stable GitHub channel. You approve before a verified package is installed."}</small></div>
             </div>
             <div className="settings-update-actions">
               <button type="button" className="secondary-action" disabled={checkingUpdate} onClick={checkForUpdate}>{checkingUpdate ? "Checking…" : "Check for updates"}</button>
-              {updateInfo?.updateAvailable && <button type="button" className="primary-action" onClick={() => window.zeroOne.openExternal(updateInfo.releaseUrl)}>Review official release ↗</button>}
+              {updateInfo?.updateAvailable && updateInfo.installSupported && <InstallUpdateButton update={updateInfo} className="primary-action" onMessage={setMessage} />}
+              {updateInfo?.updateAvailable && <button type="button" className="secondary-action" onClick={() => window.zeroOne.openExternal(updateInfo.releaseUrl)}>Release notes ↗</button>}
             </div>
           </div>
         </section>
@@ -997,7 +1124,9 @@ function CommandPalette({ onClose, onNavigate }: { onClose: () => void; onNaviga
   };
   const actions = useMemo(() => [
     { label: "Open command center", hint: "Dashboard", view: "home" as View },
-    { label: "Open ZSEC Shield", hint: "Deterministic endpoint security", view: "shield" as View },    { label: "Inspect 16-agent lattice", hint: "Autonomy", view: "agents" as View },
+    { label: "Open ZSEC Shield", hint: "Deterministic endpoint security", view: "shield" as View },
+    { label: "Inspect 16-agent lattice", hint: "Autonomy", view: "agents" as View },
+    { label: "Open Browser Pilot", hint: "One-tab governed browser control", view: "pilot" as View },
     ...SERVICES.map((service) => ({ label: `Open ${service.name}`, hint: service.eyebrow, view: `service:${service.id}` as View })),
     { label: "Open secure settings", hint: "Configuration", view: "settings" as View },
   ].filter((action) => `${action.label} ${action.hint}`.toLowerCase().includes(query.toLowerCase())), [query]);
@@ -1016,7 +1145,8 @@ function Welcome({ onFinish, onSetup }: { onFinish: () => void; onSetup: () => v
     <div className="welcome-points">
       <article><strong>1. Assistant needs no config</strong><span>Private chat uses OpenZero Local + Ollama on this PC. Download the model once if prompted — no cloud key.</span></article>
       <article><strong>2. Sign in with control</strong><span>ZMail passwords are saved only after you tick the opt-in box, then filled only when you request it. ZeroThink linking remains an explicit browser approval.</span></article>
-      <article><strong>3. ZSEC Shield is local</strong><span>On-demand folder scanning stays on this computer. Server ZSEC handles Linux security updates separately.</span></article>
+      <article><strong>3. Browser Pilot is built in</strong><span>Grant one isolated tab to OpenZero, with secret-field blocking, approval pauses, a 12-step limit and an immediate stop control.</span></article>
+      <article><strong>4. ZSEC Shield is local</strong><span>On-demand folder scanning stays on this computer. Server ZSEC handles Linux security updates separately.</span></article>
     </div>
     <div className="welcome-actions"><button className="secondary-action" onClick={onSetup}>Review setup</button><button className="primary-action" onClick={onFinish}>Start using ZERO ONE</button></div>
   </section></div>;
@@ -1024,7 +1154,7 @@ function Welcome({ onFinish, onSetup }: { onFinish: () => void; onSetup: () => v
 
 function isValidView(value: string | undefined): value is View {
   if (!value) return false;
-  if (value === "home" || value === "shield" || value === "agents" || value === "settings") return true;
+  if (value === "home" || value === "shield" || value === "agents" || value === "pilot" || value === "settings") return true;
   return /^service:(openzero|zerothink|zmail|callchat)$/.test(value);
 }
 
@@ -1082,7 +1212,7 @@ export default function App() {
   const navigate = useCallback((next: View, options?: { collapseCopilot?: boolean }) => {
     setMountedServiceIds((current) => retainMountedServiceTab(current, serviceIdFromView(next)) as ServiceId[]);
     setView(next);
-    const collapseCopilot = options?.collapseCopilot ?? next.startsWith("service:");
+    const collapseCopilot = options?.collapseCopilot ?? (next.startsWith("service:") || next === "pilot");
     if (collapseCopilot) setCopilotOpen(false);
   }, []);
 
@@ -1176,6 +1306,7 @@ export default function App() {
           {view === "home" && <Dashboard settings={settings} probes={probes} system={system} zsec={zsec} onOpen={(id) => navigate(`service:${id}`)} onOpenShield={() => navigate("shield")} />}
           {view === "shield" && <ZsecView snapshot={zsec} onRefresh={refresh} />}
           {view === "agents" && <AgentLattice settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onOpenZero={() => navigate("service:openzero")} />}
+          {view === "pilot" && <BrowserPilotWorkspace settings={settings} />}
           {view === "settings" && <SettingsView settings={settings} appVersion={appVersion} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onSaved={(saved) => { setSettings(saved); refresh(); }} />}
           {renderedServiceIds.map((serviceId) => {
             const service = serviceById(serviceId);

@@ -3,6 +3,12 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("zeroOne", {
   getAppInfo: () => ipcRenderer.invoke("app:info"),
   checkForAppUpdate: () => ipcRenderer.invoke("app:check-update"),
+  installAppUpdate: () => ipcRenderer.invoke("app:install-update"),
+  onAppUpdateProgress: (callback) => {
+    const listener = (_event, progress) => callback(progress);
+    ipcRenderer.on("app:update-progress", listener);
+    return () => ipcRenderer.removeListener("app:update-progress", listener);
+  },
   getUserInterfaceScale: () => ipcRenderer.invoke("ui:get-zoom"),
   setUserInterfaceScale: (factor) => ipcRenderer.invoke("ui:set-zoom", factor),
   startZeroThinkSignIn: () => ipcRenderer.invoke("zerothink:sign-in"),
@@ -25,6 +31,15 @@ contextBridge.exposeInMainWorld("zeroOne", {
   clearLocalData: () => ipcRenderer.invoke("settings:clear-local-data"),
   probeServices: () => ipcRenderer.invoke("services:probe"),
   connectOpenZeroDesktop: () => ipcRenderer.invoke("openzero:connect-desktop"),
+  startBrowserPilot: (input) => ipcRenderer.invoke("browser-pilot:start", input),
+  approveBrowserPilot: (runId) => ipcRenderer.invoke("browser-pilot:approve", { runId }),
+  denyBrowserPilot: (runId) => ipcRenderer.invoke("browser-pilot:deny", { runId }),
+  stopBrowserPilot: (runId) => ipcRenderer.invoke("browser-pilot:stop", { runId }),
+  onBrowserPilotState: (callback) => {
+    const listener = (_event, state) => callback(state);
+    ipcRenderer.on("browser-pilot:state", listener);
+    return () => ipcRenderer.removeListener("browser-pilot:state", listener);
+  },
   getLocalOpenZeroStatus: () => ipcRenderer.invoke("openzero:local-status"),
   openOllamaDownload: () => ipcRenderer.invoke("openzero:open-ollama-download"),
   pullLocalOpenZeroModel: async (model, onProgress) => {
