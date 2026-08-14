@@ -216,10 +216,9 @@ describe("responsive desktop shell", () => {
     expect(app).toContain('const localSelected = settings.assistantProvider === "openzero" && settings.openZeroAssistantMode !== "server";');
     expect(app).toContain("Current custom model · {selectedLocalModel}");
     expect(main).toContain("if (!isPublishedLocalModelName(running.name)) continue;");
-    expect(main).toContain("status.runningModels.filter((entry) => isPublishedLocalModelName(entry.name))");
-    expect(app).toContain("for (const running of runningLocalModels)");
-    expect(app).toContain("unloadLocalOpenZeroModels?.({ model: running.name })");
-    expect(app).not.toContain("unloadLocalOpenZeroModels?.({ all: true })");
+    expect(main).toContain("isPublishedLocalModelName(entry.name) || entry.name.toLowerCase() === selected.toLowerCase()");
+    expect(app).toContain("unloadLocalOpenZeroModels?.({ all: true, model: selectedLocalModel })");
+    expect(app).toContain("Unload OpenZero models");
     expect(main).toContain('ipcMain.handle("openzero:local-unload"');
     expect(preload).toContain('ipcRenderer.invoke("openzero:local-unload"');
     expect(main).toContain('ipcMain.handle("openzero:local-pull-cancel"');

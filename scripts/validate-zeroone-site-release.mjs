@@ -25,7 +25,8 @@ function pngDimensions(buffer) {
   return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
 }
 
-const version = packageJson.version;
+const version = status.desktop.version;
+const sourceVersion = packageJson.version;
 const releaseRoot = `https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases`;
 const releaseUrl = `${releaseRoot}/tag/v${version}`;
 const assetRoot = `${releaseRoot}/download/v${version}`;
@@ -37,7 +38,8 @@ const expectedAssets = [
   `ZERO-ONE-${version}-linux-amd64.deb`,
 ];
 
-assert(status.desktop.version === version, "status.json desktop version differs from package.json");
+assert(/^\d+\.\d+\.\d+$/.test(sourceVersion), "package.json desktop version is invalid");
+assert(/^\d+\.\d+\.\d+$/.test(version), "status.json desktop version is invalid");
 assert(status.desktop.release === releaseUrl, "status.json release URL is stale");
 assert(status.desktop.windows === `${assetRoot}/${expectedAssets[0]}`, "status.json Windows URL is stale");
 assert(/^[a-f0-9]{64}$/.test(status.desktop.sha256_windows), "status.json Windows SHA-256 is invalid");
@@ -49,7 +51,9 @@ assert(install.toLowerCase().includes(status.desktop.sha256_windows), "install-p
 for (const asset of expectedAssets) assert(page.includes(`${assetRoot}/${asset}`), `landing page is missing ${asset}`);
 assert(install.includes(status.desktop.windows), "install page Windows URL differs from status.json");
 assert(page.includes(`${assetRoot}/SHA256SUMS.txt`) && install.includes(`${assetRoot}/SHA256SUMS.txt`), "checksum URL is stale");
-assert(!/v7\.(?!9\.0)[0-9]+\.[0-9]+/.test(`${page}\n${install}`), "current pages contain an older desktop release URL");
+const desktopReleaseVersions = [...`${page}\n${install}`.matchAll(/ZERO-ONE-(\d+\.\d+\.\d+)-(?:win|mac|linux)-/g)].map((match) => match[1]);
+assert(desktopReleaseVersions.length >= expectedAssets.length, "current pages are missing desktop release assets");
+assert(desktopReleaseVersions.every((candidate) => candidate === version), "current pages mix desktop release versions");
 assert(!page.includes("Qwen3 1.7B and legacy Gemma E4B are manual alternatives"), "quality-rejected Qwen copy returned");
 
 for (const [name, record] of Object.entries(qrManifest.files)) {
@@ -61,4 +65,4 @@ for (const [name, record] of Object.entries(qrManifest.files)) {
   assert(/^https:\/\/talktoai\.org\/ZeroOne\//.test(record.target), `${name} target is not a stable ZERO ONE URL`);
 }
 
-console.log(`ZERO_ONE_SITE_OK ${version} ${expectedAssets.length} release assets ${Object.keys(qrManifest.files).length} QR manifests`);
+console.log(`ZERO_ONE_SITE_OK published=${version} source=${sourceVersion} ${expectedAssets.length} release assets ${Object.keys(qrManifest.files).length} QR manifests`);

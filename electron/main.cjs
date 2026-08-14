@@ -1289,8 +1289,11 @@ ipcMain.handle("openzero:local-unload", async (event, input) => {
   requireTrustedIpcSender(event);
   const status = await localOllamaStatus();
   if (!status.reachable) throw new Error("Ollama is not running on this computer.");
+  const selected = cleanModelName(input?.model || DEFAULT_LOCAL_MODEL);
   const requested = input?.all === true
-    ? status.runningModels.filter((entry) => isPublishedLocalModelName(entry.name)).map((entry) => entry.name)
+    ? status.runningModels
+      .filter((entry) => isPublishedLocalModelName(entry.name) || entry.name.toLowerCase() === selected.toLowerCase())
+      .map((entry) => entry.name)
     : [cleanModelName(input?.model || DEFAULT_LOCAL_MODEL)];
   let unloaded = 0;
   for (const model of [...new Set(requested)]) {
