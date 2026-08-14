@@ -25,6 +25,8 @@ test("official stable GitHub response exposes only checksum-verifiable install m
   const result = await checkLatestStableRelease({
     currentVersion: "0.6.3",
     now: Date.UTC(2026, 7, 9, 12, 0, 0),
+    platform: "win32",
+    arch: "x64",
     fetchImpl: async (url, options) => {
       request = { url, options };
       return {
