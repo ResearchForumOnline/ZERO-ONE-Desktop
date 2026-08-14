@@ -32,8 +32,27 @@ function unavailableResult(currentVersion, now) {
     currentVersion: String(currentVersion || ""),
     latestVersion: "",
     releaseUrl: "",
+    assetName: "",
+    assetUrl: "",
+    assetSize: 0,
+    assetDigest: "",
+    checksumUrl: "",
+    installSupported: false,
     checkedAt: checkedAt(now),
   };
+}
+
+function platformAssetName(version, platform, arch) {
+  if (platform === "win32" && arch === "x64") return `ZERO-ONE-${version}-win-x64.exe`;
+  if (platform === "darwin" && arch === "arm64") return `ZERO-ONE-${version}-mac-arm64.dmg`;
+  if (platform === "linux" && arch === "x64") return `ZERO-ONE-${version}-linux-x86_64.AppImage`;
+  return "";
+}
+
+function releaseAsset(payload, name, normalizedTag) {
+  const expectedUrl = `https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/${normalizedTag}/${name}`;
+  const matches = (Array.isArray(payload?.assets) ? payload.assets : []).filter((asset) => asset?.name === name && asset?.browser_download_url === expectedUrl);
+  return matches.length === 1 ? matches[0] : null;
 }
 
 async function checkLatestStableRelease({
@@ -41,6 +60,8 @@ async function checkLatestStableRelease({
   fetchImpl = globalThis.fetch,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   now = Date.now(),
+  platform = process.platform,
+  arch = process.arch,
 } = {}) {
   const current = parseStableVersion(currentVersion);
   if (!current || typeof fetchImpl !== "function") return unavailableResult(currentVersion, now);
@@ -76,12 +97,24 @@ async function checkLatestStableRelease({
 
     const comparison = compareStableVersions(normalizedTag, currentVersion);
     const updateAvailable = comparison === 1;
+    const version = latest.join(".");
+    const assetName = platformAssetName(version, platform, arch);
+    const asset = assetName ? releaseAsset(payload, assetName, normalizedTag) : null;
+    const checksum = releaseAsset(payload, "SHA256SUMS.txt", normalizedTag);
+    const assetDigest = /^sha256:[a-f0-9]{64}$/.test(String(asset?.digest || "")) ? String(asset.digest).slice(7) : "";
+    const installSupported = Boolean(updateAvailable && asset && checksum && assetDigest && Number.isSafeInteger(Number(asset.size)) && Number(asset.size) > 0);
     return {
       status: updateAvailable ? "available" : "current",
       updateAvailable,
       currentVersion: current.join("."),
-      latestVersion: latest.join("."),
+      latestVersion: version,
       releaseUrl,
+      assetName: installSupported ? assetName : "",
+      assetUrl: installSupported ? String(asset.browser_download_url) : "",
+      assetSize: installSupported ? Number(asset.size) : 0,
+      assetDigest: installSupported ? assetDigest : "",
+      checksumUrl: installSupported ? String(checksum.browser_download_url) : "",
+      installSupported,
       checkedAt: checkedAt(now),
     };
   } catch {
@@ -97,4 +130,6 @@ module.exports = {
   checkLatestStableRelease,
   compareStableVersions,
   parseStableVersion,
+  platformAssetName,
+  releaseAsset,
 };

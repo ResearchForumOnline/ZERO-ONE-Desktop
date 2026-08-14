@@ -6,11 +6,17 @@ This document describes the reviewed desktop source boundary. Store answers and 
 
 ZERO ONE stores user-chosen service URLs, model alias, media preference, and launch-at-login preference in its operating-system application-data directory. An OpenZero API token is stored only when secure operating-system encryption is available. The app rejects Linux `basic_text` fallback storage.
 
-The desktop does not merge service credentials. ZMail, ZeroThink, OpenZero, and CallChat keep separate persistent Electron partitions and remain governed by their own account, server, cookie, content, logging, retention, and privacy behavior. Those partitions retain cookies, cache, authentication state, and site storage across app restarts.
+The desktop does not merge service credentials. ZMail, ZeroThink, OpenZero, CallChat, and the built-in Browser Pilot keep separate persistent Electron partitions and remain governed by their own account, server, cookie, content, logging, retention, and privacy behavior. Those partitions retain cookies, cache, authentication state, and site storage across app restarts.
 
 On launch and every 30 seconds while the main interface is mounted, the desktop sends one bounded HTTP `GET` probe to each configured ZMail, ZeroThink, OpenZero, and CallChat URL. A manual refresh and a diagnostics export also run the four probes. Each request follows redirects, uses a `ZERO-ONE/<version>` user agent, and times out after 6.5 seconds. The destination service can therefore receive the user's network address and request metadata even if its workspace is not opened.
 
 Camera and microphone are denied by default. When the user explicitly enables CallChat media, permission is limited to the exact CallChat HTTPS origin. Other embedded services remain denied.
+
+## Browser Pilot
+
+Browser Pilot is off until the user opens its dedicated workspace, describes one bounded task and grants that exact isolated tab. The page-side bridge builds a compact snapshot of visible page text, headings and interactive-control metadata. It omits input, textarea, select and editable-region values; removes URL queries and fragments; redacts long token-like path segments; does not return passwords, payment details, secret fields, file selections or CAPTCHA values; and sends the bounded snapshot only to the configured OpenZero endpoint. A remote OpenZero endpoint therefore receives this page context under that server's own logging, retention and privacy practices.
+
+The pilot does not persist snapshots or task history to disk. The main process retains only the current in-memory run, at most eight short step results and the pending approval preview. A run ends when it finishes, is stopped, errors, reaches 12 steps, the workspace is left, or the app closes. Browser cookies and site storage in the dedicated pilot partition persist until the user invokes Clear desktop data.
 
 ## ZSEC selected-folder scans
 
@@ -30,15 +36,15 @@ OpenZero model requests go to the user-configured allowed OpenZero endpoint. ZER
 
 ## Retention and deletion
 
-`Clear desktop data` requires confirmation, clears storage, cache, and authentication cache for all four persistent service partitions, deletes the local settings file and encrypted OpenZero token, disables launch at login, and restarts ZERO ONE. It does not delete connected-service accounts or server-side data, ZSEC state/reports, or diagnostics JSON files the user saved elsewhere.
+`Clear desktop data` requires confirmation, clears storage, cache, and authentication cache for all five persistent service partitions, deletes the local settings file and encrypted OpenZero token, disables launch at login, and restarts ZERO ONE. It does not delete connected-service accounts or server-side data, ZSEC state/reports, or diagnostics JSON files the user saved elsewhere.
 
 The current NSIS configuration deliberately uses `deleteAppDataOnUninstall: false`. Uninstall removes program files and shortcuts but does not promise removal of ZERO ONE application data, service partitions, settings, or the encrypted token. Users should use `Clear desktop data` before uninstalling when they want those desktop-held settings and sessions removed. Final Store disclosures and uninstall testing must match the exact signed installer.
 
 ## Platform limits
 
-ZERO ONE 0.4.0 publishes preview packages for Windows 10/11 x64, macOS Apple silicon and Linux x64. Each package carries the matching native ZSEC Shield runtime. Linux refuses to save an OpenZero token when Electron exposes only the insecure `basic_text` backend. Windows arm64 and Intel macOS are not published targets.
+ZERO ONE 7.9.2 publishes preview packages for Windows 10/11 x64, macOS Apple silicon and Linux x64. Each package carries the matching native ZSEC Shield runtime. Linux refuses to save an OpenZero token when Electron exposes only the insecure `basic_text` backend. Windows arm64 and Intel macOS are not published targets.
 
-The 0.4.0 packages are not yet publisher-signed, notarized or Store-approved. Distribution status does not change the data-handling boundary described above.
+The packages are not yet publisher-signed, notarized or Store-approved. Distribution status does not change the data-handling boundary described above.
 
 ## Public policy gate
 

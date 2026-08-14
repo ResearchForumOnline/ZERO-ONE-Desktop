@@ -7,6 +7,9 @@ const css = readFileSync(resolve(root, "src/styles.css"), "utf8");
 const main = readFileSync(resolve(root, "electron/main.cjs"), "utf8");
 const preload = readFileSync(resolve(root, "electron/preload.cjs"), "utf8");
 const app = readFileSync(resolve(root, "src/App.tsx"), "utf8");
+const pilotPolicy = readFileSync(resolve(root, "electron/browser-pilot.cjs"), "utf8");
+const pilotPreload = readFileSync(resolve(root, "electron/browser-pilot-preload.cjs"), "utf8");
+const updater = readFileSync(resolve(root, "electron/update-installer.cjs"), "utf8");
 
 describe("responsive desktop shell", () => {
   it("reflows the assistant below the workspace at constrained widths", () => {
@@ -66,17 +69,45 @@ describe("responsive desktop shell", () => {
     expect(preload).toContain('setUserInterfaceScale: (factor) => ipcRenderer.invoke("ui:set-zoom", factor)');
   });
 
-  it("checks only for an official stable update and leaves installation to the user", () => {
+  it("checks only the official stable channel and installs only a user-approved verified package", () => {
     expect(main).toContain('require("./update-check.cjs")');
+    expect(main).toContain('require("./update-installer.cjs")');
     expect(main).toContain('ipcMain.handle("app:check-update"');
+    expect(main).toContain('ipcMain.handle("app:install-update"');
     expect(main).toContain("APP_UPDATE_CACHE_MS");
     expect(preload).toContain('checkForAppUpdate: () => ipcRenderer.invoke("app:check-update")');
+    expect(preload).toContain('installAppUpdate: () => ipcRenderer.invoke("app:install-update")');
     expect(app).toContain("ZERO ONE {update.latestVersion} is available");
-    expect(app).toContain("Nothing is downloaded or installed automatically.");
-    expect(app).toContain("Review download ↗");
+    expect(app).toContain("Install verified update");
+    expect(app).toContain("You approve before a verified package is installed.");
+    expect(main).toContain("GitHub's release digest and SHA256SUMS.txt do not agree");
+    expect(updater).toContain("RELEASE_DOWNLOAD_PREFIX");
+    expect(updater).toContain("The update checksum did not match. Nothing was installed.");
     expect(app).toContain("window.setInterval(check, 6 * 60 * 60 * 1000)");
     expect(css).toContain(".app-update-banner");
     expect(main).not.toContain("autoUpdater");
+  });
+
+  it("ships a governed Browser Pilot inside the isolated desktop workspace", () => {
+    expect(app).toContain('label="Browser Pilot"');
+    expect(app).toContain('partition="persist:zero-one-browser-pilot"');
+    expect(app).toContain("Grant this tab & start");
+    expect(app).toContain("12-step hard limit");
+    expect(main).toContain('const PILOT_PARTITION = "persist:zero-one-browser-pilot"');
+    expect(main).toContain('path.join(__dirname, "browser-pilot-preload.cjs")');
+    expect(main).toContain('ipcMain.handle("browser-pilot:start"');
+    expect(main).toContain("The local OpenZero credential expired; repairing it once");
+    expect(main).toContain("await provisionOpenZeroDesktop(settings)");
+    expect(main).toContain('targetSession.on("will-download", (event) => event.preventDefault())');
+    expect(preload).toContain('startBrowserPilot: (input) => ipcRenderer.invoke("browser-pilot:start", input)');
+    expect(pilotPolicy).toContain('"password", "payment", "secret", "file", "captcha"');
+    expect(pilotPolicy).not.toContain("querySelector(action.selector)");
+    expect(pilotPreload).toContain("input_value_omitted: true");
+    expect(pilotPreload).toContain("function visiblePageText()");
+    expect(pilotPreload).toContain("NodeFilter.SHOW_TEXT");
+    expect(pilotPreload).toContain("STOP & REVOKE");
+    expect(pilotPreload).not.toContain('element.textContent || (element instanceof HTMLInputElement ? element.value : "")');
+    expect(css).toContain(".pilot-view");
   });
 
   it("always identifies the installed version and offers a visible update status", () => {

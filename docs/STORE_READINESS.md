@@ -2,7 +2,7 @@
 
 Status: **installable unsigned public preview; not submitted or approved by any Store**.
 
-## ZERO ONE 7.9.1 source and public-preview gate
+## ZERO ONE 7.9.2 source and public-preview gate
 
 - Windows 10/11 x64: one-click NSIS installer, bundled native ZSEC, packaged and installed-app smoke tested.
 - macOS Apple silicon: DMG and ZIP built on macOS CI with the pinned native ZSEC runtime.
@@ -14,7 +14,7 @@ Status: **installable unsigned public preview; not submitted or approved by any 
 
 - Automated desktop security and contract suites, TypeScript checking, and the production Vite build pass on Windows.
 - Windows x64, macOS arm64 and Linux x64 are configured preview package targets.
-- Packaging fails unless the package version is internally consistent and the matching ZSEC 0.1.2 asset, manifest, hashes, licences, source revision and native architecture verify. Historical 0.4.0 evidence remains preserved in `store/RELEASE_EVIDENCE.md`; it is not evidence for the current 7.9.1 build.
+- Packaging fails unless the package version is internally consistent and the matching ZSEC 0.1.2 asset, manifest, hashes, licences, source revision and native architecture verify. Historical 0.4.0 evidence remains preserved in `store/RELEASE_EVIDENCE.md`; it is not evidence for the current 7.9.2 build.
 - ZSEC status v2 and scan v1 parsers reject malformed, legacy, contradictory, and exit-code-mismatched evidence.
 - Packaged smoke exercises launch, DOM, preload IPC, bundled ZSEC version, clean scan, and persisted incomplete scan.
 - An earlier unsigned one-click NSIS candidate installed silently to the current-user application directory and removed its install directory plus shortcuts on clean uninstall; repeat this on the exact final signed candidate.
@@ -37,7 +37,7 @@ The upstream workflow for the next release now pins every Action to a reviewed f
 | Compliance | Clean Windows 10/11, WACK where applicable, Narrator, High Contrast, keyboard-only, 200% scale, and reduced-motion evidence pending | Native sandbox/notarization/VoiceOver design pending | Native package-manager/Orca/confinement design pending |
 | Legal/public metadata | Approved EULA/customer licence, exact connected-service privacy answers, verified support route, AI safety/governance evidence, and third-party rights review pending | Same | Same |
 | ZSEC | Exact payload verified but nested unsigned PEs block public trust | No matching signed native payload | No matching signed native payload |
-| Updates | Signed application update metadata, immutable public installer hosting, rollback, and incident revocation plan absent | Same | Same |
+| Updates | In-app stable-release check and dual-SHA-256 verified package install exist; trusted publisher signing, signed update metadata and incident revocation plan remain absent | Verified download/open flow exists; notarization and signed update metadata remain absent | Verified download/open flow exists; repository/package signing and revocation remain absent |
 
 For the Microsoft MSI/EXE route, the installer and every installed PE must chain to a trusted root. An unsigned installer or one unsigned nested DLL/PYD is a hard blocker. A self-signed certificate does not solve this.
 

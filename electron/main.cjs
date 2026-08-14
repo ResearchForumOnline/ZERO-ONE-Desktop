@@ -1,5 +1,5 @@
 const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, safeStorage, session, shell, Tray, webContents } = require("electron");
-const { execFile } = require("node:child_process");
+const { execFile, spawn } = require("node:child_process");
 const { randomUUID } = require("node:crypto");
 const fs = require("node:fs/promises");
 const os = require("node:os");
@@ -11,6 +11,8 @@ const { loginItemOptions, shouldCloseToTray, shouldStartHidden } = require("./tr
 const { latestPhpSessionCookie } = require("./zerothink-session.cjs");
 const { DEFAULT_LOCAL_MODEL, DEFAULT_OPENZERO_SERVER_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, inferOpenZeroRoutingSettings, isPublishedLocalModelName, localDirectReply, localResourceOptions, publicPullProgress } = require("./ollama-local.cjs");
 const { checkLatestStableRelease } = require("./update-check.cjs");
+const { downloadVerifiedAsset, fetchTextLimited, parseSha256Sums, safeUpdateFilename } = require("./update-installer.cjs");
+const { classifyBrowserAction, normalizeHttpUrl, requestBrowserPlan } = require("./browser-pilot.cjs");
 const { ZSIGN_ORIGIN, isZmailWorkspaceUrl, isZmailZsignSsoUrl } = require("./zmail-integration.cjs");
 const {
   saveLogin,
@@ -63,7 +65,8 @@ const ALLOWED_ORIGINS = new Set([
   "http://127.0.0.1:1024",
   "http://localhost:1024",
 ]);
-const PERSISTENT_PARTITIONS = Object.freeze(["openzero", "zerothink", "zmail", "callchat"].map((name) => `persist:zero-one-${name}`));
+const PILOT_PARTITION = "persist:zero-one-browser-pilot";
+const PERSISTENT_PARTITIONS = Object.freeze(["openzero", "zerothink", "zmail", "callchat", "browser-pilot"].map((name) => `persist:zero-one-${name}`));
 
 let mainWindow;
 let tray;
@@ -77,6 +80,165 @@ const localModelPullControllers = new Map();
 let localChatActive = false;
 const APP_UPDATE_CACHE_MS = 30 * 60 * 1000;
 let appUpdateCache = null;
+let appUpdateActive = false;
+const browserPilotResponses = new Map();
+let browserPilotRun = null;
+
+function isPilotSession(targetSession) {
+  return Boolean(targetSession && targetSession === session.fromPartition(PILOT_PARTITION));
+}
+
+function isPilotPageUrl(value) {
+  try { normalizeHttpUrl(value); return true; }
+  catch { return false; }
+}
+
+function isLoopbackOpenZero(value) {
+  try { return ["127.0.0.1", "localhost", "::1"].includes(new URL(value).hostname); }
+  catch { return false; }
+}
+
+function pilotTargetById(targetId) {
+  const target = webContents.fromId(Number(targetId));
+  if (!target || target.isDestroyed() || target.getType() !== "webview" || !isPilotSession(target.session)) {
+    throw new Error("Open the built-in Browser Pilot tab before starting controlled work.");
+  }
+  if (target.hostWebContents && target.hostWebContents !== mainWindow?.webContents) throw new Error("The Browser Pilot target is not owned by this window.");
+  if (!isPilotPageUrl(target.getURL())) throw new Error("Browser Pilot works only on ordinary HTTP(S) pages.");
+  return target;
+}
+
+function publicPilotRun(run) {
+  if (!run) return { status: "idle", runId: "", step: 0, message: "Ready for a user-granted task.", pending: null };
+  return {
+    status: run.status,
+    runId: run.runId,
+    step: run.step,
+    message: run.message,
+    pending: run.pending ? { preview: run.pending.preview, reason: run.pending.reason } : null,
+  };
+}
+
+function emitPilotState(run = browserPilotRun) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("browser-pilot:state", publicPilotRun(run));
+}
+
+function emitUpdateProgress(progress) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("app:update-progress", progress);
+}
+
+function pilotCommand(target, command, payload = {}, timeoutMs = 10_000) {
+  const requestId = randomUUID();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      browserPilotResponses.delete(requestId);
+      reject(new Error("The controlled page did not respond in time."));
+    }, Math.max(500, Math.min(Number(timeoutMs) || 10_000, 30_000)));
+    timer.unref?.();
+    browserPilotResponses.set(requestId, { senderId: target.id, resolve, reject, timer });
+    target.send("zero-one-pilot:command", { requestId, command, ...payload });
+  });
+}
+
+function finishPilotRun(run, status, message) {
+  if (!run || browserPilotRun?.runId !== run.runId) return;
+  run.controller.abort();
+  run.status = status;
+  run.message = String(message || "Browser Pilot stopped.").slice(0, 500);
+  run.pending = null;
+  try { const target = webContents.fromId(run.targetId); if (target && !target.isDestroyed()) void pilotCommand(target, "revoke", {}, 1500).catch(() => {}); } catch { /* best effort */ }
+  emitPilotState(run);
+}
+
+async function continuePilotRun(run) {
+  if (!run || browserPilotRun?.runId !== run.runId || run.status === "stopped" || run.status === "finished") return;
+  run.status = "running";
+  run.pending = null;
+  emitPilotState(run);
+  try {
+    let settings = await loadSettingsInternal();
+    let apiKey = decryptToken(settings);
+    if (!apiKey && isLoopbackOpenZero(settings.openZeroUrl)) {
+      run.message = "Pairing securely with local OpenZero…";
+      emitPilotState(run);
+      await provisionOpenZeroDesktop(settings);
+      settings = await loadSettingsInternal();
+      apiKey = decryptToken(settings);
+    }
+    if (!apiKey) throw new Error("Connect full OpenZero in Settings before using Browser Pilot.");
+    let repairedCredential = false;
+    while (browserPilotRun?.runId === run.runId && !run.controller.signal.aborted && run.step < 12) {
+      const target = pilotTargetById(run.targetId);
+      await pilotCommand(target, "grant", { grantId: run.grantId });
+      await pilotCommand(target, "overlay", { status: "planning", message: `Planning safe step ${run.step + 1} of 12` });
+      const snapshot = await pilotCommand(target, "inspect", { grantId: run.grantId });
+      run.step += 1;
+      run.message = `OpenZero is planning step ${run.step}.`;
+      emitPilotState(run);
+      let action;
+      try {
+        action = await requestBrowserPlan({
+          apiBaseUrl: settings.openZeroUrl,
+          apiKey,
+          model: settings.openZeroServerModel || DEFAULT_OPENZERO_SERVER_MODEL,
+          task: run.task,
+          snapshot,
+          step: run.step,
+          history: run.history,
+          signal: run.controller.signal,
+        });
+      } catch (error) {
+        if (error?.status !== 401 || repairedCredential || !isLoopbackOpenZero(settings.openZeroUrl)) throw error;
+        repairedCredential = true;
+        run.message = "The local OpenZero credential expired; repairing it once…";
+        emitPilotState(run);
+        await provisionOpenZeroDesktop(settings);
+        settings = await loadSettingsInternal();
+        apiKey = decryptToken(settings);
+        action = await requestBrowserPlan({
+          apiBaseUrl: settings.openZeroUrl,
+          apiKey,
+          model: settings.openZeroServerModel || DEFAULT_OPENZERO_SERVER_MODEL,
+          task: run.task,
+          snapshot,
+          step: run.step,
+          history: run.history,
+          signal: run.controller.signal,
+        });
+      }
+      if (action.action === "finish") {
+        finishPilotRun(run, "finished", action.message || "Task finished.");
+        return;
+      }
+      const decision = classifyBrowserAction(action, snapshot);
+      if (!decision.allowed) {
+        run.history.push({ action: action.action, result: `Policy denied: ${decision.reason}` });
+        run.history = run.history.slice(-8);
+        run.message = `Policy denied ${action.action}; asking OpenZero for a safer step.`;
+        emitPilotState(run);
+        continue;
+      }
+      if (decision.needsApproval) {
+        run.status = "paused";
+        run.message = decision.reason || "Your approval is required.";
+        run.pending = { action, snapshotId: snapshot.snapshot_id, preview: decision.preview, reason: decision.reason };
+        await pilotCommand(target, "overlay", { status: "paused", message: `${decision.preview} · approval required in ZERO ONE` });
+        emitPilotState(run);
+        return;
+      }
+      const result = await pilotCommand(target, "execute", { grantId: run.grantId, snapshotId: snapshot.snapshot_id, action }, 15_000);
+      run.history.push({ action: action.action, result: String(result || "Completed").slice(0, 500) });
+      run.history = run.history.slice(-8);
+      run.message = `${decision.preview} · checking the result.`;
+      emitPilotState(run);
+      await new Promise((resolve) => setTimeout(resolve, ["navigate", "click", "back", "forward"].includes(action.action) ? 1100 : 300));
+    }
+    if (run.step >= 12) finishPilotRun(run, "stopped", "The 12-step safety limit was reached. Review the page before starting another task.");
+  } catch (error) {
+    if (run.controller.signal.aborted) return;
+    finishPilotRun(run, "error", error?.message || "Browser Pilot stopped safely.");
+  }
+}
 
 function nearestZoomFactor(value) {
   const numeric = Number(value);
@@ -157,6 +319,9 @@ function configurePermissionPolicy(targetSession) {
     const allowed = permission === "media" && runtimeSettings.mediaEnabled && isCallChatOrigin(details.requestingUrl || "");
     callback(allowed);
   });
+  if (isPilotSession(targetSession)) {
+    targetSession.on("will-download", (event) => event.preventDefault());
+  }
 }
 
 function cleanUrl(value, fallback) {
@@ -206,7 +371,7 @@ async function loadSettingsInternal() {
 
 function sanitizeLastView(value) {
   const view = String(value || "home");
-  if (view === "home" || view === "shield" || view === "agents" || view === "settings") return view;
+  if (view === "home" || view === "shield" || view === "agents" || view === "pilot" || view === "settings") return view;
   if (/^service:(openzero|zerothink|zmail|callchat)$/.test(view)) return view;
   return "home";
 }
@@ -700,7 +865,10 @@ app.on("web-contents-created", (_event, contents) => {
     }
   });
   contents.on("will-attach-webview", (event, webPreferences, params) => {
-    delete webPreferences.preload;
+    const requestedPartition = String(params?.partition || "");
+    const pilotView = requestedPartition === PILOT_PARTITION;
+    if (pilotView) webPreferences.preload = path.join(__dirname, "browser-pilot-preload.cjs");
+    else delete webPreferences.preload;
     webPreferences.nodeIntegration = false;
     webPreferences.nodeIntegrationInSubFrames = false;
     webPreferences.contextIsolation = true;
@@ -710,10 +878,14 @@ app.on("web-contents-created", (_event, contents) => {
     if (params && params.partition && !String(params.partition).startsWith("persist:")) {
       params.partition = `persist:${params.partition}`;
     }
-    if (!isAllowedUrl(params.src)) event.preventDefault();
+    if (pilotView ? !isPilotPageUrl(params.src) : !isAllowedUrl(params.src)) event.preventDefault();
   });
 
   contents.setWindowOpenHandler(({ url }) => {
+    if (isPilotSession(contents.session)) {
+      if (isPilotPageUrl(url)) void contents.loadURL(url).catch(() => {});
+      return { action: "deny" };
+    }
     // zSign's one-time SSO hop is bound to the authenticated Roundcube
     // partition. Keep it in the existing isolated webview so its cookie is
     // not lost by handing the URL to an unrelated system-browser session.
@@ -727,7 +899,8 @@ app.on("web-contents-created", (_event, contents) => {
 
   contents.on("will-navigate", (event, url) => {
     const localApp = isLocalAppUrl(url);
-    if (!localApp && !isAllowedUrl(url)) event.preventDefault();
+    const allowed = isPilotSession(contents.session) ? isPilotPageUrl(url) : isAllowedUrl(url);
+    if (!localApp && !allowed) event.preventDefault();
   });
 });
 
@@ -824,6 +997,142 @@ ipcMain.handle("app:check-update", async (event) => {
   const result = await checkLatestStableRelease({ currentVersion: app.getVersion(), timeoutMs: 5_000, now });
   appUpdateCache = { cachedAt: now, result };
   return result;
+});
+
+ipcMain.handle("app:install-update", async (event) => {
+  requireTrustedIpcSender(event);
+  if (!app.isPackaged) throw new Error("Automatic installation is available only in an installed ZERO ONE build.");
+  if (appUpdateActive) throw new Error("An update is already being prepared.");
+  appUpdateActive = true;
+  try {
+    emitUpdateProgress({ status: "checking", percent: 0, message: "Checking the release integrity records…" });
+    const update = await checkLatestStableRelease({ currentVersion: app.getVersion(), timeoutMs: 10_000, now: Date.now(), platform: process.platform, arch: process.arch });
+    if (!update.updateAvailable) return { status: "current", message: "ZERO ONE is already current." };
+    if (!update.installSupported) throw new Error("The latest release has no checksum-verified package for this computer.");
+    const choice = await dialog.showMessageBox(mainWindow, {
+      type: "info",
+      buttons: [process.platform === "win32" ? "Download, verify & install" : "Download & verify", "Cancel"],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+      title: `Update ZERO ONE to ${update.latestVersion}`,
+      message: `Install ZERO ONE ${update.latestVersion}?`,
+      detail: process.platform === "win32"
+        ? "ZERO ONE will download the official GitHub package, verify both GitHub's asset digest and SHA256SUMS.txt, preserve your desktop settings, then restart into the installer."
+        : "ZERO ONE will download the official GitHub package, verify both GitHub's asset digest and SHA256SUMS.txt, then open the verified package for the operating-system installation step.",
+    });
+    if (choice.response !== 0) return { status: "cancelled", message: "Update cancelled." };
+    const checksumText = await fetchTextLimited(update.checksumUrl, { maxBytes: 1024 * 1024 });
+    const filename = safeUpdateFilename(update.assetName);
+    const checksum = parseSha256Sums(checksumText).get(filename);
+    if (!checksum || checksum !== update.assetDigest) throw new Error("GitHub's release digest and SHA256SUMS.txt do not agree. Nothing was installed.");
+    const updateDirectory = path.join(app.getPath("temp"), "zero-one-updates", `v${update.latestVersion}`);
+    const destination = path.join(updateDirectory, filename);
+    emitUpdateProgress({ status: "downloading", percent: 0, message: `Downloading ZERO ONE ${update.latestVersion}…` });
+    const verified = await downloadVerifiedAsset({
+      assetUrl: update.assetUrl,
+      destination,
+      expectedBytes: update.assetSize,
+      expectedSha256: checksum,
+      onProgress: (progress) => emitUpdateProgress({ status: "downloading", ...progress, message: `Downloading ZERO ONE ${update.latestVersion}…` }),
+    });
+    await fs.writeFile(path.join(updateDirectory, "verified-update.json"), JSON.stringify({ version: update.latestVersion, filename, bytes: verified.bytes, sha256: verified.sha256, verifiedAt: new Date().toISOString(), source: update.releaseUrl }, null, 2), { encoding: "utf8", mode: 0o600 });
+    emitUpdateProgress({ status: "verified", percent: 100, message: "Package verified. Starting the updater…" });
+    if (process.platform === "win32") {
+      setTimeout(() => {
+        const child = spawn(destination, ["/S"], { detached: true, stdio: "ignore", windowsHide: true });
+        child.unref();
+        isQuitting = true;
+        app.quit();
+      }, 500);
+      return { status: "installing", version: update.latestVersion, message: "Verified installer is starting. ZERO ONE will close and update." };
+    }
+    if (process.platform === "linux") await fs.chmod(destination, 0o700);
+    const openError = await shell.openPath(destination);
+    if (openError) throw new Error(`The verified package could not be opened: ${openError}`);
+    return { status: "downloaded", version: update.latestVersion, message: "The verified package is open. Complete the operating-system installation step." };
+  } catch (error) {
+    emitUpdateProgress({ status: "error", percent: 0, message: error?.message || "The update stopped safely." });
+    throw error;
+  } finally {
+    appUpdateActive = false;
+  }
+});
+
+ipcMain.on("zero-one-pilot:response", (event, payload) => {
+  const requestId = String(payload?.requestId || "");
+  const pending = browserPilotResponses.get(requestId);
+  if (!pending || pending.senderId !== event.sender.id) return;
+  clearTimeout(pending.timer);
+  browserPilotResponses.delete(requestId);
+  if (payload?.ok) pending.resolve(payload.result);
+  else pending.reject(new Error(String(payload?.error || "The controlled page rejected the request.").slice(0, 500)));
+});
+
+ipcMain.on("zero-one-pilot:overlay-stop", (event) => {
+  if (!browserPilotRun || browserPilotRun.targetId !== event.sender.id) return;
+  finishPilotRun(browserPilotRun, "stopped", "Stopped and revoked from the page control.");
+});
+
+ipcMain.handle("browser-pilot:start", async (event, input) => {
+  requireTrustedIpcSender(event);
+  const task = String(input?.task || "").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 3000);
+  if (!task) throw new Error("Describe one bounded browser task first.");
+  const target = pilotTargetById(input?.targetId);
+  if (browserPilotRun && ["running", "paused"].includes(browserPilotRun.status)) finishPilotRun(browserPilotRun, "stopped", "Replaced by a new user-granted task.");
+  const run = {
+    runId: randomUUID(),
+    grantId: randomUUID(),
+    targetId: target.id,
+    task,
+    step: 0,
+    history: [],
+    status: "running",
+    message: "The exact built-in browser tab is granted for this task.",
+    pending: null,
+    controller: new AbortController(),
+  };
+  browserPilotRun = run;
+  emitPilotState(run);
+  void continuePilotRun(run);
+  return publicPilotRun(run);
+});
+
+ipcMain.handle("browser-pilot:approve", async (event, input) => {
+  requireTrustedIpcSender(event);
+  const run = browserPilotRun;
+  if (!run || run.runId !== String(input?.runId || "") || run.status !== "paused" || !run.pending) throw new Error("There is no matching Browser Pilot action to approve.");
+  const target = pilotTargetById(run.targetId);
+  const pending = run.pending;
+  run.pending = null;
+  run.status = "running";
+  const result = await pilotCommand(target, "execute", { grantId: run.grantId, snapshotId: pending.snapshotId, action: pending.action }, 15_000);
+  run.history.push({ action: pending.action.action, result: `Human approved once. ${String(result || "Completed").slice(0, 400)}` });
+  run.history = run.history.slice(-8);
+  run.message = `${pending.preview} · approved once; checking the result.`;
+  emitPilotState(run);
+  setTimeout(() => { void continuePilotRun(run); }, ["navigate", "click", "back", "forward"].includes(pending.action.action) ? 1100 : 300);
+  return publicPilotRun(run);
+});
+
+ipcMain.handle("browser-pilot:deny", async (event, input) => {
+  requireTrustedIpcSender(event);
+  const run = browserPilotRun;
+  if (!run || run.runId !== String(input?.runId || "") || run.status !== "paused" || !run.pending) throw new Error("There is no matching Browser Pilot action to deny.");
+  run.history.push({ action: run.pending.action.action, result: `Human denied: ${run.pending.preview}` });
+  run.history = run.history.slice(-8);
+  run.pending = null;
+  run.status = "running";
+  run.message = "Action denied; asking OpenZero for a safer alternative.";
+  emitPilotState(run);
+  void continuePilotRun(run);
+  return publicPilotRun(run);
+});
+
+ipcMain.handle("browser-pilot:stop", async (event, input) => {
+  requireTrustedIpcSender(event);
+  if (browserPilotRun && (!input?.runId || browserPilotRun.runId === String(input.runId))) finishPilotRun(browserPilotRun, "stopped", "Stopped and revoked by the user.");
+  return publicPilotRun(browserPilotRun);
 });
 
 ipcMain.handle("ui:get-zoom", (event) => {

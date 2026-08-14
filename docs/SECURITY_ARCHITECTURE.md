@@ -2,13 +2,25 @@
 
 ## Trust boundaries
 
-The local React renderer is unprivileged. Electron exposes a narrow typed preload bridge; it does not expose Node.js, a general filesystem API, a shell-command API, raw network proxying, or browser automation. IPC is accepted only from the main window's main renderer frame.
+The local React renderer is unprivileged. Electron exposes a narrow typed preload bridge; it does not expose Node.js, a general filesystem API, a shell-command API or raw network proxying. The only browser-control surface is the bounded Browser Pilot contract below. IPC commands are accepted only from the main window's main renderer frame; responses from the pilot preload are correlated to the exact expected guest `webContents` and request ID.
 
-Each remote product runs in a separate persistent webview partition. Attached webviews receive no preload, have Node integration disabled, context isolation and sandboxing enabled, and are rejected unless their parsed origin is allowlisted. New-window and external-browser requests are deny-by-default and restricted to reviewed owned/public-support origins.
+Each remote product runs in a separate persistent webview partition. Product webviews receive no preload, have Node integration disabled, context isolation and sandboxing enabled, and are rejected unless their parsed origin is allowlisted. New-window and external-browser requests are deny-by-default and restricted to reviewed owned/public-support origins. Browser Pilot alone receives its dedicated packaged preload in its own partition; it accepts credential-free HTTP(S) pages, denies page permissions and downloads, and opens new-window requests in the same isolated view rather than creating an unmanaged window.
 
 Camera and microphone access is denied unless the user enables CallChat media. Permission checks compare parsed origin equality with `https://callchat.org` or `https://www.callchat.org`.
 
 OpenZero credentials are encrypted with Electron `safeStorage`. When Linux reports the insecure `basic_text` backend, credential storage is refused. Tokens are used only in the main process and are never returned to the renderer or included in diagnostics.
+
+## Browser Pilot control boundary
+
+Browser Pilot accepts exactly one normalized action object from OpenZero: finish, navigate, click, type, select, scroll, wait, back or forward. It rejects selectors and arbitrary JavaScript; element actions must reference an ephemeral `eN` identifier from the latest snapshot. The grant ID, snapshot ID, target `webContents` and isolated partition must all match. DOM references never cross a navigation or new snapshot.
+
+The page bridge excludes form and editable values from labels and visible-text extraction. It sends only a boolean `has_value`; select choices receive ephemeral `oN` identifiers so underlying option values are not sent. URL queries/fragments and long token-like path segments are redacted before the planner receives them. Password, payment, secret, file and CAPTCHA controls are denied twice—by the main-process policy and again immediately before page execution.
+
+Cross-origin navigation and links, personal-data entry, submit controls and consequential labels pause for an explicit approval that applies to one proposed action only. A closed-shadow-root overlay displays run status and an immediate STOP control inside the page. Runs have a 12-step ceiling and an abort controller. Missing loopback credentials may be paired automatically through OpenZero's local-only desktop route; an HTTP 401 can trigger one loopback credential repair. Remote endpoints are never auto-paired or auto-rotated.
+
+## Application update boundary
+
+The updater queries only the official repository's latest non-draft, non-prerelease GitHub release. Installation is available only for an exact platform filename and exact repository release URL when GitHub reports a SHA-256 asset digest, the declared size is bounded, and the same checksum appears in `SHA256SUMS.txt`. The download is streamed into a mode-0600 `.partial` file, bounded by the declared size and a 600 MiB ceiling, hashed during transfer, and atomically renamed only after byte count and checksum match. The user must confirm before download/install. Windows starts the verified NSIS package with `/S`; macOS and Linux open the verified package for the operating-system step. This integrity gate does not replace Authenticode, Apple notarization or Linux publisher/repository signing.
 
 ## ZMail and zSign session boundary
 
@@ -28,7 +40,7 @@ The public repository contains only the documented ZMath compatibility boundary.
 
 ## ZSEC supply-chain boundary
 
-ZERO ONE 0.4.0 consumes only ZSEC Shield 0.1.2 from immutable public release ID `363682670` and source revision `78efb1186c50efeeedf68bc14044cbc019fc0e8e`. Windows x64, macOS arm64 and Linux x64 packages each stage the matching authenticated native asset, verify its pinned archive and manifest identities, and smoke the native entrypoint before packaging.
+ZERO ONE 7.9.2 consumes only ZSEC Shield 0.1.2 from immutable public release ID `363682670` and source revision `78efb1186c50efeeedf68bc14044cbc019fc0e8e`. Windows x64, macOS arm64 and Linux x64 packages each stage the matching authenticated native asset, verify its pinned archive and manifest identities, and smoke the native entrypoint before packaging.
 
 The private lock is not trusted by itself. The verifier embeds the complete expected lock identity—including release/tag objects, archive SHA-256, native-manifest SHA-256, entrypoint SHA-256, architecture, source revision, file count, and contracts—and rejects any rewritten lock. The stager additionally verifies live immutable-release metadata, the GitHub release-integrity attestation, safe ZIP structure, exact bidirectional manifest inventory, every file size/hash, required licences, and AMD64 headers for every EXE/DLL/PYD.
 

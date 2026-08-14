@@ -30,17 +30,19 @@ Use the authenticated [latest ZERO ONE release](https://github.com/ResearchForum
 | Linux x64 | `ZERO-ONE-*-linux-x86_64.AppImage` | Make executable and open |
 | Debian/Ubuntu x64 | `ZERO-ONE-*-linux-amd64.deb` | Open with the software installer or use `sudo apt install ./ZERO-ONE-*-linux-amd64.deb` |
 
-Current source version is **7.9.1**. Published installers are unsigned public builds until Authenticode/notarization ships. Windows SmartScreen or macOS Gatekeeper may show an unknown-publisher warning. Verify downloads against `SHA256SUMS.txt` when present.
+Current source version is **7.9.2**. Published installers are unsigned public builds until Authenticode/notarization ships. Windows SmartScreen or macOS Gatekeeper may show an unknown-publisher warning. ZERO ONE's in-app updater accepts only the exact stable package published by this repository when GitHub's asset digest and `SHA256SUMS.txt` agree.
 
 ## What is included
 
 - Four isolated workspaces with strict owned-origin navigation.
+- A built-in Browser Pilot: one isolated tab, one user-granted task, a 12-step limit, structural snapshots that omit form values, secret/payment/file/CAPTCHA blocking, cross-site and consequential approval pauses, and an immediate stop-and-revoke control.
 - Guided Assistant setup with private local OpenZero Gemma4 E2B as the recommended lightweight default and optional OpenZero server, OpenAI or Groq providers.
 - A truthful automation surface that reports real endpoint reachability and permissions, not invented worker telemetry.
 - OS-protected credential storage; insecure Linux fallback storage is refused.
 - The matching native ZSEC Shield 0.1.2 selected-folder scanner on every published platform.
 - ZMath Secure status for HTTPS/loopback transport, credential storage, and optional Windows BitLocker.
 - Redacted diagnostics and consent-based camera/microphone access.
+- A visible update control that checks the official stable GitHub release, verifies the platform package against two matching SHA-256 records, and starts the installer only after the user approves.
 
 ![ZSEC Shield selected-folder scanning](store/screenshots/02-zsec-shield.png)
 
@@ -49,6 +51,16 @@ Current source version is **7.9.1**. Published installers are unsigned public bu
 1. Open ZERO ONE and choose OpenZero, ZeroThink, ZMail or CallChat.
 2. The default service addresses work without configuration. Add an OpenZero token in Settings only for authenticated copilot requests.
 3. Open ZSEC Shield, choose one folder and review the local result. No background scan, deletion, upload or quarantine starts automatically.
+
+## Browser Pilot
+
+Browser Pilot is included in ZERO ONE 7.9.2; there is no browser extension to install for the in-app workflow. Open **Browser Pilot**, navigate its dedicated isolated tab, describe one bounded task, and grant that tab. OpenZero plans one strict action at a time using page labels and structure. Passwords, payment fields, secret inputs, file inputs and CAPTCHA values are never included in the snapshot and cannot be operated by the pilot. Cross-site navigation, personal-data typing and consequential actions pause for an explicit one-time approval. Every run stops after 12 steps and the page overlay has a persistent STOP control.
+
+The optional [OpenZero Tab Pilot for Chrome and Brave](https://chromewebstore.google.com/detail/openzero-tab-pilot/cgaalobjjknalamgchppccbocnhonhbf) remains available for people who want governed control in an existing external browser. Browsers deliberately require the user or an administrator to approve extension installation; ZERO ONE does not bypass that platform security boundary.
+
+## Updates
+
+ZERO ONE checks the official stable GitHub release shortly after launch, every six hours while open, and whenever **Settings → Check for updates** is pressed. An available compatible package can be installed with **Install verified update**. ZERO ONE requires an exact platform filename, official repository download URL, declared byte size, GitHub SHA-256 asset digest and a matching entry in `SHA256SUMS.txt`; it downloads to a private temporary file and refuses installation if any check differs. On Windows the verified one-click installer preserves the current user's settings, sessions and downloaded model data.
 
 ## OpenZero: Local or Server
 
