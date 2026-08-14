@@ -1,11 +1,11 @@
 {
   "product": "ZERO ONE",
-  "updated": "2026-08-14T01:11:41Z",
+  "updated": "2026-08-14T02:10:00Z",
   "desktop": {
-    "version": "7.9.1",
-    "windows": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v7.9.1/ZERO-ONE-7.9.1-win-x64.exe",
-    "sha256_windows": "4d44326814778e95af92848383fd488c2314d8b9a3941328328d2af66d9776f9",
-    "release": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v7.9.1"
+    "version": "7.9.2",
+    "windows": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v7.9.2/ZERO-ONE-7.9.2-win-x64.exe",
+    "sha256_windows": "39ddce641c1e5a918f5577b8335b18fb4dcd745e85acd45f54b6d07aae41bf55",
+    "release": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v7.9.2"
   },
   "mobile": {
     "version": "0.4.1",
