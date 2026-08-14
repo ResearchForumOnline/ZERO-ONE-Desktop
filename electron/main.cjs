@@ -9,7 +9,7 @@ const { parseZsecScanReport, parseZsecStatusPayload } = require("./zsec-contract
 const { cleanConfiguredUrl, diagnosticOrigin, isAllowedUrl: urlIsAllowed } = require("./url-policy.cjs");
 const { loginItemOptions, shouldCloseToTray, shouldStartHidden } = require("./tray-lifecycle.cjs");
 const { latestPhpSessionCookie } = require("./zerothink-session.cjs");
-const { DEFAULT_LOCAL_MODEL, DEFAULT_OPENZERO_SERVER_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, inferOpenZeroRoutingSettings, isInstalledLocalModel, isPublishedLocalModelName, localDirectReply, localResourceOptions, publicPullProgress } = require("./ollama-local.cjs");
+const { DEFAULT_LOCAL_MODEL, DEFAULT_OPENZERO_SERVER_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, inferOpenZeroRoutingSettings, isPublishedLocalModelName, localDirectReply, localResourceOptions, publicPullProgress } = require("./ollama-local.cjs");
 const { checkLatestStableRelease } = require("./update-check.cjs");
 const {
   saveLogin,
@@ -1353,8 +1353,7 @@ ipcMain.handle("openzero:chat", async (event, request) => {
   // An explicitly selected model that exists in local Ollama stays local even
   // when a separate OpenZero panel token is stored for browser workflows.
   const requestedLocalModel = request?.model || settings.model || DEFAULT_LOCAL_MODEL;
-  const localStatus = provider === "openzero" && settings.openZeroAssistantMode !== "server" ? await localOllamaStatus() : null;
-  const useLocalOllama = provider === "openzero" && settings.openZeroAssistantMode !== "server" && (!selected.token || (localStatus?.reachable && isInstalledLocalModel(requestedLocalModel, localStatus.models)));
+  const useLocalOllama = provider === "openzero" && settings.openZeroAssistantMode !== "server";
   if (useLocalOllama) {
     try {
       return await chatViaLocalOllama(request, requestedLocalModel);

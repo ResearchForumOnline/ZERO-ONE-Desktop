@@ -208,10 +208,13 @@ describe("responsive desktop shell", () => {
     expect(main).toContain('LOCAL_ASSISTANT_SYSTEM_PROMPT');
     expect(main).toContain("localResourceOptions(runtimeSettings.localResourceProfile)");
     expect(main).toContain("inferOpenZeroRoutingSettings(stored)");
-    expect(main).toContain('provider === "openzero" && settings.openZeroAssistantMode !== "server" ? await localOllamaStatus() : null');
+    expect(main).toContain('const useLocalOllama = provider === "openzero" && settings.openZeroAssistantMode !== "server";');
+    expect(app).toContain('const localSelected = settings.assistantProvider === "openzero" && settings.openZeroAssistantMode !== "server";');
+    expect(app).toContain("Current custom model · {selectedLocalModel}");
     expect(main).toContain("if (!isPublishedLocalModelName(running.name)) continue;");
     expect(main).toContain("status.runningModels.filter((entry) => isPublishedLocalModelName(entry.name))");
-    expect(app).toContain("unloadLocalOpenZeroModels?.({ model: selectedLocalModel })");
+    expect(app).toContain("for (const running of runningLocalModels)");
+    expect(app).toContain("unloadLocalOpenZeroModels?.({ model: running.name })");
     expect(app).not.toContain("unloadLocalOpenZeroModels?.({ all: true })");
     expect(main).toContain('ipcMain.handle("openzero:local-unload"');
     expect(preload).toContain('ipcRenderer.invoke("openzero:local-unload"');
