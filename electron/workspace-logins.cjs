@@ -137,11 +137,23 @@ function buildLoginAssistScript(saved, options = {}) {
     function findLoginForms() {
       const forms = Array.from(document.querySelectorAll("form"));
       return forms.filter((form) => {
-        const pass = form.querySelector('input[type="password"]');
-        if (!pass) return false;
+        const passwords = Array.from(form.querySelectorAll('input[type="password"]'));
+        if (passwords.length !== 1) return false;
+        const pass = passwords[0];
+        const passwordPurpose = String(pass.getAttribute('autocomplete') || '').toLowerCase();
+        if (passwordPurpose.includes('new-password')) return false;
+        const action = String(form.getAttribute('action') || '').toLowerCase();
+        if (/(?:reset|recover|change[-_]?password|password[-_]?change)/.test(action)) return false;
         const user = form.querySelector('input[type="email"], input[type="text"], input[name*="user" i], input[name*="login" i], input[name="_user"], input[autocomplete="username"]');
         return Boolean(user);
       });
+    }
+
+    function pickPasswordInput(form) {
+      const passwords = Array.from(form.querySelectorAll('input[type="password"]'));
+      if (passwords.length !== 1) return null;
+      const pass = passwords[0];
+      return String(pass.getAttribute('autocomplete') || '').toLowerCase().includes('new-password') ? null : pass;
     }
 
     function pickUserInput(form) {
@@ -151,7 +163,7 @@ function buildLoginAssistScript(saved, options = {}) {
     function fill(form) {
       if (!saved || !saved.username || !saved.password) return;
       const user = pickUserInput(form);
-      const pass = form.querySelector('input[type="password"]');
+      const pass = pickPasswordInput(form);
       if (!user || !pass) return;
       const set = (el, value) => {
         const proto = window.HTMLInputElement.prototype;
@@ -170,7 +182,7 @@ function buildLoginAssistScript(saved, options = {}) {
         const consent = form.querySelector('input[data-zero-one-save-login-consent="1"]');
         if (!canSave || !consent || !consent.checked || !saveApprovedForms.has(form)) return;
         const user = pickUserInput(form);
-        const pass = form.querySelector('input[type="password"]');
+        const pass = pickPasswordInput(form);
         if (!user || !pass || !user.value || !pass.value) return;
         window.__zeroOnePendingLogin = {
           origin: location.origin,
@@ -222,7 +234,7 @@ function buildLoginAssistScript(saved, options = {}) {
       form.dataset.zeroOneBound = "1";
       addControls(form);
       form.addEventListener("submit", () => captureFromForm(form), true);
-      const pass = form.querySelector('input[type="password"]');
+      const pass = pickPasswordInput(form);
       if (pass) {
         pass.addEventListener("keydown", (event) => {
           if (event.key === "Enter") captureFromForm(form);

@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",
     "build": "tsc --noEmit && vite build",
-    "test": "vitest run && node --test electron/tray-lifecycle.node.cjs electron/zerothink-session.node.cjs electron/ollama-local.node.cjs electron/workspace-logins.node.cjs electron/update-check.node.cjs",
+    "test": "vitest run && node --test electron/tray-lifecycle.node.cjs electron/zerothink-session.node.cjs electron/ollama-local.node.cjs electron/workspace-logins.node.cjs electron/zmail-integration.node.cjs electron/update-check.node.cjs",
     "check": "npm run test && npm run build && npm run check:site",
     "check:site": "node scripts/validate-zeroone-site-release.mjs",
     "pack:win": "npm run check && npm run verify:zsec && electron-builder --win dir --x64 --publish never",

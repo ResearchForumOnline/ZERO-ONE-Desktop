@@ -11,6 +11,7 @@ const { loginItemOptions, shouldCloseToTray, shouldStartHidden } = require("./tr
 const { latestPhpSessionCookie } = require("./zerothink-session.cjs");
 const { DEFAULT_LOCAL_MODEL, DEFAULT_OPENZERO_SERVER_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, inferOpenZeroRoutingSettings, isPublishedLocalModelName, localDirectReply, localResourceOptions, publicPullProgress } = require("./ollama-local.cjs");
 const { checkLatestStableRelease } = require("./update-check.cjs");
+const { ZSIGN_ORIGIN, isZmailWorkspaceUrl, isZmailZsignSsoUrl } = require("./zmail-integration.cjs");
 const {
   saveLogin,
   loadLogin,
@@ -49,6 +50,7 @@ const ALLOWED_ORIGINS = new Set([
   "https://webmail.zmail.my",
   "https://zmail.my",
   "https://www.zmail.talktoai.org",
+  ZSIGN_ORIGIN,
   "https://zerothink.talktoai.org",
   "https://openzero.talktoai.org",
   "https://talktoai.org",
@@ -712,6 +714,13 @@ app.on("web-contents-created", (_event, contents) => {
   });
 
   contents.setWindowOpenHandler(({ url }) => {
+    // zSign's one-time SSO hop is bound to the authenticated Roundcube
+    // partition. Keep it in the existing isolated webview so its cookie is
+    // not lost by handing the URL to an unrelated system-browser session.
+    if (isZmailWorkspaceUrl(contents.getURL()) && isZmailZsignSsoUrl(url)) {
+      void contents.loadURL(url).catch(() => {});
+      return { action: "deny" };
+    }
     if (url.startsWith("https://") && isAllowedUrl(url)) shell.openExternal(url);
     return { action: "deny" };
   });

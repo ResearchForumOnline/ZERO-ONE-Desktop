@@ -53,6 +53,10 @@ describe("responsive desktop shell", () => {
     expect(app).toContain("Compose email");
     expect(app).toContain("zero-one:zmail-action");
     expect(app).toContain("review everything in ZMail before you press Send");
+    expect(app).toContain("row.getClientRects().length > 0");
+    expect(app).toContain("onOpenZmail()");
+    expect(app).toContain('navigate("service:zmail", { collapseCopilot: false })');
+    expect(app).toContain("ZMail home");
   });
 
   it("exposes bounded zoom to the renderer and embedded workspaces", () => {
