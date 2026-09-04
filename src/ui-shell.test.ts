@@ -86,6 +86,16 @@ describe("responsive desktop shell", () => {
     expect(app).toContain("window.setInterval(check, 6 * 60 * 60 * 1000)");
     expect(css).toContain(".app-update-banner");
     expect(main).not.toContain("autoUpdater");
+    expect(main).toContain("process.windowsStore");
+    expect(main).toContain("Updates for this installation are delivered by Microsoft Store.");
+    expect(app).toContain("Managed by Microsoft Store");
+    expect(main).toContain('distribution: IS_WINDOWS_STORE ? "microsoft-store" : "direct"');
+    expect(main).toContain('if (IS_WINDOWS_STORE) return [bundled]');
+    expect(main).toContain('["--state-dir", path.join(app.getPath("userData"), "zsec-shield-state"), ...args]');
+    expect(app).toContain("Unavailable in this Store edition");
+    expect(app).toContain("Local model downloading depends on a separate desktop runtime and is therefore not offered in this Store package");
+    expect(app).toContain("Core ZERO ONE features do not require an AI model");
+    expect(main).toContain('if (IS_WINDOWS_STORE) throw new Error("Local model downloading is not included in the Microsoft Store edition.")');
   });
 
   it("ships a governed Browser Pilot inside the isolated desktop workspace", () => {
@@ -235,6 +245,11 @@ describe("responsive desktop shell", () => {
     expect(main).toContain('fetchLocalOllama("/api/version")');
     expect(main).toContain('fetchLocalOllama("/api/tags")');
     expect(main).toContain('fetchLocalOllama("/api/pull"');
+    expect(main).toContain("IS_WINDOWS_STORE ? net.fetch : fetch");
+    expect(main).toContain("const preflight = await localOllamaStatus()");
+    expect(main).toContain("Ollama is not running on this computer. Install or start Ollama, choose Check again, then download the local Assistant.");
+    expect(main).toContain("The local model download connection was interrupted.");
+    expect(main).not.toContain('throw new Error("TypeError: fetch failed")');
     expect(main).toContain('fetchLocalOllama("/api/chat"');
     expect(main).toContain('think: false');
     expect(main).toContain("num_predict: resources.num_predict");

@@ -709,7 +709,7 @@ function BrowserPilotWorkspace({ settings }: { settings: ZeroOneSettings }) {
   );
 }
 
-function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settings: ZeroOneSettings; appVersion: string; openZeroProbe?: ServiceProbe; onSaved: (settings: ZeroOneSettings) => void }) {
+function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSaved }: { settings: ZeroOneSettings; appVersion: string; storeManaged: boolean; openZeroProbe?: ServiceProbe; onSaved: (settings: ZeroOneSettings) => void }) {
   const [draft, setDraft] = useState<ZeroOneSettings>(settings);
   const [token, setToken] = useState("");
   const [openAiKey, setOpenAiKey] = useState("");
@@ -724,6 +724,7 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
   const [zmath, setZmath] = useState<ZmathSecurityStatus | null>(null);
   const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo | null>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const updatesManagedByStore = storeManaged || Boolean(updateInfo?.managedByStore);
 
   useEffect(() => { setDraft(settings); setOpenZeroMode(settings.openZeroAssistantMode || (isPublishedLocalModel((settings.model || "").toLowerCase()) ? "local" : "server")); }, [settings]);
   useEffect(() => { window.zeroOne.getZmathSecurityStatus().then(setZmath); }, []);
@@ -810,7 +811,9 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
       await refreshLocalOpenZero();
       setMessage("The selected local Assistant is installed and ready to use.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "The local model could not be downloaded. Check the connection and try again.");
+      const rawMessage = error instanceof Error ? error.message : "";
+      const userMessage = rawMessage.replace(/^Error invoking remote method '[^']+':\s*/i, "").trim();
+      setMessage(userMessage || "The local model could not be downloaded. Check the connection and try again.");
     } finally { setLocalPulling(false); }
   };
   const localOpenZeroRunning = Boolean(localStatus?.reachable);
@@ -841,18 +844,18 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
         <section className="settings-section glass-card settings-intro">
           <div className="settings-heading"><div><p>EVERYDAY CONTROLS</p><h2>Make ZERO ONE work your way</h2></div><span>Safe defaults are already selected</span></div>
           <label className="check-row"><input type="checkbox" checked={draft.closeToTray} onChange={(event) => setDraft({ ...draft, closeToTray: event.target.checked })} /><span><strong>Keep ZERO ONE ready in the system tray</strong><small>Closing or minimising hides the window. Choose Quit from the tray when you want to stop it.</small></span></label>
-          <label className="check-row"><input type="checkbox" checked={draft.launchAtLogin} onChange={(event) => setDraft({ ...draft, launchAtLogin: event.target.checked })} /><span><strong>Start when I sign in to this computer</strong><small>Starts quietly in the tray.</small></span></label>
+          <label className="check-row"><input type="checkbox" checked={storeManaged ? false : draft.launchAtLogin} disabled={storeManaged} onChange={(event) => setDraft({ ...draft, launchAtLogin: event.target.checked })} /><span><strong>Start when I sign in to this computer</strong><small>{storeManaged ? "Unavailable in this Store edition; you can still pin and start ZERO ONE normally." : "Starts quietly in the tray."}</small></span></label>
           <label className="check-row"><input type="checkbox" checked={draft.mediaEnabled} onChange={(event) => setDraft({ ...draft, mediaEnabled: event.target.checked })} /><span><strong>Allow camera and microphone in CallChat</strong><small>Other workspaces remain blocked from camera and microphone access.</small></span></label>
         </section>
         <section className="settings-section glass-card settings-update-section" aria-labelledby="version-updates-heading">
-          <div className="settings-heading"><div><p>VERSION &amp; UPDATES</p><h2 id="version-updates-heading">ZERO ONE v{appVersion || "—"}</h2></div><span>Official stable releases only</span></div>
+          <div className="settings-heading"><div><p>VERSION &amp; UPDATES</p><h2 id="version-updates-heading">ZERO ONE v{appVersion || "—"}</h2></div><span>{updatesManagedByStore ? "Managed by Microsoft Store" : "Official stable releases only"}</span></div>
           <div className="settings-update-row">
             <div className={`settings-update-state ${updateInfo?.status || "idle"}`}>
               <span aria-hidden="true">{updateInfo?.status === "available" ? "↑" : updateInfo?.status === "current" ? "✓" : "i"}</span>
-              <div><strong>{updateInfo?.status === "available" ? `Version ${updateInfo.latestVersion} is available` : updateInfo?.status === "current" ? "You have the latest version" : updateInfo?.status === "unavailable" ? "Update service is temporarily unavailable" : "Ready to check for updates"}</strong><small>{updateInfo?.checkedAt ? `Last checked ${new Date(updateInfo.checkedAt).toLocaleString("en-GB")}` : "ZERO ONE checks the official stable GitHub channel. You approve before a verified package is installed."}</small></div>
+              <div><strong>{updatesManagedByStore ? "Updates are managed by Microsoft Store" : updateInfo?.status === "available" ? `Version ${updateInfo.latestVersion} is available` : updateInfo?.status === "current" ? "You have the latest version" : updateInfo?.status === "unavailable" ? "Update service is temporarily unavailable" : "Ready to check for updates"}</strong><small>{updatesManagedByStore ? "Microsoft Store checks for, verifies, and installs updates for this edition." : updateInfo?.checkedAt ? `Last checked ${new Date(updateInfo.checkedAt).toLocaleString("en-GB")}` : "ZERO ONE checks the official stable GitHub channel. You approve before a verified package is installed."}</small></div>
             </div>
             <div className="settings-update-actions">
-              <button type="button" className="secondary-action" disabled={checkingUpdate} onClick={checkForUpdate}>{checkingUpdate ? "Checking…" : "Check for updates"}</button>
+              <button type="button" className="secondary-action" disabled={checkingUpdate || updatesManagedByStore} onClick={checkForUpdate}>{updatesManagedByStore ? "Managed by Store" : checkingUpdate ? "Checking…" : "Check for updates"}</button>
               {updateInfo?.updateAvailable && updateInfo.installSupported && <InstallUpdateButton update={updateInfo} className="primary-action" onMessage={setMessage} />}
               {updateInfo?.updateAvailable && <button type="button" className="secondary-action" onClick={() => window.zeroOne.openExternal(updateInfo.releaseUrl)}>Release notes ↗</button>}
             </div>
@@ -892,7 +895,8 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
             <button type="button" role="radio" aria-checked={draft.assistantProvider === "groq"} className={draft.assistantProvider === "groq" ? "selected" : ""} onClick={() => chooseProvider("groq")}><strong>Groq</strong><span>Optional · fast cloud</span><small>Use your own Groq API key</small></button>
             <button type="button" role="radio" aria-checked={draft.assistantProvider === "openai"} className={draft.assistantProvider === "openai" ? "selected" : ""} onClick={() => chooseProvider("openai")}><strong>OpenAI</strong><span>Optional · cloud</span><small>Use your own OpenAI API key</small></button>
           </div>
-          {draft.assistantProvider === "openzero" && <>
+          {draft.assistantProvider === "openzero" && storeManaged && <div className="hosted-provider-help"><div><strong>Microsoft Store edition</strong><span>Local model downloading depends on a separate desktop runtime and is therefore not offered in this Store package. Core ZERO ONE features work without an AI model. For optional quick chat, choose OpenAI or Groq and use your own key.</span></div></div>}
+          {draft.assistantProvider === "openzero" && !storeManaged && <>
             <div className="openzero-mode-picker" role="radiogroup" aria-label="OpenZero location">
               <button type="button" role="radio" aria-checked={openZeroMode === "local"} className={openZeroMode === "local" ? "selected" : ""} onClick={() => chooseOpenZeroMode("local")}><span className="recommended-pill">RECOMMENDED</span><strong>Local Assistant model</strong><small>Private, automatic chat setup. No token or technical configuration.</small></button>
               <button type="button" role="radio" aria-checked={openZeroMode === "server"} className={openZeroMode === "server" ? "selected" : ""} onClick={() => chooseOpenZeroMode("server")}><span>ADVANCED</span><strong>Use my OpenZero server</strong><small>Uses an existing OpenZero runtime for Assistant replies.</small></button>
@@ -964,7 +968,7 @@ function SettingsView({ settings, appVersion, openZeroProbe, onSaved }: { settin
     </div>
   );}
 
-function Copilot({ settings, onOpenSettings, onOpenZmail }: { settings: ZeroOneSettings; onOpenSettings: () => void; onOpenZmail: () => void }) {
+function Copilot({ settings, storeManaged, onOpenSettings, onOpenZmail }: { settings: ZeroOneSettings; storeManaged: boolean; onOpenSettings: () => void; onOpenZmail: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialAssistant);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1084,13 +1088,15 @@ function Copilot({ settings, onOpenSettings, onOpenZmail }: { settings: ZeroOneS
       </div>
       {!ready && (
         <div className="assistant-empty">
-          <strong>{localSelected ? "One-time local model" : "One quick setup"}</strong>
+          <strong>{localSelected ? (storeManaged ? "Optional assistant" : "One-time local model") : "One quick setup"}</strong>
           <span>
             {localSelected
-              ? "Download the private OpenZero local model once. No account, token, or cloud key is required."
+              ? storeManaged
+                ? "Local model installation is not included in the Microsoft Store edition. ZERO ONE's command centre, workspaces, Browser Pilot and ZSEC remain ready; choose an optional cloud provider in Settings only if you want quick chat."
+                : "Download the private OpenZero local model once. No account, token, or cloud key is required."
               : `${providerLabel} is selected. Add its key once to start chatting here.`}
           </span>
-          {localSelected ? (
+          {localSelected && !storeManaged ? (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button className="token-prompt" disabled={pulling} onClick={pullLocalModel}>
                 <Icon name="shield" size={16} /> {pulling ? (pullProgress?.percent != null ? `Downloading ${pullProgress.percent}%` : "Downloading…") : "Download selected OpenZero model"}
@@ -1105,7 +1111,7 @@ function Copilot({ settings, onOpenSettings, onOpenZmail }: { settings: ZeroOneS
       )}
       <div className="copilot-report"><button type="button" onClick={() => window.zeroOne.openExternal("https://talktoai.org/report-ai/")}>Report AI output</button><span>Opens privacy-aware support guidance</span></div>
       <div className="assistant-mail-actions" aria-label="ZMail assistant actions"><button type="button" disabled={busy} onClick={() => runMailAction("inbox")}><Icon name="mail" size={14} /> Check visible inbox</button><button type="button" disabled={busy} onClick={() => runMailAction("compose")}><Icon name="send" size={14} /> Compose email</button></div>
-      <div className="chat-compose"><textarea disabled={!ready} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={keyDown} placeholder={ready ? `Ask ${providerLabel}…` : "Install the local model above — no keys needed"} rows={2} /><button onClick={send} disabled={busy || !input.trim() || !ready} aria-label="Send"><Icon name="send" size={18} /></button><small>{ready ? "Enter to send · Shift+Enter newline · Ctrl+L clear · Ctrl+J toggle" : "OpenZero Local is the zero-config private default"}</small></div>
+      <div className="chat-compose"><textarea disabled={!ready} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={keyDown} placeholder={ready ? `Ask ${providerLabel}…` : storeManaged && localSelected ? "Optional assistant is not configured" : "Install the local model above — no keys needed"} rows={2} /><button onClick={send} disabled={busy || !input.trim() || !ready} aria-label="Send"><Icon name="send" size={18} /></button><small>{ready ? "Enter to send · Shift+Enter newline · Ctrl+L clear · Ctrl+J toggle" : storeManaged && localSelected ? "Core ZERO ONE features do not require an AI model" : "OpenZero Local is the zero-config private default"}</small></div>
     </aside>
   );
 }
@@ -1172,6 +1178,7 @@ export default function App() {
   const [mountedServiceIds, setMountedServiceIds] = useState<ServiceId[]>([]);
   const [appUpdate, setAppUpdate] = useState<AppUpdateInfo | null>(null);
   const [appVersion, setAppVersion] = useState("");
+  const [storeManaged, setStoreManaged] = useState(false);
   const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState("");
   const searchButtonRef = useRef<HTMLButtonElement>(null);
   const bridgeUnavailable = "ZERO ONE could not start its secure desktop bridge. Restart the app; if this continues, install the latest update.";
@@ -1179,7 +1186,7 @@ export default function App() {
   useEffect(() => {
     if (!window.zeroOne?.getUserInterfaceScale) { setBootError(bridgeUnavailable); return; }
     window.zeroOne.getUserInterfaceScale().then(setZoom).catch(() => setZoom(1));
-    window.zeroOne.getAppInfo?.().then((info) => setAppVersion(info.version)).catch(() => setAppVersion(""));
+    window.zeroOne.getAppInfo?.().then((info) => { setAppVersion(info.version); setStoreManaged(info.distribution === "microsoft-store"); }).catch(() => { setAppVersion(""); setStoreManaged(false); });
   }, []);
 
   useEffect(() => {
@@ -1307,14 +1314,14 @@ export default function App() {
           {view === "shield" && <ZsecView snapshot={zsec} onRefresh={refresh} />}
           {view === "agents" && <AgentLattice settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onOpenZero={() => navigate("service:openzero")} />}
           {view === "pilot" && <BrowserPilotWorkspace settings={settings} />}
-          {view === "settings" && <SettingsView settings={settings} appVersion={appVersion} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onSaved={(saved) => { setSettings(saved); refresh(); }} />}
+          {view === "settings" && <SettingsView settings={settings} appVersion={appVersion} storeManaged={storeManaged} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onSaved={(saved) => { setSettings(saved); refresh(); }} />}
           {renderedServiceIds.map((serviceId) => {
             const service = serviceById(serviceId);
             return <ServiceWorkspace key={serviceId} service={service} settings={settings} probe={probes.find((probe) => probe.name === serviceId)} active={serviceId === activeService?.id} />;
           })}
         </div>
       </main>
-      <Copilot settings={settings} onOpenSettings={() => navigate("settings")} onOpenZmail={() => navigate("service:zmail", { collapseCopilot: false })} />
+      <Copilot settings={settings} storeManaged={storeManaged} onOpenSettings={() => navigate("settings")} onOpenZmail={() => navigate("service:zmail", { collapseCopilot: false })} />
       {palette && <CommandPalette onClose={closePalette} onNavigate={navigate} />}
       {!settings.onboardingCompleted && <Welcome onFinish={() => completeOnboarding()} onSetup={() => completeOnboarding("settings")} />}
     </div>

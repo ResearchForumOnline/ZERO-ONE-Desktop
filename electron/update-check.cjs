@@ -42,6 +42,25 @@ function unavailableResult(currentVersion, now) {
   };
 }
 
+function storeManagedUpdateResult(currentVersion, now = Date.now()) {
+  const version = parseStableVersion(currentVersion)?.join(".") || String(currentVersion || "");
+  return {
+    status: "current",
+    updateAvailable: false,
+    currentVersion: version,
+    latestVersion: version,
+    releaseUrl: "",
+    assetName: "",
+    assetUrl: "",
+    assetSize: 0,
+    assetDigest: "",
+    checksumUrl: "",
+    installSupported: false,
+    managedByStore: true,
+    checkedAt: checkedAt(now),
+  };
+}
+
 function platformAssetName(version, platform, arch) {
   if (platform === "win32" && arch === "x64") return `ZERO-ONE-${version}-win-x64.exe`;
   if (platform === "darwin" && arch === "arm64") return `ZERO-ONE-${version}-mac-arm64.dmg`;
@@ -132,4 +151,5 @@ module.exports = {
   parseStableVersion,
   platformAssetName,
   releaseAsset,
+  storeManagedUpdateResult,
 };

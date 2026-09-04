@@ -13,7 +13,7 @@ describe("ZSEC control centre", () => {
     expect(app).toContain("Choose folder and scan");
     expect(app).toContain("does not upload, delete, quarantine, or change system settings");
     expect(main).toContain('properties: ["openDirectory", "dontAddToRecent"]');
-    expect(main).toContain('execFile(binary, ["check", selectedPath, "--json"]');
+    expect(main).toContain('execFile(binary, zsecArguments(["check", selectedPath, "--json"])');
   });
 
   it("separates ZSEC evidence from operating-system live protection", () => {

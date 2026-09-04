@@ -150,7 +150,7 @@ describe("desktop security contract", () => {
   });
 
   it("keeps on-demand ZSEC scans bounded and user-selected", () => {
-    expect(main).toContain('execFile(binary, ["check", selectedPath, "--json"]');
+    expect(main).toContain('execFile(binary, zsecArguments(["check", selectedPath, "--json"])');
     expect(zsecContract).toContain('report.schema !== "zsec.shield.report.v1"');
     expect(main).toContain('properties: ["openDirectory", "dontAddToRecent"]');
     expect(main).toContain("timeout: 10 * 60 * 1000");

@@ -1,7 +1,7 @@
 {
   "name": "zero-one-desktop",
   "desktopName": "zero-one.desktop",
-  "version": "7.9.2",
+  "version": "7.9.4",
   "private": true,
   "description": "ZERO ONE desktop command center for ZMail, ZeroThink, OpenZero, CallChat, and the local ZSEC Shield preview.",
   "author": "QUANTUMENCRYPTION1 LTD",
@@ -15,6 +15,7 @@
     "check:site": "node scripts/validate-zeroone-site-release.mjs",
     "pack:win": "npm run check && npm run verify:zsec && electron-builder --win dir --x64 --publish never",
     "dist:win": "npm run check && npm run verify:zsec && electron-builder --win nsis --x64 --publish never",
+    "dist:store:win": "pwsh -NoProfile -File scripts/package-store-appx.ps1",
     "pack:mac": "npm run check && npm run verify:zsec:native && electron-builder --mac dir --arm64 --publish never",
     "dist:mac": "npm run check && npm run verify:zsec:native && electron-builder --mac dmg zip --arm64 --publish never",
     "pack:linux": "npm run check && npm run verify:zsec:native && electron-builder --linux dir --x64 --publish never",

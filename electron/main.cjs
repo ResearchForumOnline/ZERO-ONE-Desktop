@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, safeStorage, session, shell, Tray, webContents } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, safeStorage, session, shell, Tray, webContents } = require("electron");
 const { execFile, spawn } = require("node:child_process");
 const { randomUUID } = require("node:crypto");
 const fs = require("node:fs/promises");
@@ -10,7 +10,7 @@ const { cleanConfiguredUrl, diagnosticOrigin, isAllowedUrl: urlIsAllowed } = req
 const { loginItemOptions, shouldCloseToTray, shouldStartHidden } = require("./tray-lifecycle.cjs");
 const { latestPhpSessionCookie } = require("./zerothink-session.cjs");
 const { DEFAULT_LOCAL_MODEL, DEFAULT_OPENZERO_SERVER_MODEL, LOCAL_ASSISTANT_SYSTEM_PROMPT, OLLAMA_LOCAL_ORIGIN, cleanAssistantContent, cleanChatMessages, cleanModelName, inferOpenZeroRoutingSettings, isPublishedLocalModelName, localDirectReply, localResourceOptions, publicPullProgress } = require("./ollama-local.cjs");
-const { checkLatestStableRelease } = require("./update-check.cjs");
+const { checkLatestStableRelease, storeManagedUpdateResult } = require("./update-check.cjs");
 const { downloadVerifiedAsset, fetchTextLimited, parseSha256Sums, safeUpdateFilename } = require("./update-installer.cjs");
 const { classifyBrowserAction, normalizeHttpUrl, requestBrowserPlan } = require("./browser-pilot.cjs");
 const { ZSIGN_ORIGIN, isZmailWorkspaceUrl, isZmailZsignSsoUrl } = require("./zmail-integration.cjs");
@@ -25,6 +25,7 @@ const {
 } = require("./workspace-logins.cjs");
 
 if (!app.requestSingleInstanceLock()) app.quit();
+const IS_WINDOWS_STORE = process.platform === "win32" && Boolean(process.windowsStore);
 
 const DEFAULT_SETTINGS = Object.freeze({
   zmailUrl: "https://webmail.zmail.my/?_task=workspace",
@@ -358,7 +359,7 @@ async function loadSettingsInternal() {
     openZeroAssistantMode: routing.openZeroAssistantMode,
     localResourceProfile: ["low-memory", "balanced", "performance"].includes(stored.localResourceProfile) ? stored.localResourceProfile : DEFAULT_SETTINGS.localResourceProfile,
     mediaEnabled: Boolean(stored.mediaEnabled),
-    launchAtLogin: Boolean(stored.launchAtLogin),
+    launchAtLogin: IS_WINDOWS_STORE ? false : Boolean(stored.launchAtLogin),
     closeToTray: stored.closeToTray !== false,
     onboardingCompleted: Boolean(stored.onboardingCompleted),
     trayNoticeShown: Boolean(stored.trayNoticeShown),
@@ -412,7 +413,7 @@ async function saveSettingsInternal(input) {
     openZeroAssistantMode: input.openZeroAssistantMode === "server" ? "server" : input.openZeroAssistantMode === "local" ? "local" : current.openZeroAssistantMode,
     localResourceProfile: ["low-memory", "balanced", "performance"].includes(input.localResourceProfile) ? input.localResourceProfile : current.localResourceProfile,
     mediaEnabled: typeof input.mediaEnabled === "boolean" ? input.mediaEnabled : current.mediaEnabled,
-    launchAtLogin: typeof input.launchAtLogin === "boolean" ? input.launchAtLogin : current.launchAtLogin,
+    launchAtLogin: IS_WINDOWS_STORE ? false : typeof input.launchAtLogin === "boolean" ? input.launchAtLogin : current.launchAtLogin,
     closeToTray: typeof input.closeToTray === "boolean" ? input.closeToTray : current.closeToTray,
     onboardingCompleted: typeof input.onboardingCompleted === "boolean" ? input.onboardingCompleted : current.onboardingCompleted,
     lastView: input.lastView !== undefined ? sanitizeLastView(input.lastView) : current.lastView,
@@ -441,7 +442,7 @@ async function saveSettingsInternal(input) {
   await fs.mkdir(path.dirname(settingsPath()), { recursive: true });
   await fs.writeFile(settingsPath(), JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
   runtimeSettings = next;
-  app.setLoginItemSettings(loginItemOptions({ enabled: next.launchAtLogin, executablePath: process.execPath, packaged: app.isPackaged }));
+  if (!IS_WINDOWS_STORE) app.setLoginItemSettings(loginItemOptions({ enabled: next.launchAtLogin, executablePath: process.execPath, packaged: app.isPackaged }));
   return publicSettings(next);
 }
 
@@ -948,7 +949,7 @@ app.whenReady().then(async () => {
   setTimeout(() => { keepZmailSessionAlive().catch(() => {}); }, 15_000);
   // Warm ZeroThink cookie session if a device token already exists.
   setTimeout(() => { restoreZeroThinkSession().catch(() => {}); }, 3_000);
-  app.setLoginItemSettings(loginItemOptions({ enabled: runtimeSettings.launchAtLogin, executablePath: process.execPath, packaged: app.isPackaged }));
+  if (!IS_WINDOWS_STORE) app.setLoginItemSettings(loginItemOptions({ enabled: runtimeSettings.launchAtLogin, executablePath: process.execPath, packaged: app.isPackaged }));
   createTray();
   await createWindow();
 });
@@ -987,12 +988,14 @@ ipcMain.handle("app:info", (event) => {
   version: app.getVersion(),
   platform: process.platform,
   packaged: app.isPackaged,
+  distribution: IS_WINDOWS_STORE ? "microsoft-store" : "direct",
   });
 });
 
 ipcMain.handle("app:check-update", async (event) => {
   requireTrustedIpcSender(event);
   const now = Date.now();
+  if (IS_WINDOWS_STORE) return storeManagedUpdateResult(app.getVersion(), now);
   if (appUpdateCache && now - appUpdateCache.cachedAt < APP_UPDATE_CACHE_MS) return appUpdateCache.result;
   const result = await checkLatestStableRelease({ currentVersion: app.getVersion(), timeoutMs: 5_000, now });
   appUpdateCache = { cachedAt: now, result };
@@ -1001,6 +1004,7 @@ ipcMain.handle("app:check-update", async (event) => {
 
 ipcMain.handle("app:install-update", async (event) => {
   requireTrustedIpcSender(event);
+  if (IS_WINDOWS_STORE) throw new Error("Updates for this installation are delivered by Microsoft Store.");
   if (!app.isPackaged) throw new Error("Automatic installation is available only in an installed ZERO ONE build.");
   if (appUpdateActive) throw new Error("An update is already being prepared.");
   appUpdateActive = true;
@@ -1202,6 +1206,7 @@ ipcMain.handle("system:snapshot", (event) => {
 function zsecCandidates() {
   const bundledName = process.platform === "win32" ? "zsec-shield.exe" : "zsec-shield";
   const bundled = path.join(process.resourcesPath, "zsec-shield", bundledName);
+  if (IS_WINDOWS_STORE) return [bundled];
   if (process.platform === "win32") {
     return [
       bundled,
@@ -1213,6 +1218,10 @@ function zsecCandidates() {
     return [bundled, "/Applications/ZSEC Shield.app/Contents/MacOS/zsec-shield", "/usr/local/bin/zsec-shield"];
   }
   return [bundled, "/usr/local/bin/zsec-shield", "/usr/bin/zsec-shield"];
+}
+
+function zsecArguments(args) {
+  return IS_WINDOWS_STORE ? ["--state-dir", path.join(app.getPath("userData"), "zsec-shield-state"), ...args] : args;
 }
 
 async function existingZsecBinary() {
@@ -1230,7 +1239,7 @@ async function existingZsecBinary() {
 
 function runZsecStatus(binary) {
   return new Promise((resolve) => {
-    execFile(binary, ["status", "--json"], { timeout: 6000, windowsHide: true, maxBuffer: 256 * 1024 }, (error, stdout) => {
+    execFile(binary, zsecArguments(["status", "--json"]), { timeout: 6000, windowsHide: true, maxBuffer: 256 * 1024 }, (error, stdout) => {
       if (error) {
         resolve({ installed: true, state: "unavailable", platform: process.platform, message: "ZSEC Shield is installed but did not return a valid local status." });
         return;
@@ -1263,7 +1272,7 @@ function isExpectedZsecScanExit(error, outcome) {
 
 function runZsecScan(binary, selectedPath) {
   return new Promise((resolve) => {
-    execFile(binary, ["check", selectedPath, "--json"], { timeout: 10 * 60 * 1000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 }, (error, stdout) => {
+    execFile(binary, zsecArguments(["check", selectedPath, "--json"]), { timeout: 10 * 60 * 1000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 }, (error, stdout) => {
       try {
         const result = parseZsecScanReport(stdout);
         const { outcome } = result;
@@ -1391,7 +1400,8 @@ ipcMain.handle("settings:clear-local-data", async (event) => {
   }
   await clearAllLogins({ userDataPath: app.getPath("userData") });
   await fs.rm(settingsPath(), { force: true });
-  app.setLoginItemSettings(loginItemOptions({ enabled: false, executablePath: process.execPath, packaged: app.isPackaged }));
+  if (IS_WINDOWS_STORE) await fs.rm(path.join(app.getPath("userData"), "zsec-shield-state"), { recursive: true, force: true });
+  else app.setLoginItemSettings(loginItemOptions({ enabled: false, executablePath: process.execPath, packaged: app.isPackaged }));
   runtimeSettings = { ...DEFAULT_SETTINGS };
   setTimeout(() => { app.relaunch(); app.exit(0); }, 250);
   return { cleared: true };
@@ -1412,7 +1422,8 @@ async function fetchLocalOllama(pathname, options = {}, timeoutMs = 8000) {
   const controller = options.signal ? null : new AbortController();
   const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
   try {
-    return await fetch(`${OLLAMA_LOCAL_ORIGIN}${pathname}`, {
+    const localFetch = IS_WINDOWS_STORE ? net.fetch : fetch;
+    return await localFetch(`${OLLAMA_LOCAL_ORIGIN}${pathname}`, {
       ...options,
       signal: options.signal || controller.signal,
       headers: { Accept: "application/json", "User-Agent": `ZERO-ONE/${app.getVersion()}`, ...(options.headers || {}) },
@@ -1528,7 +1539,12 @@ ipcMain.handle("openzero:open-ollama-download", async (event) => {
 
 ipcMain.handle("openzero:local-pull", async (event, input) => {
   requireTrustedIpcSender(event);
+  if (IS_WINDOWS_STORE) throw new Error("Local model downloading is not included in the Microsoft Store edition.");
   const model = cleanModelName(input?.model || DEFAULT_LOCAL_MODEL);
+  const preflight = await localOllamaStatus();
+  if (!preflight.reachable) {
+    throw new Error("Ollama is not running on this computer. Install or start Ollama, choose Check again, then download the local Assistant.");
+  }
   const jobId = randomUUID();
   if (localModelPullControllers.has(jobId)) throw new Error("That model download is already running.");
   if ([...localModelPullControllers.values()].some((entry) => entry.senderId === event.sender.id)) throw new Error("A local model download is already running.");
@@ -1540,6 +1556,7 @@ ipcMain.handle("openzero:local-pull", async (event, input) => {
   const publish = (payload) => {
     if (!event.sender.isDestroyed()) event.sender.send("openzero:local-pull-progress", publicPullProgress(payload, jobId, model));
   };
+  let responseStarted = false;
   try {
     const response = await fetchLocalOllama("/api/pull", {
       method: "POST",
@@ -1551,6 +1568,7 @@ ipcMain.handle("openzero:local-pull", async (event, input) => {
       const payload = await response.json().catch(() => ({}));
       throw new Error(String(payload?.error || `The local model service returned HTTP ${response.status}.`).slice(0, 300));
     }
+    responseStarted = true;
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -1576,6 +1594,11 @@ ipcMain.handle("openzero:local-pull", async (event, input) => {
     return { jobId, model, status: "success" };
   } catch (error) {
     if (error?.name === "AbortError") throw new Error("The local model download was cancelled.");
+    if (error?.name === "TypeError" || /fetch failed|socket|terminated|connection (?:closed|reset|refused)/i.test(String(error?.message || ""))) {
+      throw new Error(responseStarted
+        ? "The local model download connection was interrupted. Keep Ollama running, check internet access and free disk space, then try again."
+        : "ZERO ONE could not reach Ollama. Install or start Ollama, choose Check again, then download the local Assistant.");
+    }
     throw error;
   } finally {
     sender.removeListener("destroyed", cancelWhenRendererCloses);

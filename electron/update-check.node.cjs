@@ -6,7 +6,26 @@ const {
   compareStableVersions,
   parseStableVersion,
   platformAssetName,
+  storeManagedUpdateResult,
 } = require("./update-check.cjs");
+
+test("Store-managed packages never download or launch the direct installer", () => {
+  assert.deepEqual(storeManagedUpdateResult("7.9.2", Date.UTC(2026, 7, 27, 12, 0, 0)), {
+    status: "current",
+    updateAvailable: false,
+    currentVersion: "7.9.2",
+    latestVersion: "7.9.2",
+    releaseUrl: "",
+    assetName: "",
+    assetUrl: "",
+    assetSize: 0,
+    assetDigest: "",
+    checksumUrl: "",
+    installSupported: false,
+    managedByStore: true,
+    checkedAt: "2026-08-27T12:00:00.000Z",
+  });
+});
 
 test("stable version parsing and comparison are strict", () => {
   assert.deepEqual(parseStableVersion("v0.6.4"), [0, 6, 4]);

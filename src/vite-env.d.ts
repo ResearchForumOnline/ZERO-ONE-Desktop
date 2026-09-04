@@ -95,6 +95,7 @@ interface AppUpdateInfo {
   assetDigest: string;
   checksumUrl: string;
   installSupported: boolean;
+  managedByStore?: boolean;
   checkedAt: string;
 }
 
@@ -116,7 +117,7 @@ interface BrowserPilotState {
 
 interface Window {
   zeroOne: {
-    getAppInfo(): Promise<{ name: string; version: string; platform: string; packaged: boolean }>;
+    getAppInfo(): Promise<{ name: string; version: string; platform: string; packaged: boolean; distribution: "direct" | "microsoft-store" }>;
     checkForAppUpdate(): Promise<AppUpdateInfo>;
     installAppUpdate(): Promise<{ status: string; version?: string; message: string }>;
     onAppUpdateProgress(callback: (progress: AppUpdateProgress) => void): () => void;
