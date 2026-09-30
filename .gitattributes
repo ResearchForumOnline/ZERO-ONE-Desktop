@@ -1,0 +1,3 @@
+# Preserve the independently published engine, licences and provenance exactly.
+# Windows core.autocrlf must not rewrite these reviewed release bytes.
+electron/zerothink/** -text

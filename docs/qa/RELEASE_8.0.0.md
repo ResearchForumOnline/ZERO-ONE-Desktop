@@ -9,6 +9,7 @@ Recorded 30 September 2026. This record distinguishes source verification, packa
 - Privileged IPC requires the main window, main frame and exact local renderer URL. Remote top-level main-window navigation is refused; isolated webview navigation retains its allowlist.
 - Store edition refuses local model installation and uses Store-managed updates. Its optional model providers are an existing user-owned OpenZero server, OpenAI or Groq. Direct editions also support existing local Ollama.
 - Embedded ZeroThink engine, templates, Apache-2.0 licence, notice and provenance match portable release commit `473a128c13798023bb719969c286204c12df60bd`.
+- Git attributes preserve these five published files byte-for-byte even when Windows checkout enables automatic line-ending conversion. The provenance regression verifies all five release hashes.
 
 ## Verification completed
 

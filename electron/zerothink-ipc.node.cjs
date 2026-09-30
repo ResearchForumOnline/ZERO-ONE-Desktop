@@ -124,6 +124,17 @@ test("the two-pass UI label matches the real draft and revision stages", async (
 });
 
 test("bundled engine provenance preserves the published portable record exactly", () => {
+  const publishedHashes = {
+    "engine.cjs": "d0b1c0a9131e6cfad56f75aa8bba21b30219d8452761ba8c6beabc15f80d7498",
+    "templates.cjs": "237f8fc9c5b60279be53c88b1463a80bda54278cea080e454790a3617b2fe0fd",
+    "LICENSE": "c95bae1d1ce0235ecccd3560b772ec1efb97f348a79f0fbe0a634f0c2ccefe2c",
+    "NOTICE": "4caab4d66a62df3578ba7fab581c524ce5f7d2578bdab7324a8c85d223e35575",
+    "PROVENANCE.json": "b9f70483a419b6c06870c187f2c6075849c73b8743e95eee98245aec8f27e65d",
+  };
+  for (const [filename, expectedHash] of Object.entries(publishedHashes)) {
+    const bytes = fs.readFileSync(path.join(__dirname, "zerothink", filename));
+    assert.equal(createHash("sha256").update(bytes).digest("hex"), expectedHash, filename);
+  }
   const provenance = fs.readFileSync(path.join(__dirname, "zerothink", "PROVENANCE.json"));
   assert.equal(createHash("sha256").update(provenance).digest("hex"), "b9f70483a419b6c06870c187f2c6075849c73b8743e95eee98245aec8f27e65d");
   const record = JSON.parse(provenance);
