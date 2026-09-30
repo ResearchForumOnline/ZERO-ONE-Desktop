@@ -1,8 +1,8 @@
 # ZERO ONE Store-readiness gate
 
-## ZERO ONE 8.0.0 source and public-preview gate
+## ZERO ONE 8.1.0 source and public-preview gate
 
-ZERO ONE 8.0.0 adds the local open-source ZeroThink workspace. Microsoft passed certification and completed publication. On 30 September 2026 Partner Center confirmed that the latest product is available; live Submission3 offers `ZERO-ONE-8.0.0-win-x64.appx`, version8.0.0.0. A Store-signed installation on this PC has not been verified. Its exact tests, package hash and submission status are recorded in docs/qa/RELEASE_8.0.0.md; source changes are not evidence of certification or publication.
+ZERO ONE 8.1.0 restores the original ZeroThink chat/persona/memory/library/depth workflows and adds native project actions. ZNotes has real note creation, autosave and dual-key protection. Exact tests, package hash and submission status are recorded in docs/qa/RELEASE_8.1.0.md. The preceding 8.0.0 Store package is published and was verified installed; this source repair is a separate release.
 
 The Store edition has functional local ZNotes, offline ZeroThink evidence maps and on-demand ZSEC scanning without a separately downloaded AI model. Optional AI uses a configured existing OpenZero server or user-supplied OpenAI/Groq keys. Store model installation is hidden and rejected in the main process. Updates remain Store managed. Direct builds retain existing Ollama support.
 

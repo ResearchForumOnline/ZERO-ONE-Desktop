@@ -240,4 +240,4 @@ describe("responsive desktop shell", () => {
   });
 });
 
-describe("local notes product boundary", () => { it("exposes ZNotes and removes retired remote account controls", () => { expect(app).toContain("<NotesWorkspace />"); expect(app).not.toContain("service:zmail"); expect(preload).not.toContain("zerothink:sign-in"); expect(main).toContain('requireTrustedIpcSender(event);'); }); });
+describe("local notes product boundary", () => { it("exposes persistent ZNotes and removes retired remote account controls", () => { expect(app).toContain('<NotesWorkspace active={view === "notes"} />'); expect(app).not.toContain("service:zmail"); expect(preload).not.toContain("zerothink:sign-in"); expect(main).toContain('requireTrustedIpcSender(event);'); }); });

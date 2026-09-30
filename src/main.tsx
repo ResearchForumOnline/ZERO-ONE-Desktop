@@ -7,6 +7,9 @@ import "./styles.css";
 const previewVersion = `${packageMetadata.version.split(".").slice(0, 2).join(".")}-preview`;
 
 if (!window.zeroOne && import.meta.env.DEV) {
+  const previewSessions = new Map<string, ZeroThinkSession>();
+  let previewLibrary: ZeroThinkDocument[] = [];
+  let previewProfile: ZeroThinkProfile = { persona: "", facts: [] };
   const previewSettings: ZeroOneSettings = {
     openZeroUrl: "http://127.0.0.1:1024/",
     assistantProvider: "openzero",
@@ -23,6 +26,22 @@ if (!window.zeroOne && import.meta.env.DEV) {
     hasGroqKey: false,
   };
   window.zeroOne = {
+    listZeroThinkSessions: async () => Array.from(previewSessions.values()).map(({ id, title, pinned, updatedAt, messages }) => ({ id, title, pinned, updatedAt, messageCount: messages.length })),
+    getZeroThinkSession: async (id) => previewSessions.get(id) || null,
+    saveZeroThinkSession: async (input) => { const value = { ...input, updatedAt: new Date().toISOString() }; previewSessions.set(input.id, value); return value; },
+    deleteZeroThinkSession: async (id) => previewSessions.delete(id),
+    listZeroThinkLibrary: async () => previewLibrary,
+    saveZeroThinkLibrary: async (documents) => { previewLibrary = documents; return documents; },
+    getZeroThinkProfile: async () => previewProfile,
+    saveZeroThinkProfile: async (value) => { previewProfile = value; return value; },
+    copyZeroThinkText: async (value) => { await navigator.clipboard.writeText(value); return true; },
+    importNotes: async () => { throw new Error("Note import requires the desktop app."); },
+    exportNotes: async () => { throw new Error("Note export requires the desktop app."); },
+    searchZeroThinkWeb: async () => { throw new Error("Web search requires the desktop app and your encrypted Serper key."); },
+    selectZeroThinkProject: async () => { throw new Error("Project access requires the desktop app's native folder picker."); },
+    runZeroThinkAgent: async () => { throw new Error("Desktop agent execution requires the desktop app."); },
+    approveZeroThinkAgent: async () => ({ accepted: false }),
+    onZeroThinkAgentProgress: () => () => undefined,
     getZeroThinkProcesses: async () => {
       const response = await fetch("/api/dev-zerothink/processes");
       if (!response.ok) throw new Error("Local research preview is unavailable.");
@@ -58,6 +77,7 @@ if (!window.zeroOne && import.meta.env.DEV) {
       return { saved: true };
     },
     listNotes: async () => [],
+    getNotesEncryptionStatus: async () => ({ version: 0, layers: 0, keys: 0, custody: "development", message: "Desktop encryption is unavailable in this browser review." }),
     saveNote: async () => { throw new Error("ZNotes requires the desktop app and secure OS storage."); },
     deleteNote: async () => false,
     getAppInfo: async () => ({ name: "ZERO ONE", version: previewVersion, platform: navigator.platform.toLowerCase().includes("mac") ? "darwin" : navigator.platform.toLowerCase().includes("linux") ? "linux" : "win32", packaged: false, distribution: "direct" }),
@@ -69,8 +89,8 @@ if (!window.zeroOne && import.meta.env.DEV) {
     quitApp: async () => true,
     onAppNavigate: () => () => undefined,
     getSystemSnapshot: async () => ({ hostname: "ZERO-ONE-PREVIEW", platform: "Windows 11", cpu: "Preview CPU", cores: 16, memoryTotal: 32 * 1024 ** 3, memoryUsed: 11 * 1024 ** 3, memoryPercent: 34, uptimeSeconds: 420000 }),
-    loadSettings: async () => previewSettings,
-    saveSettings: async (settings) => Object.assign(previewSettings, settings),
+    loadSettings: async () => ({ ...previewSettings }),
+    saveSettings: async (settings) => ({ ...Object.assign(previewSettings, settings) }),
     clearLocalData: async () => ({ cleared: false }),
     probeServices: async () => [
       { name: "openzero", state: "online", status: 200, latencyMs: 14, url: previewSettings.openZeroUrl },
@@ -95,6 +115,11 @@ if (!window.zeroOne && import.meta.env.DEV) {
     openDiskEncryptionSettings: async () => false,
   };
 }
+if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("ui-test") === "1") {
+  const { installNotebookFixture } = await import("./ui-notebook-fixture");
+  installNotebookFixture(window.zeroOne);
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />

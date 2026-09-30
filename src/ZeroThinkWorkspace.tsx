@@ -1,137 +1,192 @@
 import { useEffect, useRef, useState } from "react";
 import "./zerothink.css";
+import ZeroThinkAgentWorkspace from "./ZeroThinkAgentWorkspace";
 
-type Props = { settings: ZeroOneSettings; storeManaged: boolean; onSettings: () => void };
-
-export default function ZeroThinkWorkspace({ settings, storeManaged, onSettings }: Props) {
+type Props = { settings: ZeroOneSettings; storeManaged: boolean; onSettings: () => void; onSettingsSaved: (value: ZeroOneSettings) => void };
+const freshSession = (): ZeroThinkSession => ({ id: crypto.randomUUID(), title: "New chat", pinned: false, messages: [], documentIds: [], updatedAt: "" });
+function failure(error: unknown) { return error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/, "") : "This operation could not finish. Your saved work was preserved."; }
+function CopyText({ text, label }: { text: string; label: string }) {
+  const [status, setStatus] = useState(label), [copying, setCopying] = useState(false);
+  async function copy() { setCopying(true); try { setStatus(await window.zeroOne.copyZeroThinkText(text) ? "Copied" : "Copy failed · retry"); } catch { setStatus("Copy failed · retry"); } finally { setCopying(false); } }
+  return <button disabled={copying} onClick={copy} aria-live="polite">{copying ? "Copying…" : status}</button>;
+}
+function Answer({ text }: { text: string }) {
+  // React text nodes keep user/model HTML inert. No remote scripts or HTML execution.
+  return <div className="zt-message-body">{text.split(/(```[\s\S]*?```)/g).filter(Boolean).map((part, index) => {
+    if (part.startsWith("```")) { const code = part.replace(/^```[^\n]*\n?/, "").replace(/```$/, ""); return <div className="zt-code" key={index}><CopyText text={code} label="Copy code" /><pre><code>{code}</code></pre></div>; }
+    return <div className="zt-prose" key={index}>{part}</div>;
+  })}</div>;
+}
+export default function ZeroThinkWorkspace({ settings, storeManaged, onSettings, onSettingsSaved }: Props) {
+  const [tab, setTab] = useState<"chat" | "research" | "agent">("chat");
+  const [session, setSession] = useState<ZeroThinkSession>(freshSession);
+  const [sessions, setSessions] = useState<ZeroThinkSessionSummary[]>([]);
+  const [library, setLibrary] = useState<ZeroThinkDocument[]>([]);
   const [question, setQuestion] = useState("");
   const [processes, setProcesses] = useState<ZeroThinkProcess[]>([]);
   const [processId, setProcessId] = useState("evidence-map");
-  const [documents, setDocuments] = useState<ZeroThinkDocument[]>([]);
-  const [notes, setNotes] = useState<Awaited<ReturnType<Window["zeroOne"]["listNotes"]>>>([]);
+  const [useModel, setUseModel] = useState(true);
+  const [zeroMode, setZeroMode] = useState(true);
+  const [autoWeb, setAutoWeb] = useState(false);
+  const [maxPasses, setMaxPasses] = useState(1);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
-  const [useModel, setUseModel] = useState(false);
-  const [maxPasses, setMaxPasses] = useState(3);
-  const [result, setResult] = useState<ZeroThinkResult | null>(null);
-  const [progress, setProgress] = useState<ZeroThinkProgress | null>(null);
+  const [notes, setNotes] = useState<Awaited<ReturnType<Window["zeroOne"]["listNotes"]>>>([]);
+  const [modelSettings, setModelSettings] = useState(settings);
+  const [credential, setCredential] = useState("");
+  const [savingSetup, setSavingSetup] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("Add your sources or start with a research question.");
+  const [searching, setSearching] = useState(false);
+  const [progress, setProgress] = useState<ZeroThinkProgress | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [message, setMessage] = useState("Ask Zero a question. Your conversations and library are saved on this device.");
+  const [storageReady, setStorageReady] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState("");
+  const [webQuery, setWebQuery] = useState("");
+  const [renameTitle, setRenameTitle] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [profile, setProfile] = useState<ZeroThinkProfile>({ persona: "", facts: [] });
+  const [factText, setFactText] = useState("");
   const runId = useRef("");
-  const started = useRef(0);
-  const providerLabel = settings.assistantProvider === "groq" ? "Groq" : settings.assistantProvider === "openai" ? "OpenAI" : settings.openZeroAssistantMode === "server" ? "Your OpenZero server" : "Local Ollama";
-  const blockedLocal = storeManaged && settings.assistantProvider === "openzero" && settings.openZeroAssistantMode !== "server";
-
+  const transcript = useRef<HTMLDivElement>(null);
+  const selected = library.filter((doc) => session.documentIds.includes(doc.id));
+  const blockedLocal = storeManaged && modelSettings.assistantProvider === "openzero" && modelSettings.openZeroAssistantMode !== "server";
+  const providerLabel = modelSettings.assistantProvider === "groq" ? "Groq" : modelSettings.assistantProvider === "openai" ? "OpenAI" : modelSettings.openZeroAssistantMode === "server" ? "Your server" : "Local Ollama";
+  const keyReady = modelSettings.assistantProvider === "groq" ? modelSettings.hasGroqKey : modelSettings.assistantProvider === "openai" ? modelSettings.hasOpenAiKey : true;
+  const workspaceBusy = busy || searching;
+  useEffect(() => { setModelSettings(settings); }, [settings]);
   useEffect(() => {
-    window.zeroOne.getZeroThinkProcesses().then((value) => {
-      setProcesses(value);
-      if (value.length && !value.some((entry) => entry.id === "evidence-map")) setProcessId(value[0].id);
-    }).catch(() => setMessage("ZeroThink could not load its research processes. Restart ZERO ONE."));
-    return window.zeroOne.onZeroThinkProgress((event) => {
-      if (event.runId === runId.current) setProgress(event);
-    });
+    let alive = true;
+    Promise.all([window.zeroOne.listZeroThinkSessions(), window.zeroOne.listZeroThinkLibrary(), window.zeroOne.getZeroThinkProcesses(), window.zeroOne.getZeroThinkProfile()]).then(async ([saved, sources, available, savedProfile]) => {
+      if (!alive) return;
+      setSessions(saved); setLibrary(sources); setProcesses(available); setStorageReady(true);
+      setProfile(savedProfile); setFactText(savedProfile.facts.join("\n"));
+      if (saved.length) { const latest = await window.zeroOne.getZeroThinkSession(saved[0].id); if (alive && latest) setSession(latest); }
+    }).catch((error) => { if (alive) setMessage(`Workspace storage could not open: ${failure(error)}`); });
+    const unsubscribe = window.zeroOne.onZeroThinkProgress((event) => { if (event.runId === runId.current) setProgress(event); });
+    return () => { alive = false; unsubscribe(); };
   }, []);
-
+  useEffect(() => { transcript.current?.scrollTo({ top: transcript.current.scrollHeight, behavior: "smooth" }); }, [session.messages.length, busy]);
   useEffect(() => {
     if (!busy) return;
-    const interval = window.setInterval(() => setElapsed(Math.floor((Date.now() - started.current) / 1000)), 1000);
-    return () => window.clearInterval(interval);
+    const started = Date.now(), interval = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape" && runId.current) void window.zeroOne.cancelZeroThink(runId.current); };
+    window.addEventListener("keydown", escape);
+    return () => { window.clearInterval(interval); window.removeEventListener("keydown", escape); };
   }, [busy]);
-
-  useEffect(() => {
-    const cancelOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && runId.current) void window.zeroOne.cancelZeroThink(runId.current);
-    };
-    window.addEventListener("keydown", cancelOnEscape);
-    return () => window.removeEventListener("keydown", cancelOnEscape);
-  }, []);
-
-  async function importFiles() {
+  async function persist(value: ZeroThinkSession) {
+    const saved = await window.zeroOne.saveZeroThinkSession(value);
+    setSession(saved); setSessions(await window.zeroOne.listZeroThinkSessions()); return saved;
+  }
+  async function openChat(id: string) {
+    if (workspaceBusy) return;
+    try { const saved = await window.zeroOne.getZeroThinkSession(id); if (saved) { setSession(saved); setQuestion(""); setMessage("Conversation restored. Ask a follow-up."); } }
+    catch (error) { setMessage(failure(error)); }
+  }
+  async function renameChat() {
+    if (workspaceBusy) return;
+    try { await persist({ ...session, title: renameTitle.trim().slice(0, 160) || "New chat" }); setRenaming(false); } catch (error) { setMessage(failure(error)); }
+  }
+  async function deleteChat() {
+    if (workspaceBusy) return;
+    if (!window.confirm("Remove this conversation from this device? Export it first if you want to keep a copy.")) return;
+    try { await window.zeroOne.deleteZeroThinkSession(session.id); setSession(freshSession()); setSessions(await window.zeroOne.listZeroThinkSessions()); setMessage("Conversation removed. Your source files and library remain."); } catch (error) { setMessage(failure(error)); }
+  }
+  async function addSources(imported: ZeroThinkDocument[]) {
+    const merged = [...library]; for (const doc of imported) { const index = merged.findIndex((item) => item.id === doc.id); if (index < 0) merged.push(doc); else merged[index] = doc; }
+    if (merged.length > 32 || merged.reduce((sum, doc) => sum + new TextEncoder().encode(doc.text).length, 0) > 2 * 1024 * 1024) throw new Error("Your library holds 32 sources and 2 MB of text. Remove an old library source first.");
+    setLibrary(await window.zeroOne.saveZeroThinkLibrary(merged));
+    const ids = [...new Set([...session.documentIds, ...imported.map((doc) => doc.id)])].slice(0, 8);
+    await persist({ ...session, documentIds: ids }); setShowLibrary(true);
+    setMessage(`Added ${imported.length} sources to your private library. ${ids.length} selected for this conversation.`);
+  }
+  async function importFiles() { if (workspaceBusy) return; try { const imported = await window.zeroOne.importZeroThinkDocuments(); if (imported.length) await addSources(imported); } catch (error) { setMessage(failure(error)); } }
+  async function openNotes() { if (workspaceBusy) return; try { setNotes(await window.zeroOne.listNotes()); setShowNotes(true); setShowLibrary(true); } catch (error) { setMessage(failure(error)); } }
+  async function selectSource(id: string) {
+    if (workspaceBusy) return;
+    const ids = session.documentIds.includes(id) ? session.documentIds.filter((item) => item !== id) : [...session.documentIds, id];
+    if (ids.length > 8) { setMessage("Select up to eight sources for a run. Your other library sources stay saved."); return; }
+    try { await persist({ ...session, documentIds: ids }); } catch (error) { setMessage(failure(error)); }
+  }
+  async function removeLibrarySource(id: string) {
+    if (workspaceBusy) return;
+    if (!window.confirm("Remove this source from the local library? The original file will remain unchanged.")) return;
+    try { setLibrary(await window.zeroOne.saveZeroThinkLibrary(library.filter((doc) => doc.id !== id))); await persist({ ...session, documentIds: session.documentIds.filter((item) => item !== id) }); } catch (error) { setMessage(failure(error)); }
+  }
+  async function searchWeb() {
+    if (!webQuery.trim() || workspaceBusy) return; setSearching(true);
+    try { const found = await window.zeroOne.searchZeroThinkWeb(webQuery.trim()); if (found.length) await addSources(found); else setMessage("The search returned no usable source snippets. Try another query."); }
+    catch (error) { setMessage(failure(error)); } finally { setSearching(false); }
+  }
+  async function saveModel() {
+    if (workspaceBusy) return;
+    setSavingSetup(true);
     try {
-      const imported = await window.zeroOne.importZeroThinkDocuments();
-      if (!imported.length) return;
-      const merged = [...documents, ...imported];
-      if (merged.length > 8 || merged.reduce((sum, doc) => sum + new TextEncoder().encode(doc.text).length, 0) > 2 * 1024 * 1024) throw new Error("This workspace accepts up to 8 sources and 2 MB of text. Remove a source first.");
-      setDocuments(merged);
-      setMessage(`Imported ${imported.length} local source${imported.length === 1 ? "" : "s"}. Review the excerpts before using a model.`);
-    } catch (error) { setMessage(error instanceof Error ? error.message : "The sources could not be imported."); }
+      const input: Partial<ZeroOneSettings> = { assistantProvider: modelSettings.assistantProvider, openZeroAssistantMode: modelSettings.openZeroAssistantMode, model: modelSettings.model, openZeroUrl: modelSettings.openZeroUrl, openZeroServerModel: modelSettings.openZeroServerModel };
+      if (credential.trim()) { if (modelSettings.assistantProvider === "groq") input.groqKey = credential.trim(); else if (modelSettings.assistantProvider === "openai") input.openAiKey = credential.trim(); else input.openZeroToken = credential.trim(); }
+      const saved = await window.zeroOne.saveSettings(input); setModelSettings(saved); onSettingsSaved(saved); setCredential(""); setShowSetup(false); setMessage("Model settings saved. Questions and selected excerpts go to the provider you chose.");
+    } catch (error) { setMessage(failure(error)); } finally { setSavingSetup(false); }
   }
-
-  async function openNotes() {
-    try { setNotes(await window.zeroOne.listNotes()); setShowNotes(true); }
-    catch { setMessage("ZNotes could not be opened. Secure operating-system storage must be available."); }
+  async function saveProfile() {
+    if (workspaceBusy) return;
+    try { const saved = await window.zeroOne.saveZeroThinkProfile({ persona: profile.persona, facts: factText.split("\n").map((line) => line.trim()).filter(Boolean) }); setProfile(saved); setFactText(saved.facts.join("\n")); setShowProfile(false); setMessage("Your persona and explicit remembered facts were saved locally. They are used only with your selected model."); } catch (error) { setMessage(failure(error)); }
   }
-
-  function addNote(note: typeof notes[number]) {
-    if (documents.length >= 8) { setMessage("This workspace accepts up to 8 sources. Remove a source first."); return; }
-    if (documents.some((doc) => doc.id === note.id)) return;
-    const merged = [...documents, { id: note.id, title: note.title, text: note.content }];
-    if (merged.reduce((sum, doc) => sum + new TextEncoder().encode(doc.text).length, 0) > 2 * 1024 * 1024) { setMessage("The combined source text exceeds 2 MB."); return; }
-    setDocuments(merged);
-  }
-
   async function run() {
-    if (!question.trim() || busy) return;
-    runId.current = crypto.randomUUID();
-    started.current = Date.now();
-    setBusy(true); setElapsed(0); setResult(null);
-    setProgress({ runId: runId.current, stage: "prepare", status: "running", message: "Preparing your question and selected sources…", pass: 0, maxPasses });
-    setMessage(useModel ? `Starting with ${providerLabel}. Selected source text will be sent to that endpoint.` : "Building a local evidence map. No model or network request is needed.");
+    if (!question.trim() || workspaceBusy) return;
+    const wantsModel = tab === "chat" || useModel;
+    if (wantsModel && (blockedLocal || !keyReady)) { setShowSetup(true); setMessage(blockedLocal ? "Choose your own model server or an API provider for this Store edition." : `Add your ${providerLabel} API key to start chat. Research can still build evidence maps offline.`); return; }
+    if (!storageReady) { setMessage("Open secure workspace storage before starting a saved conversation."); return; }
+    const prompt = question.trim(), previous = session.messages;
+    if (previous.length >= 98) { setMessage("Start a new conversation before the 100-message limit. Your previous chat remains saved."); return; }
+    const user: ZeroThinkMessage = { id: crypto.randomUUID(), role: "user", content: prompt };
+    const pending = { ...session, title: session.messages.length ? session.title : prompt.slice(0, 100), messages: [...previous, user] };
+    setBusy(true); setElapsed(0); runId.current = crypto.randomUUID(); setProgress(null);
     try {
-      const answer = await window.zeroOne.runZeroThink({ runId: runId.current, question, mode: "research", processId, documents, maxPasses: useModel ? maxPasses : 1, tokenBudget: 3072, useModel });
-      setResult(answer);
-      setMessage(answer.status === "offline" ? "Local evidence map complete. Enable your selected model for an optional draft and review." : "Research passes complete. Inspect the evidence and citation warnings before relying on the answer.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "") : "The research run could not finish.");
-    } finally { setBusy(false); runId.current = ""; }
+      await persist(pending); setQuestion(""); setMessage(`I’m on it. ${wantsModel ? `Using ${providerLabel}.` : "Building an offline evidence map."}`);
+      const conversation: Array<{ role: "user" | "assistant"; content: string }> = []; let characters = 0;
+      for (const item of previous.slice(-24).reverse()) { if (characters + item.content.length > 96000) break; characters += item.content.length; conversation.unshift({ role: item.role, content: item.content }); }
+      const answer = await window.zeroOne.runZeroThink({ runId: runId.current, question: prompt, mode: tab === "chat" ? "chat" : "research", processId, documents: selected, maxPasses: wantsModel ? maxPasses : 1, tokenBudget: 3072, useModel: wantsModel, zeroMode, autoWeb: autoWeb && wantsModel, conversation });
+      const response: ZeroThinkMessage = { id: crypto.randomUUID(), role: "assistant", content: answer.answer, reasoningBrief: answer.reasoningBrief || "", result: answer };
+      await persist({ ...pending, messages: [...pending.messages, response] }); setMessage(answer.status === "offline" ? "Evidence map saved. Choose a model for a draft, or add more sources." : "Answer saved. Ask a follow-up or start a new chat.");
+    } catch (error) { setMessage(failure(error)); } finally { setBusy(false); runId.current = ""; }
   }
-
-  async function saveReport() {
-    if (!result) return;
-    try {
-      await window.zeroOne.saveNote({ id: crypto.randomUUID(), title: `ZeroThink: ${result.question.slice(0, 100)}`, content: result.markdown });
-      setMessage("Report saved as an encrypted ZNote on this device.");
-    } catch { setMessage("The report could not be saved. Check that secure storage is available."); }
+  async function saveToNotes(result: ZeroThinkResult) {
+    try { await window.zeroOne.saveNote({ id: crypto.randomUUID(), title: `ZeroThink: ${result.question.slice(0, 100)}`, content: result.markdown }); setMessage("Saved to ZNotes on this device."); } catch (error) { setMessage(failure(error)); }
   }
-
-  async function exportReport(format: "markdown" | "json") {
-    if (!result) return;
-    try {
-      const saved = await window.zeroOne.exportZeroThinkReport({ format, result });
-      if (saved.saved) setMessage("Report exported to your chosen file. Exports are readable plaintext; keep private reports in a protected folder.");
-    } catch { setMessage("The export could not be written."); }
+  async function exportResult(result: ZeroThinkResult, format: "markdown" | "json") {
+    try { if ((await window.zeroOne.exportZeroThinkReport({ result, format })).saved) setMessage("Export saved as readable text. Keep private exports in a protected folder."); } catch (error) { setMessage(failure(error)); }
   }
-
-  const activeProcess = processes.find((entry) => entry.id === processId);
-  return <section className="zerothink-workspace" aria-label="ZeroThink research workspace">
-    <header className="zt-hero">
-      <div><p className="zt-kicker">LOCAL RESEARCH WORKSPACE</p><h1>ZeroThink<span>From question to evidence.</span></h1><p>Your documents, your model, your work. Search sources and build evidence maps offline, or ask your chosen model to draft, critique and revise.</p></div>
-      <div className="zt-local-badge"><span>◉</span><strong>SELF HOSTED</strong><small>No hosted account or company server required</small></div>
-    </header>
-    <div className="zt-layout">
-      <aside className="zt-sources glass-card">
-        <div className="zt-panel-head"><h2>Source library</h2><span>{documents.length}/8</span></div>
-        <p className="zt-help">Only sources you select enter this session. Nothing is saved automatically.</p>
-        <div className="zt-source-actions"><button onClick={importFiles} disabled={busy}>＋ Import files</button><button onClick={openNotes} disabled={busy}>From ZNotes</button></div>
-        <small className="zt-file-types">Text, Markdown, JSON, CSV · 1 MB each · 2 MB total</small>
-        {showNotes && <div className="zt-note-picker"><div className="zt-panel-head"><strong>Select a note</strong><button onClick={() => setShowNotes(false)} aria-label="Close note picker">×</button></div>{notes.length ? notes.map((note) => <button key={note.id} onClick={() => addNote(note)} disabled={busy || documents.some((doc) => doc.id === note.id)}>{note.title}<small>{note.content.length.toLocaleString()} characters</small></button>) : <p>No saved ZNotes yet.</p>}</div>}
-        <div className="zt-source-list">{documents.map((doc, index) => <article key={`${doc.id}-${index}`}><div><span>S{index + 1}</span><strong>{doc.title}</strong><button disabled={busy} aria-label={`Remove source ${index + 1}`} onClick={() => setDocuments((current) => current.filter((_, at) => at !== index))}>×</button></div><details><summary>Preview source · {doc.text.length.toLocaleString()} characters</summary><pre>{doc.text.slice(0, 6000)}{doc.text.length > 6000 ? "\n[Preview shortened; the engine retrieves bounded excerpts.]" : ""}</pre></details></article>)}</div>
-        {!documents.length && <div className="zt-empty-library"><span>⌕</span><strong>Start with your evidence</strong><p>Import a paper’s text, project notes or a research dataset. The source ledger stays inspectable.</p></div>}
-        <div className="zt-source-footer">Source text is held in memory for this workspace. Save a completed report to ZNotes to keep it.</div>
-      </aside>
-      <div className="zt-main">
-        <section className="zt-request glass-card">
-          <label className="zt-question-label" htmlFor="zt-question">What do you want to investigate?</label>
-          <textarea id="zt-question" maxLength={12000} value={question} disabled={busy} onChange={(event) => setQuestion(event.target.value)} placeholder="Compare the claims in these sources, find gaps, and propose a testable next step…" />
-          <div className="zt-controls"><label>Research process<select value={processId} disabled={busy} onChange={(event) => setProcessId(event.target.value)}>{processes.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select></label><label>Model passes<select value={maxPasses} disabled={busy || !useModel} onChange={(event) => setMaxPasses(Number(event.target.value))}><option value={1}>1 · Draft</option><option value={2}>2 · Draft + revision</option><option value={3}>3 · Draft + critique + revision</option></select></label></div>
-          {activeProcess && <p className="zt-process-description">{activeProcess.description}</p>}
-          <div className="zt-model-choice"><label><input type="checkbox" checked={useModel} disabled={busy || blockedLocal} onChange={(event) => setUseModel(event.target.checked)} />Use {providerLabel}</label><button onClick={onSettings}>Configure model</button></div>
-          <p className="zt-help">{blockedLocal ? "This Store edition works offline immediately. Configure your own OpenZero server, Groq or OpenAI for optional model passes." : useModel ? `Your question and retrieved source excerpts are sent only to ${providerLabel}. No automatic provider fallback. Up to 3,072 requested output tokens per run.` : "Offline mode searches the selected documents and generates an evidence map and research checklist. It does not generate a model answer or browse the web."}</p>
-          <div className="zt-run-row"><div role="status" aria-live="polite">{busy ? `${progress?.message || "Working…"} · ${elapsed}s` : message}</div>{busy ? <button className="zt-stop" onClick={() => void window.zeroOne.cancelZeroThink(runId.current)}>Stop · Esc</button> : <button className="primary-action" disabled={!question.trim()} onClick={run}>{useModel ? "Start research →" : "Build evidence map →"}</button>}</div>
-          {busy && <div className="zt-progress"><span style={{ width: `${Math.max(8, (progress?.pass || 0) / maxPasses * 100)}%` }} /></div>}
-        </section>
-        {result ? <section className="zt-result glass-card"><div className="zt-panel-head"><div><p className="zt-kicker">{result.status === "offline" ? "LOCAL EVIDENCE MAP" : "RESEARCH REPORT"}</p><h2>Your working result</h2></div><span>{result.metrics.passes} model passes</span></div><div className="zt-result-actions"><button onClick={saveReport}>Save to encrypted ZNotes</button><button onClick={() => exportReport("markdown")}>Export Markdown</button><button onClick={() => exportReport("json")}>Export JSON</button></div><pre className="zt-answer">{result.answer}</pre>{result.warnings.length > 0 && <div className="zt-warnings" role="status"><strong>Review notes</strong><ul>{result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></div>}<div className="zt-evidence-head"><h3>Evidence ledger</h3><span>{result.evidence.length} retrieved excerpts</span></div>{result.evidence.map((entry, index) => <details className="zt-evidence" key={`${entry.chunkId}-${index}`}><summary><b>[{entry.sourceId}]</b> {entry.title}</summary>{entry.sourceUrl && <span className="zt-source-url">{entry.sourceUrl}</span>}<pre>{entry.excerpt}</pre></details>)}{!result.evidence.length && <p className="zt-help">No matching source excerpts. Add relevant source material to ground this question.</p>}<p className="zt-help">Citation checks establish whether a referenced source ID exists in this workspace. They do not establish that a scientific claim is true.</p></section> : <section className="zt-intro glass-card"><span>↗</span><h2>A research desk you control.</h2><div><article><b>01</b><strong>Bring your sources</strong><p>Import local files or selected encrypted notes. Inspect what the engine will use.</p></article><article><b>02</b><strong>Follow the evidence</strong><p>Deterministic retrieval assigns source IDs and builds a useful map without an API.</p></article><article><b>03</b><strong>Review and keep</strong><p>Optional model passes challenge the draft. Export the ledger or save the report locally.</p></article></div></section>}
+  async function exportConversation() {
+    const markdown = `# ${session.title}\n\n${session.messages.map((item) => `## ${item.role === "user" ? "You" : "Zero"}\n\n${item.reasoningBrief ? `### Zero mode public brief\n\n${item.reasoningBrief}\n\n` : ""}${item.content}`).join("\n\n")}`;
+    await exportResult({ version: "1.1.0", status: "completed", mode: "chat", question: session.title, answer: markdown, markdown, evidence: [], citations: { valid: [], unknown: [], missing: false }, steps: [], metrics: { passes: 0, requestedTokens: 0, sourceCount: 0, retrievedCount: 0 }, warnings: [] }, "markdown");
+  }
+  return <section className="zerothink-workspace zt-studio" aria-label="ZeroThink Studio">
+    <aside className="zt-chat-sidebar">
+      <div className="zt-studio-brand">Zero<span>Think</span><small>STUDIO · PRIVATE WORKSPACE</small></div>
+      <button className="zt-new-chat" disabled={workspaceBusy} onClick={() => { setSession(freshSession()); setQuestion(""); setMessage("New conversation. Ask Zero anything, or select library sources."); }}>＋ New chat</button>
+      <div className="zt-tab-switch"><button className={tab === "chat" ? "active" : ""} onClick={() => setTab("chat")} disabled={workspaceBusy}>Chat</button><button className={tab === "research" ? "active" : ""} onClick={() => setTab("research")} disabled={workspaceBusy}>Research</button><button className={tab === "agent" ? "active" : ""} onClick={() => setTab("agent")} disabled={workspaceBusy}>Agent</button></div>
+      <button className="zt-library-toggle" onClick={() => setShowLibrary(!showLibrary)}>▤ Zero Library <span>{library.length}</span></button>
+      <button className="zt-library-toggle" disabled={workspaceBusy} onClick={() => setShowProfile(!showProfile)}>◈ Persona & memory <span>{profile.facts.length}</span></button>
+      <input className="zt-history-filter" value={historyFilter} onChange={(event) => setHistoryFilter(event.target.value)} placeholder="Find a conversation…" aria-label="Find a conversation" />
+      <div className="zt-chat-history">{sessions.filter((entry) => entry.title.toLowerCase().includes(historyFilter.toLowerCase())).map((entry) => <button key={entry.id} className={entry.id === session.id ? "active" : ""} disabled={workspaceBusy} onClick={() => void openChat(entry.id)}><span>{entry.pinned ? "★ " : ""}{entry.title}</span><small>{entry.messageCount} messages</small></button>)}{!sessions.length && <p>Your saved conversations appear here. No website account is needed.</p>}</div>
+      <div className="zt-private-status"><span>◈ ON THIS DEVICE</span><p>Encrypted conversations and sources. Keys stay in the app’s private credential storage.</p><button onClick={() => setShowSetup(!showSetup)}>Model setup · {providerLabel}</button></div>
+    </aside>
+    <div className="zt-studio-main">
+      <header className="zt-studio-header"><div><p>{tab === "chat" ? "ZERO CONVERSATION" : tab === "agent" ? "PROJECT AGENT" : "EVIDENCE AND RESEARCH"}</p><h1>{tab === "agent" ? "ZeroThink Agent" : session.title}</h1></div>{tab !== "agent" && <div className="zt-chat-actions"><button onClick={() => { setRenameTitle(session.title); setRenaming(true); }} disabled={workspaceBusy || !storageReady}>Rename</button><button disabled={workspaceBusy || !storageReady} onClick={() => void persist({ ...session, pinned: !session.pinned }).catch((error) => setMessage(failure(error)))}>{session.pinned ? "Unpin" : "Pin"}</button><button onClick={exportConversation} disabled={!session.messages.length}>Export</button><button onClick={deleteChat} disabled={workspaceBusy || !session.messages.length}>Remove</button></div>}</header>
+      {renaming && <div className="zt-web-search"><input value={renameTitle} onChange={(event) => setRenameTitle(event.target.value)} aria-label="Conversation title" maxLength={160} autoFocus /><button onClick={renameChat}>Save title</button><button onClick={() => setRenaming(false)}>Cancel</button></div>}
+      <div className="zt-auto-web-controls" hidden={tab === "agent"}><label><input type="checkbox" checked={autoWeb} disabled={workspaceBusy || !modelSettings.hasSerperKey || (tab === "research" && !useModel)} onChange={(event) => setAutoWeb(event.target.checked)} />Automatic web research</label><small>{modelSettings.hasSerperKey ? "When enabled, Zero decides whether to search and sends a generated public query to Serper. Search snippets enter this run; full pages are not fetched." : "Add a private Serper key in app Settings to enable the original automatic research workflow."}</small>{!modelSettings.hasSerperKey && <button onClick={onSettings}>Search setup</button>}</div>
+      {showProfile && <section className="zt-inline-setup zt-profile-editor" aria-label="ZeroThink persona and memory"><div className="zt-panel-head"><strong>Your persona and explicit memory</strong><button onClick={() => setShowProfile(false)} aria-label="Close persona and memory">×</button></div><label>Persona / writing preferences<textarea maxLength={8000} disabled={workspaceBusy} value={profile.persona} onChange={(event) => setProfile({ ...profile, persona: event.target.value })} placeholder="For example: explain plainly, help me code, and ask before changing important files." /></label><label>Facts you want remembered · one per line<textarea value={factText} disabled={workspaceBusy} maxLength={21000} onChange={(event) => setFactText(event.target.value)} placeholder="Up to 20 facts, 1,000 characters each. Add only what you want your chosen model to receive." /></label><p>These are your explicit statements, not independently verified facts. The latest five are included in model context, matching the original ZeroThink memory flow. Nothing is automatically extracted from your files or chats.</p><button className="primary-action" onClick={saveProfile} disabled={!storageReady || workspaceBusy}>Save persona and memory</button></section>}
+      {showSetup && <section className="zt-inline-setup" aria-label="ZeroThink model setup"><div className="zt-panel-head"><strong>Your model, your endpoint</strong><button onClick={() => setShowSetup(false)} aria-label="Close model setup">×</button></div><div className="zt-setup-grid"><label>Provider<select value={modelSettings.assistantProvider} onChange={(event) => setModelSettings({ ...modelSettings, assistantProvider: event.target.value as ZeroOneSettings["assistantProvider"] })}><option value="openzero">Your server / Local Ollama</option><option value="groq">Groq</option><option value="openai">OpenAI</option></select></label>{modelSettings.assistantProvider === "openzero" && <label>Model location<select value={modelSettings.openZeroAssistantMode} onChange={(event) => setModelSettings({ ...modelSettings, openZeroAssistantMode: event.target.value as "local" | "server" })}><option value="server">My own model server</option>{!storeManaged && <option value="local">Local Ollama</option>}</select></label>}<label>Model ID<input value={modelSettings.assistantProvider === "openzero" && modelSettings.openZeroAssistantMode === "server" ? modelSettings.openZeroServerModel : modelSettings.model} onChange={(event) => setModelSettings({ ...modelSettings, ...(modelSettings.assistantProvider === "openzero" && modelSettings.openZeroAssistantMode === "server" ? { openZeroServerModel: event.target.value } : { model: event.target.value }) })} placeholder="A model available on your chosen provider" /></label>{modelSettings.assistantProvider === "openzero" && modelSettings.openZeroAssistantMode === "server" && <label>Server address<input value={modelSettings.openZeroUrl} onChange={(event) => setModelSettings({ ...modelSettings, openZeroUrl: event.target.value })} placeholder="https://your-server.example" /></label>}<label>Private key / token<input type="password" autoComplete="off" value={credential} onChange={(event) => setCredential(event.target.value)} placeholder="Leave empty to keep the saved key" /></label></div><p>Questions and selected excerpts are sent to your chosen model. Remote servers need HTTPS. This does not download or train models.</p><div><button className="primary-action" onClick={saveModel} disabled={savingSetup}>{savingSetup ? "Saving…" : "Save model settings"}</button><button onClick={onSettings}>All app settings</button></div></section>}
+      {showLibrary && <section className="zt-studio-library" aria-label="Zero Library"><div className="zt-panel-head"><div><strong>Zero Library</strong><small>{selected.length}/8 selected · {library.length}/32 saved</small></div><div><button onClick={importFiles} disabled={workspaceBusy || !storageReady}>＋ Import text files</button><button onClick={openNotes} disabled={workspaceBusy || !storageReady}>From ZNotes</button><button onClick={() => setShowLibrary(false)} aria-label="Close Zero Library">×</button></div></div><p>Selected TXT, Markdown, CSV and JSON sources stay in your encrypted library. Up to 1 MB per file and 2 MB total. Only checked sources enter this conversation.</p><div className="zt-web-search"><input value={webQuery} onChange={(event) => setWebQuery(event.target.value)} placeholder="Search the web for sources…" aria-label="Web source query" /><button onClick={searchWeb} disabled={workspaceBusy || searching || !storageReady || !webQuery.trim()}>{searching ? "Searching…" : "Search web"}</button><button onClick={onSettings}>Search key settings</button></div><small>Serper search uses your saved key. Search snippets are labeled excerpts, not full-text papers.</small>{showNotes && <div className="zt-note-picker"><strong>Select a ZNote</strong><button onClick={() => setShowNotes(false)}>Close</button>{notes.map((note) => <button key={note.id} onClick={() => void addSources([{ id: note.id, title: note.title, text: note.content }]).catch((error) => setMessage(failure(error)))}>{note.title}</button>)}{!notes.length && <p>No saved notes yet.</p>}</div>}<div className="zt-library-items">{library.map((doc) => <article key={doc.id}><label><input type="checkbox" checked={session.documentIds.includes(doc.id)} disabled={workspaceBusy} onChange={() => void selectSource(doc.id)} /><strong>{doc.title}</strong></label><details><summary>{doc.text.length.toLocaleString()} characters · Preview</summary><pre>{doc.text.slice(0, 6000)}</pre>{doc.sourceUrl && <span>{doc.sourceUrl}</span>}</details><button disabled={workspaceBusy} onClick={() => void removeLibrarySource(doc.id)} aria-label={`Remove ${doc.title} from library`}>Remove from library</button></article>)}</div></section>}
+      <div className="zt-agent-host" hidden={tab !== "agent"} inert={tab !== "agent"} aria-hidden={tab !== "agent"}><ZeroThinkAgentWorkspace settings={settings} onSettings={onSettings} /></div>
+      <div className="zt-conversation-host" hidden={tab === "agent"} inert={tab === "agent"} aria-hidden={tab === "agent"}><div className="zt-transcript" ref={transcript} aria-live="polite">
+        {!session.messages.length && <div className="zt-chat-welcome"><span>◈</span><h2>Your ZeroThink workspace.</h2><p>Talk to Zero, keep the conversation, and build on your own sources. The original Zero mode’s five named lanes return as an inspectable public brief.</p><div>{["Help me plan and build an app", "Explain a difficult idea with examples", "Review a research claim and its gaps"].map((prompt) => <button key={prompt} onClick={() => setQuestion(prompt)}>{prompt} ↗</button>)}</div><p>Chat uses your selected model. Research can map library evidence offline. Computer and browser actions belong to ZERO ONE’s separate Browser Pilot.</p></div>}
+        {session.messages.map((entry) => <article key={entry.id} className={`zt-chat-message ${entry.role}`}><div className="zt-message-label">{entry.role === "user" ? "YOU" : "ZERO"}</div>{entry.reasoningBrief && <details className="zt-public-brief"><summary>◈ Zero mode · public approach and evidence</summary><pre>{entry.reasoningBrief}</pre></details>}<Answer text={entry.content} />{entry.role === "assistant" && <div className="zt-message-tools"><CopyText text={entry.content} label="Copy answer" />{entry.result && <><button onClick={() => void saveToNotes(entry.result!)}>Save to ZNotes</button><button onClick={() => void exportResult(entry.result!, "markdown")}>Export Markdown</button><button onClick={() => void exportResult(entry.result!, "json")}>Export JSON</button></>}</div>}{entry.result && entry.result.evidence.length > 0 && <details className="zt-chat-ledger"><summary>Evidence ledger · {entry.result.evidence.length} selected excerpts</summary>{entry.result.evidence.map((item, index) => <details key={`${item.chunkId}-${index}`}><summary>[{item.sourceId}] {item.title}</summary><pre>{item.excerpt}</pre>{item.sourceUrl && <span>{item.sourceUrl}</span>}</details>)}</details>}{entry.result && entry.result.warnings.length > 0 && <details className="zt-chat-ledger"><summary>Review notes · {entry.result.warnings.length}</summary><ul>{entry.result.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></details>}</article>)}
+        {busy && <div className="zt-working" role="status"><span />{progress?.message || "I’m on it. Preparing your request…"} · {elapsed}s</div>}
       </div>
+      <section className="zt-composer"><div className="zt-composer-controls"><button className={zeroMode ? "active" : ""} onClick={() => setZeroMode(!zeroMode)} disabled={workspaceBusy} aria-pressed={zeroMode}>◈ Zero mode {zeroMode ? "on" : "off"}</button><button onClick={() => setShowSetup(!showSetup)}>{providerLabel} · Model setup</button><button onClick={() => setShowLibrary(!showLibrary)}>Sources · {selected.length}</button><label>Depth<select value={maxPasses} onChange={(event) => setMaxPasses(Number(event.target.value))} disabled={workspaceBusy}><option value={1}>1 · Direct answer</option><option value={2}>2 · Draft + revision</option><option value={3}>3 · Research + critique + final</option></select></label></div>{tab === "research" && <div className="zt-research-options"><label>Process<select value={processId} disabled={workspaceBusy} onChange={(event) => setProcessId(event.target.value)}>{processes.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}</select></label><label><input type="checkbox" checked={useModel} onChange={(event) => setUseModel(event.target.checked)} disabled={workspaceBusy} /> Use selected model</label><small>{useModel ? "Draft and review with your selected model." : "Offline evidence map and checklist; no generated model answer or web search."}</small></div>}<div className="zt-input-row"><textarea value={question} maxLength={12000} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void run(); } }} placeholder={tab === "chat" ? "Ask Zero anything, or continue this conversation…" : "What do you want to investigate in the selected sources?"} aria-label="Message ZeroThink" disabled={workspaceBusy} />{busy ? <button className="zt-stop" onClick={() => void window.zeroOne.cancelZeroThink(runId.current)}>Stop · Esc</button> : <button className="zt-send" onClick={run} disabled={!question.trim() || !storageReady || workspaceBusy}>Send ↑</button>}</div><p className="zt-composer-status" role="status">{message}</p><small>Enter to send · Shift + Enter for a new line · {zeroMode ? "Public five-lane brief enabled" : "Direct answer"} · No company server required</small></section></div>
     </div>
   </section>;
 }

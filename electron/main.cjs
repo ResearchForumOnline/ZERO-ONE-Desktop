@@ -1,9 +1,10 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, safeStorage, session, shell, Tray, webContents } = require("electron");
+const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, net, safeStorage, session, shell, Tray, webContents } = require("electron");
 const { execFile, spawn } = require("node:child_process");
 const { randomUUID } = require("node:crypto");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
+const { TextDecoder } = require("node:util");
 const { fileURLToPath } = require("node:url");
 const { parseZsecScanReport, parseZsecStatusPayload } = require("./zsec-contract.cjs");
 const { cleanConfiguredUrl, diagnosticOrigin, isAllowedUrl: urlIsAllowed } = require("./url-policy.cjs");
@@ -13,7 +14,11 @@ const { DEFAULT_LOCAL_MODEL, DEFAULT_OPENZERO_SERVER_MODEL, LOCAL_ASSISTANT_SYST
 const { checkLatestStableRelease, storeManagedUpdateResult } = require("./update-check.cjs");
 const { downloadVerifiedAsset, fetchTextLimited, parseSha256Sums, safeUpdateFilename } = require("./update-installer.cjs");
 const { classifyBrowserAction, normalizeHttpUrl, requestBrowserPlan } = require("./browser-pilot.cjs");
-const { runResearch, getProcesses: getZeroThinkProcesses } = require("./zerothink/engine.cjs");
+const { getProcesses: getZeroThinkProcesses } = require("./zerothink/engine.cjs");
+const { runStudio } = require("./zerothink-studio.cjs");
+const { createStudioStore } = require("./zerothink-studio-store.cjs");
+const { searchWeb } = require("./zerothink-web.cjs");
+const { runAgent } = require("./zerothink-agent.cjs");
 const { buildCompletionAdapter, normalizeResearchRequest, cleanImportedDocument, DOCUMENT_BYTES, CORPUS_BYTES } = require("./zerothink-desktop.cjs");
 const {
   saveLogin,
@@ -359,7 +364,7 @@ async function loadSettingsInternal() {
 
 function sanitizeLastView(value) {
   const view = String(value || "home");
-  if (view === "home" || view === "notes" || view === "shield" || view === "agents" || view === "pilot" || view === "settings") return view;
+  if (view === "home" || view === "notes" || view === "zerothink" || view === "shield" || view === "agents" || view === "pilot" || view === "settings") return view;
   if (/^service:(openzero)$/.test(view)) return view;
   return "home";
 }
@@ -376,8 +381,8 @@ function decryptSecret(settings, key) {
 function decryptToken(settings) { return decryptSecret(settings, "openZeroTokenEncrypted"); }
 
 function publicSettings(settings) {
-  const { openZeroTokenEncrypted: _privateToken, openAiKeyEncrypted: _openAiKey, groqKeyEncrypted: _groqKey, zeroThinkTokenEncrypted: _zeroThinkToken, trayNoticeShown: _trayNoticeShown, ...visible } = settings;
-  return { ...visible, hasOpenZeroToken: Boolean(decryptToken(settings)), hasOpenAiKey: Boolean(decryptSecret(settings, "openAiKeyEncrypted")), hasGroqKey: Boolean(decryptSecret(settings, "groqKeyEncrypted")) };
+  const { openZeroTokenEncrypted: _privateToken, openAiKeyEncrypted: _openAiKey, groqKeyEncrypted: _groqKey, serperKeyEncrypted: _serperKey, zeroThinkTokenEncrypted: _zeroThinkToken, trayNoticeShown: _trayNoticeShown, ...visible } = settings;
+  return { ...visible, hasOpenZeroToken: Boolean(decryptToken(settings)), hasOpenAiKey: Boolean(decryptSecret(settings, "openAiKeyEncrypted")), hasGroqKey: Boolean(decryptSecret(settings, "groqKeyEncrypted")), hasSerperKey: Boolean(decryptSecret(settings, "serperKeyEncrypted")) };
 }
 
 async function saveSettingsInternal(input) {
@@ -409,6 +414,7 @@ async function saveSettingsInternal(input) {
   for (const [inputKey, encryptedKey, clearKey] of [
     ["openAiKey", "openAiKeyEncrypted", "clearOpenAiKey"],
     ["groqKey", "groqKeyEncrypted", "clearGroqKey"],
+    ["serperKey", "serperKeyEncrypted", "clearSerperKey"],
   ]) {
     if (input[clearKey]) delete next[encryptedKey];
     else if (typeof input[inputKey] === "string" && input[inputKey].trim()) {
@@ -488,6 +494,8 @@ async function handleFirstHideToTray() {
 const { createNotesStore } = require("./notes-store.cjs");
 let notesStore;
 function localNotes() { return notesStore ||= createNotesStore({ filePath: path.join(app.getPath("userData"), "znotes.encrypted.json"), storage: safeStorage, secure: credentialStorageIsSecure }); }
+let studioStore;
+function localStudio() { return studioStore ||= createStudioStore({ filePath: path.join(app.getPath("userData"), "zerothink-studio.encrypted.json"), storage: safeStorage, secure: credentialStorageIsSecure }); }
 
 async function probe(name, url) {
   const started = Date.now();
@@ -966,8 +974,113 @@ ipcMain.handle("workspace:clear-logins", async (event) => {
 });
 
 ipcMain.handle("notes:list", async (event) => { requireTrustedIpcSender(event); return localNotes().list(); });
+ipcMain.handle("notes:encryption-status", async (event) => { requireTrustedIpcSender(event); return localNotes().encryptionStatus(); });
 ipcMain.handle("notes:save", async (event, input) => { requireTrustedIpcSender(event); return localNotes().save(input); });
 ipcMain.handle("notes:delete", async (event, id) => { requireTrustedIpcSender(event); return localNotes().remove(id); });
+
+ipcMain.handle("notes:import", async (event) => {
+  requireTrustedIpcSender(event);
+  const selected = await dialog.showOpenDialog(mainWindow, { title: "Import a ZNotes JSON export", properties: ["openFile"], filters: [{ name: "ZNotes JSON", extensions: ["json"] }] });
+  if (selected.canceled || !selected.filePaths.length) return { imported: 0, cancelled: true };
+  const handle = await fs.open(selected.filePaths[0], "r");
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.size > 20 * 1024 * 1024) throw new Error("Choose a ZNotes JSON export up to 20 MB.");
+    const buffer = Buffer.alloc(stat.size + 1);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    if (bytesRead > stat.size) throw new Error("The note export changed while being read. Try again.");
+    const input = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(buffer.subarray(0, bytesRead)));
+    return localNotes().import(input);
+  } finally { await handle.close(); }
+});
+ipcMain.handle("notes:export", async (event) => {
+  requireTrustedIpcSender(event);
+  const choice = await dialog.showMessageBox(mainWindow, { type: "warning", title: "Export readable notes", message: "This export is plaintext, not an encrypted backup.", detail: "Includes active, archived and trashed notes. Only save it in a folder you trust. Your encrypted local notebook is retained.", buttons: ["Cancel", "Export notes"], defaultId: 0, cancelId: 0 });
+  if (choice.response !== 1) return { saved: false };
+  const selected = await dialog.showSaveDialog(mainWindow, { title: "Export ZNotes", defaultPath: `ZNotes-${new Date().toISOString().slice(0, 10)}.json`, filters: [{ name: "ZNotes JSON", extensions: ["json"] }] });
+  if (selected.canceled || !selected.filePath) return { saved: false };
+  const notes = await localNotes().list();
+  const temporary = `${selected.filePath}.${randomUUID()}.tmp`;
+  try {
+    await fs.writeFile(temporary, JSON.stringify({ format: "znotes-local-export", version: 1, notes }, null, 2), { encoding: "utf8", mode: 0o600, flag: "wx" });
+    await fs.rename(temporary, selected.filePath);
+  } finally { await fs.unlink(temporary).catch(() => {}); }
+  return { saved: true, count: notes.length };
+});
+
+ipcMain.handle("zerothink:sessions-list", async (event) => { requireTrustedIpcSender(event); return localStudio().listSessions(); });
+ipcMain.handle("zerothink:session-get", async (event, id) => { requireTrustedIpcSender(event); return localStudio().getSession(id); });
+ipcMain.handle("zerothink:session-save", async (event, input) => { requireTrustedIpcSender(event); return localStudio().saveSession(input); });
+ipcMain.handle("zerothink:session-delete", async (event, id) => { requireTrustedIpcSender(event); return localStudio().deleteSession(id); });
+ipcMain.handle("zerothink:library-list", async (event) => { requireTrustedIpcSender(event); return localStudio().listLibrary(); });
+ipcMain.handle("zerothink:library-save", async (event, documents) => { requireTrustedIpcSender(event); return localStudio().saveLibrary(documents); });
+ipcMain.handle("zerothink:profile-get", async (event) => { requireTrustedIpcSender(event); return localStudio().getProfile(); });
+ipcMain.handle("zerothink:profile-save", async (event, profile) => { requireTrustedIpcSender(event); return localStudio().saveProfile(profile); });
+ipcMain.handle("zerothink:copy-text", (event, value) => {
+  requireTrustedIpcSender(event);
+  if (typeof value !== "string" || Buffer.byteLength(value, "utf8") > 1024 * 1024) throw new Error("Choose text up to 1 MB to copy.");
+  clipboard.writeText(value);
+  return true;
+});
+ipcMain.handle("zerothink:web-search", async (event, query) => {
+  requireTrustedIpcSender(event);
+  const settings = await loadSettingsInternal();
+  return searchWeb(query, { key: decryptSecret(settings, "serperKeyEncrypted"), fetcher: fetch });
+});
+
+let zeroThinkProject = null;
+ipcMain.handle("zerothink:project-select", async (event) => {
+  requireTrustedIpcSender(event);
+  if (zeroThinkRun) throw new Error("Stop the current ZeroThink task before changing its project.");
+  const selected = await dialog.showOpenDialog(mainWindow, { title: "Choose a project for the ZeroThink desktop agent", properties: ["openDirectory"] });
+  if (selected.canceled || !selected.filePaths.length) return zeroThinkProject ? { path: zeroThinkProject, name: path.basename(zeroThinkProject) } : null;
+  const selectedRoot = await fs.realpath(selected.filePaths[0]);
+  if (!(await fs.stat(selectedRoot)).isDirectory()) throw new Error("Choose a project folder.");
+  zeroThinkProject = selectedRoot;
+  return { path: selectedRoot, name: path.basename(selectedRoot) };
+});
+
+async function zeroThinkCompletionAdapters(signal) {
+  const settings = await loadSettingsInternal();
+  const provider = settings.assistantProvider || "openzero";
+  const local = provider === "openzero" && settings.openZeroAssistantMode !== "server";
+  const endpoint = local ? OLLAMA_LOCAL_ORIGIN : provider === "openai" ? "https://api.openai.com/v1/chat/completions" : provider === "groq" ? "https://api.groq.com/openai/v1/chat/completions" : new URL("/v1/chat/completions", settings.openZeroUrl).toString();
+  const token = provider === "openai" ? decryptSecret(settings, "openAiKeyEncrypted") : provider === "groq" ? decryptSecret(settings, "groqKeyEncrypted") : local ? "" : decryptToken(settings);
+  return buildCompletionAdapter({ provider, mode: local ? "local" : "server", endpoint, token, model: provider === "openzero" && !local ? settings.openZeroServerModel : settings.model, storeManaged: IS_WINDOWS_STORE, fetch, signal });
+}
+
+ipcMain.handle("zerothink:agent-approve", (event, input) => {
+  requireTrustedIpcSender(event);
+  if (!zeroThinkRun?.agent || input?.runId !== zeroThinkRun.id || event.sender.id !== zeroThinkRun.owner || typeof input.approved !== "boolean" || !zeroThinkRun.pending || input.actionId !== zeroThinkRun.pending.id) return { accepted: false };
+  const pending = zeroThinkRun.pending; zeroThinkRun.pending = null; pending.finish(input.approved);
+  return { accepted: true };
+});
+ipcMain.handle("zerothink:agent-run", async (event, input) => {
+  requireTrustedIpcSender(event);
+  if (zeroThinkRun) throw new Error("A ZeroThink task is already running. Stop it or wait for it to finish.");
+  if (!zeroThinkProject) throw new Error("Choose a project folder first.");
+  if (!input || typeof input.runId !== "string" || !/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(input.runId)) throw new Error("A valid task identifier is required.");
+  const run = { id: input.runId, owner: event.sender.id, controller: new AbortController(), agent: true, pending: null };
+  zeroThinkRun = run;
+  const notify = (progress) => { if (!event.sender.isDestroyed()) event.sender.send("zerothink:agent-progress", { runId: run.id, ...progress }); };
+  const ownerDestroyed = () => run.controller.abort();
+  event.sender.once?.("destroyed", ownerDestroyed);
+  try {
+    const adapters = await zeroThinkCompletionAdapters(run.controller.signal);
+    return await runAgent({ task: input.task, root: zeroThinkProject, maxSteps: input.maxSteps, signal: run.controller.signal, onProgress: notify }, { ...adapters, approve: (action) => new Promise((resolve) => {
+      if (run.controller.signal.aborted || event.sender.isDestroyed()) { resolve(false); return; }
+      if (typeof action.actionId !== "string" || !/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(action.actionId)) { resolve(false); return; }
+      const aborted = () => { if (run.pending?.id === action.actionId) run.pending = null; resolve(false); };
+      run.controller.signal.addEventListener("abort", aborted, { once: true });
+      run.pending = { id: action.actionId, finish: (approved) => { run.controller.signal.removeEventListener("abort", aborted); resolve(approved); } };
+      notify({ status: "approval", message: "Review the proposed change before it runs.", pending: action });
+    }) });
+  } finally {
+    event.sender.removeListener?.("destroyed", ownerDestroyed);
+    if (run.pending) { const pending = run.pending; run.pending = null; pending.finish(false); }
+    if (zeroThinkRun === run) zeroThinkRun = null;
+  }
+});
 
 ipcMain.handle("zerothink:processes", (event) => {
   requireTrustedIpcSender(event);
@@ -1020,8 +1133,10 @@ ipcMain.handle("zerothink:run", async (event, raw) => {
       const endpoint = local ? OLLAMA_LOCAL_ORIGIN : provider === "openai" ? "https://api.openai.com/v1/chat/completions" : provider === "groq" ? "https://api.groq.com/openai/v1/chat/completions" : new URL("/v1/chat/completions", settings.openZeroUrl).toString();
       const token = provider === "openai" ? decryptSecret(settings, "openAiKeyEncrypted") : provider === "groq" ? decryptSecret(settings, "groqKeyEncrypted") : local ? "" : decryptToken(settings);
       adapters = buildCompletionAdapter({ provider, mode: local ? "local" : "server", endpoint, token, model: provider === "openzero" && !local ? settings.openZeroServerModel : settings.model, storeManaged: IS_WINDOWS_STORE, fetch, signal: controller.signal });
+      if (raw.autoWeb === true) adapters.search = (query) => searchWeb(query, { key: decryptSecret(settings, "serperKeyEncrypted"), fetcher: fetch, signal: controller.signal });
     }
-    return await runResearch({ ...input, tokenBudget: Math.min(input.tokenBudget, input.maxPasses * 2048), signal: controller.signal, onProgress: (progress) => {
+    const profile = raw.useModel === true ? await localStudio().getProfile() : { persona: "", facts: [] };
+    return await runStudio({ ...input, persona: profile.persona, facts: profile.facts.slice(-5), tokenBudget: Math.min(input.tokenBudget, input.maxPasses * 2048), signal: controller.signal, onProgress: (progress) => {
       if (!event.sender.isDestroyed()) event.sender.send("zerothink:progress", { runId: run.id, ...progress });
     } }, adapters);
   } catch (error) {
@@ -1254,7 +1369,7 @@ ipcMain.handle("settings:clear-local-data", async (event) => {
     type: "warning",
     title: "Clear ZERO ONE desktop data?",
     message: "Remove local settings and embedded workspace sessions?",
-    detail: "This clears settings, encrypted tokens, saved workspace logins and OpenZero workspace cookies. Your encrypted ZNotes notebook is retained; delete individual notes in ZNotes. Diagnostics files you saved are retained.",
+    detail: "This clears settings, encrypted tokens, saved workspace logins and OpenZero workspace cookies. Your encrypted ZNotes notebook and ZeroThink conversations/source library are retained; manage these inside ZNotes and ZeroThink. Diagnostics files you saved are retained.",
     buttons: ["Cancel", "Clear and restart"],
     defaultId: 0,
     cancelId: 0,

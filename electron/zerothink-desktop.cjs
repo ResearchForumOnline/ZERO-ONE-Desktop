@@ -2,6 +2,7 @@
 
 const path = require("node:path");
 const { TextDecoder } = require("node:util");
+const { normalizeConversation } = require("./zerothink-studio.cjs");
 
 const DOCUMENT_BYTES = 1024 * 1024;
 const CORPUS_BYTES = 2 * DOCUMENT_BYTES;
@@ -61,7 +62,7 @@ function normalizeResearchRequest(raw) {
   if (!plainObject(raw)) throw invalid("A research request is required.");
   const question = boundedText(raw.question, "Research question", 12000);
   const mode = raw.mode === undefined ? "research" : raw.mode;
-  if (!["quick", "research", "review"].includes(mode)) throw invalid("Choose a supported research mode.");
+  if (!["chat", "quick", "research", "review"].includes(mode)) throw invalid("Choose a supported chat or research mode.");
   const maxPasses = boundedInteger(raw.maxPasses, 3, 1, 3, "Research passes");
   const tokenBudget = boundedInteger(raw.tokenBudget, 3072, 512, 6144, "Token budget");
   const documents = raw.documents === undefined ? [] : raw.documents;
@@ -87,6 +88,11 @@ function normalizeResearchRequest(raw) {
     return result;
   });
   const request = { question, mode, documents: cleaned, maxPasses, tokenBudget };
+  if (raw.zeroMode !== undefined && typeof raw.zeroMode !== "boolean") throw invalid("Zero mode must be true or false.");
+  if (raw.zeroMode === true) request.zeroMode = true;
+  if (raw.autoWeb !== undefined && typeof raw.autoWeb !== "boolean") throw invalid("Automatic web research must be true or false.");
+  if (raw.autoWeb === true) request.autoWeb = true;
+  if (raw.conversation !== undefined) request.conversation = normalizeConversation(raw.conversation);
   if (raw.processId !== undefined) {
     if (typeof raw.processId !== "string" || !/^[A-Za-z0-9_-]{1,80}$/.test(raw.processId)) throw invalid("Research process identifier is invalid.");
     request.processId = raw.processId;

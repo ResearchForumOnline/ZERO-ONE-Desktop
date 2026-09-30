@@ -1,7 +1,7 @@
 {
   "name": "zero-one-desktop",
   "desktopName": "zero-one.desktop",
-  "version": "8.0.0",
+  "version": "8.1.0",
   "private": true,
   "description": "ZERO ONE with local ZeroThink research, encrypted ZNotes, user-controlled AI, Browser Pilot and ZSEC Shield.",
   "author": "QUANTUMENCRYPTION1 LTD",
@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",
     "build": "tsc --noEmit && vite build",
-    "test": "vitest run && node --test electron/tray-lifecycle.node.cjs electron/ollama-local.node.cjs electron/workspace-logins.node.cjs electron/update-check.node.cjs electron/update-installer.node.cjs electron/browser-pilot.node.cjs electron/store-distribution.node.cjs electron/notes-store.node.cjs electron/zerothink-desktop.node.cjs electron/zerothink-ipc.node.cjs",
+    "test": "vitest run && node --test electron/tray-lifecycle.node.cjs electron/ollama-local.node.cjs electron/workspace-logins.node.cjs electron/update-check.node.cjs electron/update-installer.node.cjs electron/browser-pilot.node.cjs electron/store-distribution.node.cjs electron/notes-store.node.cjs electron/notes-crypto.node.cjs electron/zerothink-desktop.node.cjs electron/zerothink-ipc.node.cjs electron/zerothink-studio.node.cjs electron/zerothink-web.node.cjs electron/zerothink-agent.node.cjs",
     "check": "npm run test && npm run build && npm run check:site",
     "check:site": "node scripts/validate-zeroone-site-release.mjs",
     "pack:win": "npm run check && npm run verify:zsec && electron-builder --win dir --x64 --publish never",

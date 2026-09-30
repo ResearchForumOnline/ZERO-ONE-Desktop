@@ -11,7 +11,7 @@ const { pathToFileURL } = require("node:url");
 
 const rendererURL = pathToFileURL(path.join(__dirname, "..", "dist", "index.html")).href;
 
-function loadMain({ settings = {}, fetcher, dialog = {}, fileSystem = fsp } = {}) {
+function loadMain({ settings = {}, fetcher, dialog = {}, fileSystem = fsp, profile = { persona: "", facts: [] }, agentRunner } = {}) {
   const handlers = new Map();
   const appEvents = new Map();
   const events = [];
@@ -25,14 +25,14 @@ function loadMain({ settings = {}, fetcher, dialog = {}, fileSystem = fsp } = {}
     session: { fromPartition: () => pilotSession },
   };
   const context = vm.createContext({
-    require: (name) => name === "electron" ? electron : name === "node:fs/promises" ? fileSystem : name.startsWith("./") ? require(path.join(__dirname, name)) : require(name),
+    require: (name) => name === "electron" ? electron : name === "node:fs/promises" ? fileSystem : name === "./zerothink-agent.cjs" && agentRunner ? { runAgent: agentRunner } : name.startsWith("./") ? require(path.join(__dirname, name)) : require(name),
     process: { platform: "win32", env: {}, resourcesPath: "C:/synthetic/resources", execPath: "C:/synthetic/ZERO ONE.exe" },
     __dirname, console, URL, Buffer, AbortController, AbortSignal, setTimeout, clearTimeout,
     fetch: fetcher || (() => { throw new Error("Unexpected network request during offline research"); }),
-    __testWindow: { webContents: sender }, __testSettings: { assistantProvider: "openzero", openZeroAssistantMode: "server", openZeroUrl: "https://example.org/", model: "synthetic-model", openZeroServerModel: "synthetic-model", ...settings },
+    __testWindow: { webContents: sender }, __testProfile: profile, __testSettings: { assistantProvider: "openzero", openZeroAssistantMode: "server", openZeroUrl: "https://example.org/", model: "synthetic-model", openZeroServerModel: "synthetic-model", ...settings },
   });
   const source = fs.readFileSync(path.join(__dirname, "main.cjs"), "utf8");
-  vm.runInContext(`${source}\nmainWindow = __testWindow; loadSettingsInternal = async () => __testSettings; decryptSecret = () => 'synthetic-key'; decryptToken = () => 'synthetic-key';`, context);
+  vm.runInContext(`${source}\nmainWindow = __testWindow; loadSettingsInternal = async () => __testSettings; decryptSecret = () => 'synthetic-key'; decryptToken = () => 'synthetic-key'; localStudio = () => ({ getProfile: async () => __testProfile });`, context);
   const event = { sender, senderFrame: sender.mainFrame };
   function attachContents(contents) {
     const callbacks = new Map();
@@ -50,9 +50,42 @@ function loadMain({ settings = {}, fetcher, dialog = {}, fileSystem = fsp } = {}
 }
 const request = () => ({ runId: randomUUID(), question: "How should evidence retrieval be validated?", mode: "research", processId: "evidence-map", documents: [{ id: randomUUID(), title: "Synthetic source", text: "Evidence retrieval should use held-out tasks and record unsupported citations. This is synthetic test material." }], maxPasses: 3, tokenBudget: 3072, useModel: false });
 
+test("native agent approvals bind to the exact preview and reject duplicate or stale responses", async () => {
+  const project = await fsp.mkdtemp(path.join(os.tmpdir(), "zerothink-approval-ipc-"));
+  const firstId = randomUUID(); const secondId = randomUUID(); const responses = [];
+  let firstStarted; let secondStarted;
+  const firstReady = new Promise(resolve => { firstStarted = resolve; });
+  const secondReady = new Promise(resolve => { secondStarted = resolve; });
+  const main = loadMain({ dialog: { showOpenDialog: async () => ({ canceled: false, filePaths: [project] }) }, agentRunner: async (_options, adapters) => {
+    const first = adapters.approve({ actionId: firstId, tool: "write_file", path: "first.txt", before: "", after: "first preview" });
+    firstStarted(); responses.push(await first);
+    const second = adapters.approve({ actionId: secondId, tool: "run_command", command: "echo second-preview", cwd: project });
+    secondStarted(); responses.push(await second);
+    return { status: "paused", answer: "Synthetic approval lifecycle check", steps: 2, reads: 0, edits: 0, commands: 0, errors: [], changedFiles: [], observations: [] };
+  } });
+  try {
+    await main.call("zerothink:project-select");
+    const runId = randomUUID();
+    const running = main.call("zerothink:agent-run", { runId, task: "Synthetic approval check", maxSteps: 4 });
+    await firstReady;
+    assert.equal(main.call("zerothink:agent-approve", { runId, actionId: randomUUID(), approved: true }).accepted, false);
+    assert.equal(main.call("zerothink:agent-approve", { runId, approved: true }).accepted, false);
+    assert.equal(main.call("zerothink:agent-approve", { runId, actionId: firstId, approved: true }).accepted, true);
+    assert.equal(main.call("zerothink:agent-approve", { runId, actionId: firstId, approved: true }).accepted, false);
+    await secondReady;
+    // An old request cannot approve the next command, even inside the same run.
+    assert.equal(main.call("zerothink:agent-approve", { runId, actionId: firstId, approved: true }).accepted, false);
+    assert.equal(main.events.filter(event => event.channel === "zerothink:agent-progress" && event.value.pending).at(-1).value.pending.actionId, secondId);
+    assert.equal(main.call("zerothink:agent-approve", { runId, actionId: secondId, approved: false }).accepted, true);
+    await running;
+    assert.deepEqual(responses, [true, false]);
+    assert.equal(main.call("zerothink:agent-approve", { runId, actionId: secondId, approved: true }).accepted, false);
+  } finally { await fsp.rm(project, { recursive: true, force: true }); }
+});
+
 test("all ZeroThink IPC methods reject other frames before acting", async () => {
   const main = loadMain();
-  for (const channel of ["zerothink:processes", "zerothink:import", "zerothink:run", "zerothink:cancel", "zerothink:export"]) {
+  for (const channel of ["zerothink:processes", "zerothink:import", "zerothink:run", "zerothink:cancel", "zerothink:export", "zerothink:sessions-list", "zerothink:session-get", "zerothink:session-save", "zerothink:session-delete", "zerothink:library-list", "zerothink:library-save", "zerothink:profile-get", "zerothink:profile-save", "zerothink:web-search", "zerothink:project-select", "zerothink:agent-run", "zerothink:agent-approve", "notes:import", "notes:export"]) {
     await assert.rejects(async () => main.call(channel, request(), { sender: main.event.sender, senderFrame: {} }), /untrusted renderer/);
     await assert.rejects(async () => main.call(channel, request(), { sender: { id: 42 }, senderFrame: {} }), /untrusted renderer/);
   }

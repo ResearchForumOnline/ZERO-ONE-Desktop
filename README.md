@@ -30,12 +30,13 @@ Use the authenticated [latest ZERO ONE release](https://github.com/ResearchForum
 | Linux x64 | `ZERO-ONE-*-linux-x86_64.AppImage` | Make executable and open |
 | Debian/Ubuntu x64 | `ZERO-ONE-*-linux-amd64.deb` | Open with the software installer or use `sudo apt install ./ZERO-ONE-*-linux-amd64.deb` |
 
-Current source version is **8.0.0**, available in the **Microsoft Store** and as direct installers. On 30 September 2026 Partner Center confirmed that the latest product is available; live Submission3 offers `ZERO-ONE-8.0.0-win-x64.appx`, version8.0.0.0. A Store-signed installation on this PC has not been verified. Published direct installers are unsigned public builds until Authenticode/notarization ships. Windows SmartScreen or macOS Gatekeeper may show an unknown-publisher warning. ZERO ONE's direct-edition in-app updater accepts only the exact stable package published by this repository when GitHub's asset digest and `SHA256SUMS.txt` agree.
+Current source version is **8.1.0**. This repair restores ZeroThink's chat/persona/memory/research workflows inside the desktop app, adds a native project agent and repairs ZNotes creation, autosave and encryption. See [8.1 release notes](store/RELEASE_NOTES_8.1.0.md) and the current [release receipt](docs/qa/RELEASE_8.1.0.md) for tests, package hashes and actual Store status. The preceding 8.0.0 Store-signed package was verified installed on this PC on 30 September 2026; changing source does not update that installation. Direct installers are unsigned until publisher signing ships. The direct updater accepts only a stable repository asset with matching GitHub digest and SHA256SUMS.
 
 ## What is included
 
-- Encrypted on-device ZNotes and an isolated user-configured OpenZero workspace.
-- Built-in **ZeroThink**: local source import, nine research processes, offline evidence maps, optional bounded model review passes, progress and cancellation, encrypted report retention and Markdown/JSON exports. No company-hosted ZeroThink account or database is required.
+- On-device ZNotes with saved note creation, autosave, checklists, pins, labels, colours, archive/trash and local imports/exports. Dual-key notebook protection uses independent authenticated encryption keys under OS custody.
+- Built-in **ZeroThink Studio**: persistent conversations, follow-up context, a local source library, persona and memory, original Zero mode public briefs, research/review passes, optional web search and exports.
+- **Native ZeroThink Agent**: choose a local project, inspect files, review proposed edits and approve commands. Tools return actual observations; the run reports unresolved errors and step-budget exhaustion. A user-approved command has normal OS permissions, not a container sandbox.
 - A built-in Browser Pilot: one isolated tab, one user-granted task, a 12-step limit, structural snapshots that omit form values, secret/payment/file/CAPTCHA blocking, cross-site and consequential approval pauses, and an immediate stop-and-revoke control.
 - Guided Assistant setup with private local OpenZero Gemma4 E2B as the recommended lightweight default and optional OpenZero server, OpenAI or Groq providers.
 - A truthful automation surface that reports real endpoint reachability and permissions, not invented worker telemetry.

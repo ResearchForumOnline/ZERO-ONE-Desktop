@@ -16,6 +16,9 @@ interface ZeroOneSettings {
   hasOpenZeroToken: boolean;
   hasOpenAiKey: boolean;
   hasGroqKey: boolean;
+  hasSerperKey?: boolean;
+  serperKey?: string;
+  clearSerperKey?: boolean;
   zeroThinkEmail?: string;
   openZeroToken?: string;
   openAiKey?: string;
@@ -126,12 +129,29 @@ interface Window {
     quitApp(): Promise<boolean>;
     onAppNavigate(callback: (view: string) => void): () => void;
     getSystemSnapshot(): Promise<SystemSnapshot>;
-    listNotes(): Promise<Array<{ id: string; title: string; content: string; updatedAt: string }>>;
-    saveNote(note: { id: string; title: string; content: string }): Promise<{ id: string; title: string; content: string; updatedAt: string }>;
+    listNotes(): Promise<LocalNote[]>;
+    getNotesEncryptionStatus(): Promise<{ version: number; layers: number; keys: number; custody: string; message: string; legacyBackup?: boolean }>;
+    saveNote(note: Pick<LocalNote, "id" | "title" | "content"> & Partial<Omit<LocalNote, "id" | "title" | "content">>): Promise<LocalNote>;
     deleteNote(id: string): Promise<boolean>;
+    importNotes(): Promise<{ imported: number; cancelled?: boolean }>;
+    exportNotes(): Promise<{ saved: boolean; count?: number }>;
+    listZeroThinkSessions(): Promise<ZeroThinkSessionSummary[]>;
+    getZeroThinkSession(id: string): Promise<ZeroThinkSession | null>;
+    saveZeroThinkSession(input: ZeroThinkSessionInput): Promise<ZeroThinkSession>;
+    deleteZeroThinkSession(id: string): Promise<boolean>;
+    listZeroThinkLibrary(): Promise<ZeroThinkDocument[]>;
+    saveZeroThinkLibrary(documents: ZeroThinkDocument[]): Promise<ZeroThinkDocument[]>;
+    getZeroThinkProfile(): Promise<ZeroThinkProfile>;
+    saveZeroThinkProfile(profile: ZeroThinkProfile): Promise<ZeroThinkProfile>;
+    copyZeroThinkText(text: string): Promise<boolean>;
+    searchZeroThinkWeb(query: string): Promise<ZeroThinkDocument[]>;
+    selectZeroThinkProject(): Promise<{ path: string; name: string } | null>;
+    runZeroThinkAgent(input: { runId: string; task: string; maxSteps: number }): Promise<ZeroThinkAgentResult>;
+    approveZeroThinkAgent(runId: string, actionId: string, approved: boolean): Promise<{ accepted: boolean }>;
+    onZeroThinkAgentProgress(callback: (event: ZeroThinkAgentProgress) => void): () => void;
     getZeroThinkProcesses(): Promise<ZeroThinkProcess[]>;
     importZeroThinkDocuments(): Promise<ZeroThinkDocument[]>;
-    runZeroThink(request: { runId: string; question: string; mode: "quick" | "research" | "review"; processId: string; documents: ZeroThinkDocument[]; maxPasses: number; tokenBudget: number; useModel: boolean }): Promise<ZeroThinkResult>;
+    runZeroThink(request: { runId: string; question: string; mode: "chat" | "quick" | "research" | "review"; processId: string; documents: ZeroThinkDocument[]; maxPasses: number; tokenBudget: number; useModel: boolean; conversation?: Array<{ role: "user" | "assistant"; content: string }>; zeroMode?: boolean; autoWeb?: boolean }): Promise<ZeroThinkResult>;
     cancelZeroThink(runId: string): Promise<{ cancelled: boolean }>;
     onZeroThinkProgress(callback: (progress: ZeroThinkProgress) => void): () => void;
     exportZeroThinkReport(input: { format: "markdown" | "json"; result: ZeroThinkResult }): Promise<{ saved: boolean }>;
@@ -164,6 +184,13 @@ interface Window {
 interface ZeroThinkProcess { id: string; label: string; description: string; stages: string[]; checks: string[] }
 interface ZeroThinkDocument { id: string; title: string; text: string; sourceUrl?: string }
 interface ZeroThinkProgress { runId: string; stage: string; status: string; message: string; pass: number; maxPasses: number }
+interface ZeroThinkMessage { id: string; role: "user" | "assistant"; content: string; reasoningBrief?: string; result?: ZeroThinkResult }
+interface ZeroThinkSessionInput { id: string; title: string; pinned: boolean; messages: ZeroThinkMessage[]; documentIds: string[] }
+interface ZeroThinkSession extends ZeroThinkSessionInput { updatedAt: string }
+interface ZeroThinkSessionSummary { id: string; title: string; pinned: boolean; updatedAt: string; messageCount: number }
+interface ZeroThinkProfile { persona: string; facts: string[] }
+interface ZeroThinkAgentResult { status: "completed" | "paused" | "stopped"; answer: string; steps: number; reads: number; edits: number; commands: number; errors: Array<{ step: number; tool: string; message: string; resolved: boolean }>; changedFiles: string[]; observations: unknown[] }
+interface ZeroThinkAgentProgress { runId: string; step?: number; maxSteps?: number; status: string; message: string; tool?: string; counts?: { reads: number; edits: number; commands: number; errors: number }; pending?: { actionId: string; tool: string; path?: string; command?: string; cwd?: string; before?: string; after?: string; explanation?: string } }
 interface ZeroThinkResult {
   version: string; status: "completed" | "offline"; mode: string; question: string; answer: string; markdown: string;
   evidence: Array<{ sourceId: string; title: string; sourceUrl?: string; excerpt: string; chunkId: string; score: number }>;
@@ -171,6 +198,7 @@ interface ZeroThinkResult {
   steps: Array<{ id: string; label: string; status: string }>;
   metrics: { passes: number; requestedTokens: number; sourceCount: number; retrievedCount: number };
   warnings: string[];
+  reasoningBrief?: string;
 }
 
 declare namespace JSX {

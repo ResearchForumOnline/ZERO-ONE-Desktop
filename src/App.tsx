@@ -1,6 +1,7 @@
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SERVICES, ServiceDefinition, ServiceId, retainMountedServiceTab, serviceById, serviceIdFromView, serviceUrl } from "./lib/services";
 import ZeroThinkWorkspace from "./ZeroThinkWorkspace";
+import NotesWorkspace from "./NotesWorkspace";
 
 type View = "home" | "notes" | "zerothink" | "shield" | "agents" | "pilot" | "settings" | `service:${ServiceId}`;
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -186,7 +187,7 @@ function UpdateBanner({ update, onDismiss }: { update: AppUpdateInfo; onDismiss:
   );
 }
 
-function Dashboard({ settings, probes, system, zsec, onOpen, onOpenShield }: { settings: ZeroOneSettings; probes: ServiceProbe[]; system: SystemSnapshot | null; zsec: ZsecSnapshot | null; onOpen: (id: ServiceId) => void; onOpenShield: () => void }) {
+function Dashboard({ settings, probes, system, zsec, onOpen, onOpenShield, onOpenNotes, onOpenZeroThink }: { settings: ZeroOneSettings; probes: ServiceProbe[]; system: SystemSnapshot | null; zsec: ZsecSnapshot | null; onOpen: (id: ServiceId) => void; onOpenShield: () => void; onOpenNotes: () => void; onOpenZeroThink: () => void }) {
   const openZero = probes.find((probe) => probe.name === "openzero");
   const openZeroReady = openZero?.state === "online";
   const endpointValue = zsec?.state === "ready" ? "LAST SCAN CLEAR" : zsec?.state === "attention" ? "REVIEW" : zsec?.state === "idle" ? "INSTALLED" : zsec?.state === "not-installed" ? "NOT INSTALLED" : "UNAVAILABLE";
@@ -199,8 +200,8 @@ function Dashboard({ settings, probes, system, zsec, onOpen, onOpenShield }: { s
           <h2>Your workspaces.<br /><em>Your configured AI.</em><br />One desktop command.</h2>
           <p>Encrypted local notes, your configured AI, Browser Pilot, agent controls and on-demand security scans in one desktop.</p>
           <div className="hero-actions">
-            <button className="primary-action" onClick={() => onOpen("openzero")}><span>Open full OpenZero panel</span><span>↗</span></button>
-            <button className="secondary-action shield-action" onClick={onOpenShield}><Icon name="shield" size={17} /> Open ZSEC Shield</button>
+            <button className="primary-action" onClick={onOpenZeroThink}><span>Open ZeroThink</span><span>→</span></button>
+            <button className="secondary-action" onClick={onOpenNotes}><Icon name="notes" size={17} /> Write a ZNote</button>
           </div>
         </div>
         <div className="hero-core" aria-label="ZERO ONE neural core">
@@ -222,6 +223,9 @@ function Dashboard({ settings, probes, system, zsec, onOpen, onOpenShield }: { s
         <span>Live health and direct access</span>
       </div>
       <section className="service-grid">
+        <article className="glass-card native-workspace-card"><p>BUILT INTO THIS APP</p><h3>ZeroThink</h3><p>Conversations, remembered context, Zero mode, research passes and a native project agent.</p><button className="primary-action" onClick={onOpenZeroThink}>Open ZeroThink →</button></article>
+        <article className="glass-card native-workspace-card"><p>ON THIS DEVICE</p><h3>ZNotes</h3><p>Autosaved encrypted notes, pins, checklists, labels, archive and recoverable trash.</p><button className="primary-action" onClick={onOpenNotes}>Open ZNotes →</button></article>
+        <article className="glass-card native-workspace-card"><p>LOCAL SECURITY CHECKS</p><h3>ZSEC Shield</h3><p>Choose a folder and inspect the scanner's actual findings and incomplete results.</p><button className="secondary-action" onClick={onOpenShield}>Open ZSEC Shield →</button></article>
         {SERVICES.map((service) => (
           <ServiceCard key={service.id} service={service} probe={probes.find((item) => item.name === service.id)} onOpen={() => onOpen(service.id)} />
         ))}
@@ -513,6 +517,7 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
   const [token, setToken] = useState("");
   const [openAiKey, setOpenAiKey] = useState("");
   const [groqKey, setGroqKey] = useState("");
+  const [serperKey, setSerperKey] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [localChecking, setLocalChecking] = useState(false);
@@ -548,10 +553,11 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
     setSaving(true);
     setMessage("");
     try {
-      const saved = await window.zeroOne.saveSettings({ ...draft, openZeroToken: token || undefined, openAiKey: openAiKey || undefined, groqKey: groqKey || undefined });
+      const saved = await window.zeroOne.saveSettings({ ...draft, openZeroToken: token || undefined, openAiKey: openAiKey || undefined, groqKey: groqKey || undefined, serperKey: serperKey || undefined });
       setToken("");
       setOpenAiKey("");
       setGroqKey("");
+      setSerperKey("");
       onSaved(saved);
       setMessage("Settings saved. Secrets remain protected by secure storage for this operating-system account.");
     } catch (error) {
@@ -590,7 +596,7 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
   const field = (key: keyof ZeroOneSettings, label: string, help: string) => (
     <label className="setting-field"><span>{label}</span><input value={String(draft[key] || "")} onChange={(event) => setDraft({ ...draft, [key]: event.target.value })} /><small>{help}</small></label>
   );
-  const dirty = Boolean(token.trim() || openAiKey.trim() || groqKey.trim()) || JSON.stringify(draft) !== JSON.stringify(settings);
+  const dirty = Boolean(token.trim() || openAiKey.trim() || groqKey.trim() || serperKey.trim()) || JSON.stringify(draft) !== JSON.stringify(settings);
   const chooseProvider = (provider: ZeroOneSettings["assistantProvider"]) => {
     const suggested = provider === "openzero" ? LOCAL_OPENZERO_MODEL : provider === "groq" ? "openai/gpt-oss-120b" : "gpt-5-mini";
     setDraft({ ...draft, assistantProvider: provider, model: suggested });
@@ -714,6 +720,8 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
           {draft.assistantProvider !== "openzero" && <div className="hosted-provider-help"><div><strong>Cloud provider setup</strong><span>Add your own key below. ZERO ONE stores it securely and uses it only when this provider is selected.</span></div><button type="button" className="secondary-action" onClick={() => window.zeroOne.openExternal(draft.assistantProvider === "groq" ? "https://console.groq.com/keys" : "https://platform.openai.com/api-keys")}>Open {draft.assistantProvider === "groq" ? "Groq keys" : "OpenAI keys"} ↗</button></div>}
           {draft.assistantProvider === "openzero" && openZeroMode === "server" && draft.hasOpenZeroToken && <label className="check-row danger"><input type="checkbox" checked={Boolean(draft.clearOpenZeroToken)} onChange={(event) => setDraft({ ...draft, clearOpenZeroToken: event.target.checked })} /><span>Remove the stored server token when I save</span></label>}
           {draft.assistantProvider === "groq" && draft.hasGroqKey && <label className="check-row danger"><input type="checkbox" checked={Boolean(draft.clearGroqKey)} onChange={(event) => setDraft({ ...draft, clearGroqKey: event.target.checked })} /><span>Remove the stored Groq key when I save</span></label>}
+          <label className="setting-field"><span>Serper web search key · optional</span><input type="password" value={serperKey} onChange={(event) => setSerperKey(event.target.value)} placeholder={draft.hasSerperKey ? "Stored securely · leave blank to keep" : "Add your Serper key"} autoComplete="off" /><small>ZeroThink sends your search query to Serper only when you select Search web. Search snippets are labelled separately from full documents.</small></label>
+          {draft.hasSerperKey && <label className="check-row danger"><input type="checkbox" checked={Boolean(draft.clearSerperKey)} onChange={(event) => setDraft({ ...draft, clearSerperKey: event.target.checked })} /><span>Remove the stored Serper key when I save</span></label>}
           {draft.assistantProvider === "openai" && draft.hasOpenAiKey && <label className="check-row danger"><input type="checkbox" checked={Boolean(draft.clearOpenAiKey)} onChange={(event) => setDraft({ ...draft, clearOpenAiKey: event.target.checked })} /><span>Remove the stored OpenAI key when I save</span></label>}
         </section>
         <details className="settings-details glass-card">
@@ -740,7 +748,7 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
         </section>
         <section className="settings-section glass-card">
           <div className="settings-heading"><div><p>DESKTOP</p><h2>App behavior</h2></div><span>Privacy-first defaults</span></div>
-          <button type="button" className="secondary-action data-clear-action" onClick={clearLocalData}>Clear desktop data</button><small className="data-clear-note">Removes settings, encrypted tokens, saved workspace logins, and workspace cookies after confirmation. Server accounts and diagnostics files you saved are not deleted.</small>
+          <button type="button" className="secondary-action data-clear-action" onClick={clearLocalData}>Clear desktop data</button><small className="data-clear-note">Removes settings, encrypted tokens, saved workspace logins, and workspace cookies after confirmation. Encrypted ZNotes and ZeroThink history/library are retained. Server accounts and diagnostics files you saved are not deleted.</small>
           <button type="button" className="secondary-action quit-action" onClick={() => window.zeroOne.quitApp()}>Quit ZERO ONE completely</button>
         </section>
         <section className="settings-section glass-card">
@@ -758,83 +766,6 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
       </form>
     </div>
   );}
-
-type LocalNote = { id: string; title: string; content: string; updatedAt: string };
-
-function NotesWorkspace() {
-  const [notes, setNotes] = useState<LocalNote[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [message, setMessage] = useState("Loading notes from this device…");
-  const [busy, setBusy] = useState(false);
-  const [query, setQuery] = useState("");
-
-  const refresh = useCallback(async () => {
-    try {
-      const loaded = await window.zeroOne.listNotes();
-      setNotes(loaded);
-      setMessage(loaded.length ? `${loaded.length} note${loaded.length === 1 ? "" : "s"} stored on this device` : "No notes yet. Start with a new note.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Notes are unavailable on this device.");
-    }
-  }, []);
-
-  useEffect(() => { refresh(); }, [refresh]);
-
-  const openNote = (note: LocalNote) => {
-    setSelectedId(note.id);
-    setTitle(note.title);
-    setContent(note.content);
-  };
-
-  const newNote = () => {
-    setSelectedId(null);
-    setTitle("");
-    setContent("");
-    setMessage("New note — save it to keep it on this device.");
-  };
-
-  const save = async () => {
-    if (!title.trim() && !content.trim()) { setMessage("Add a title or some text before saving."); return; }
-    setBusy(true);
-    try {
-      const saved = await window.zeroOne.saveNote({ id: selectedId || crypto.randomUUID(), title: title.trim() || "Untitled", content });
-      setSelectedId(saved.id);
-      await refresh();
-      setMessage("Saved locally on this device.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not save this note.");
-    } finally { setBusy(false); }
-  };
-
-  const remove = async () => {
-    if (!selectedId) return;
-    setBusy(true);
-    try {
-      await window.zeroOne.deleteNote(selectedId);
-      setSelectedId(null); setTitle(""); setContent(""); await refresh();
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not delete this note."); }
-    finally { setBusy(false); }
-  };
-
-  return (
-    <div className="notes-view">
-      <aside className="notes-list glass-card">
-        <div className="notes-list-head"><div><p>PRIVATE WORKSPACE</p><h2>ZNotes</h2></div><button className="primary-action" onClick={newNote}>New note +</button></div>
-        <p className="notes-local-hint">Saved on this computer. ZERO ONE does not upload or sync note text.</p>
-        <input aria-label="Search notes" placeholder="Search notes…" value={query} onChange={(event) => setQuery(event.target.value)} /><div className="notes-items">{notes.filter((note) => `${note.title} ${note.content}`.toLowerCase().includes(query.toLowerCase())).map((note) => <button key={note.id} className={`note-item ${selectedId === note.id ? "active" : ""}`} onClick={() => openNote(note)}><strong>{note.title || "Untitled"}</strong><span>{note.content.slice(0, 110) || "Empty note"}</span><small>{new Date(note.updatedAt).toLocaleString()}</small></button>)}</div>
-      </aside>
-      <section className="notes-editor glass-card">
-        <div className="notes-editor-head"><span>{selectedId ? "EDIT NOTE" : "NEW NOTE"}</span><div>{selectedId && <button className="note-delete" onClick={() => { if (window.confirm("Delete this ZNote? This cannot be undone.")) remove(); }} disabled={busy}>Delete</button>}<button className="primary-action" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save locally"}</button></div></div>
-        <input className="note-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Note title" maxLength={160} aria-label="Note title" />
-        <textarea className="note-content" value={content} onChange={(event) => setContent(event.target.value)} placeholder="Write a note… It stays on this device." aria-label="Note content" />
-        <div className="notes-status"><Icon name="shield" size={15} />{message}</div>
-      </section>
-    </div>
-  );
-}
-
 
 function Copilot({ settings, storeManaged, onOpenSettings }: { settings: ZeroOneSettings; storeManaged: boolean; onOpenSettings: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialAssistant);
@@ -994,7 +925,7 @@ function Welcome({ storeManaged, onFinish, onSetup }: { storeManaged: boolean; o
     <div className="welcome-points">
       <article><strong>1. Assistant setup</strong><span>{storeManaged ? "Core ZERO ONE features work without an AI model. The Store edition does not download local AI models; optional cloud chat can be configured in Settings." : "Private chat uses OpenZero Local + Ollama on this PC. Download the model once if prompted — no cloud key."}</span></article>
       <article><strong>2. Write privately with ZNotes</strong><span>ZNotes encrypts your notes on this device. No hosted notes account or automatic cloud sync is required.</span></article>
-      <article><strong>Research with ZeroThink</strong><span>Import local sources, build offline evidence maps, then optionally draft and review with your selected model. Save reports to encrypted ZNotes.</span></article>
+      <article><strong>Work with ZeroThink</strong><span>Chat with Zero, keep conversations and source material on this device, use the original Zero mode and research passes, or choose a project for the native file-and-command agent. Configure your model once.</span></article>
       <article><strong>3. Browser Pilot is built in</strong><span>Grant one isolated tab to OpenZero, with secret-field blocking, approval pauses, a 12-step limit and an immediate stop control.</span></article>
       <article><strong>4. ZSEC Shield is local</strong><span>On-demand folder scanning stays on this computer. Server ZSEC handles Linux security updates separately.</span></article>
     </div>
@@ -1156,13 +1087,13 @@ export default function App() {
         <Topbar view={view} probes={probes} system={system} zoom={zoom} copilotOpen={copilotOpen} onZoom={updateZoom} onToggleCopilot={() => setCopilotOpen((value) => !value)} onRefresh={refresh} onSearch={() => setPalette(true)} searchRef={searchButtonRef} />
         {appUpdate?.updateAvailable && appUpdate.status === "available" && appUpdate.latestVersion !== dismissedUpdateVersion && <UpdateBanner update={appUpdate} onDismiss={() => setDismissedUpdateVersion(appUpdate.latestVersion)} />}
         <div className="content-frame" id="main-content">
-          {view === "home" && <Dashboard settings={settings} probes={probes} system={system} zsec={zsec} onOpen={(id) => navigate(`service:${id}`)} onOpenShield={() => navigate("shield")} />}
+          {view === "home" && <Dashboard settings={settings} probes={probes} system={system} zsec={zsec} onOpen={(id) => navigate(`service:${id}`)} onOpenShield={() => navigate("shield")} onOpenNotes={() => navigate("notes")} onOpenZeroThink={() => navigate("zerothink")} />}
           {view === "shield" && <ZsecView snapshot={zsec} onRefresh={refresh} />}
           {view === "agents" && <AgentLattice settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onOpenZero={() => navigate("service:openzero")} />}
           {view === "pilot" && <BrowserPilotWorkspace settings={settings} />}
-          {view === "notes" && <NotesWorkspace />}
+          <div hidden={view !== "notes"} inert={view !== "notes"} aria-hidden={view !== "notes"}><NotesWorkspace active={view === "notes"} /></div>
           <div hidden={view !== "zerothink"} inert={view !== "zerothink"} aria-hidden={view !== "zerothink"}>
-            <ZeroThinkWorkspace settings={settings} storeManaged={storeManaged} onSettings={() => navigate("settings")} />
+            <ZeroThinkWorkspace settings={settings} storeManaged={storeManaged} onSettings={() => navigate("settings")} onSettingsSaved={setSettings} />
           </div>
           {view === "settings" && <SettingsView settings={settings} appVersion={appVersion} storeManaged={storeManaged} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onSaved={(saved) => { setSettings(saved); refresh(); }} />}
           {renderedServiceIds.map((serviceId) => {
