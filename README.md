@@ -30,7 +30,7 @@ Use the authenticated [latest ZERO ONE release](https://github.com/ResearchForum
 | Linux x64 | `ZERO-ONE-*-linux-x86_64.AppImage` | Make executable and open |
 | Debian/Ubuntu x64 | `ZERO-ONE-*-linux-amd64.deb` | Open with the software installer or use `sudo apt install ./ZERO-ONE-*-linux-amd64.deb` |
 
-Current source version is **8.0.0**. The 8.0.0 Microsoft Store update is submitted for certification; 7.9.6 remains the verified live Store version until certification and publication finish. Existing direct installer releases are separate from this Store submission. Published direct installers are unsigned public builds until Authenticode/notarization ships. Windows SmartScreen or macOS Gatekeeper may show an unknown-publisher warning. ZERO ONE's direct-edition in-app updater accepts only the exact stable package published by this repository when GitHub's asset digest and `SHA256SUMS.txt` agree.
+Current source version is **8.0.0**. Microsoft passed the 8.0.0 update certification; Partner Center shows **Update in publishing** on 30 September 2026. Store rollout is in progress; a Store-signed 8.0 installation has not been verified. Direct 8.0 installers are available now and are separate from the Store rollout. Published direct installers are unsigned public builds until Authenticode/notarization ships. Windows SmartScreen or macOS Gatekeeper may show an unknown-publisher warning. ZERO ONE's direct-edition in-app updater accepts only the exact stable package published by this repository when GitHub's asset digest and `SHA256SUMS.txt` agree.
 
 ## What is included
 

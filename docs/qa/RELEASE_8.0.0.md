@@ -45,11 +45,15 @@ This AppX is unsigned for Microsoft Store signing. It is not a sideload release.
 
 Product: **ZERO ONE Desktop**, `9PMPR7PTW025`.
 
-Submission3: `1152921505702011222`. The reviewed 8.0.0 AppX was uploaded and displayed **Validated** in Partner Center. English UK listing, current privacy/support links and reviewer notes were saved. Microsoft accepted the submission and the overview shows **Update in certification**, Submission complete and Pre-processing in progress. Its existing schedule publishes automatically as soon as certification passes.
+Submission3: `1152921505702011222`. The reviewed 8.0.0 AppX was uploaded and displayed **Validated** in Partner Center. English UK listing, current privacy/support links and reviewer notes were saved. Microsoft accepted the submission, then passed certification. The latest Partner Center overview on 30 September 2026 shows **Update in publishing** and states: certification passed, publishing has started, and the product will be available shortly. Submission, preprocessing and certification are complete; publishing is in progress under the existing automatic schedule.
 
-Version7.9.6 remains the currently verified live Store version. Public 8.0.0 certification, Store signing, installation and publication have not been established by source tests or package validation.
+Microsoft certification of 8.0.0 is now established by Partner Center. Completed Store rollout and a Store-signed 8.0 installation have not been verified. Version7.9.6 was the live Store version before this update began publishing. Direct 8.0 Windows x64, macOS Apple Silicon and Linux x64 installers are already public at https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v8.0.0 .
 
-Local proof of the submitted state is retained as `store-submitted-8.0.0.jpg`; the source repository publishes the sanitized receipt instead of the Partner Center account screen.
+Local proof of the submitted state is retained as `store-submitted-8.0.0.jpg`, and the certified publishing state as `store-publishing-8.0.0.jpg`; the source repository publishes this sanitized receipt instead of the Partner Center account screens.
+
+## Cross-platform CI correction
+
+The earlier Windows failure on commit `9a433e6` was a provenance-byte mismatch caused by Git automatic line-ending conversion. Commit `ab5eb1ba2b95ed5036bc78a6a699312da59bb6a9` preserves embedded release files with `-text` Git attributes and checks all five published hashes. Replacement [desktop-ci run](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/actions/runs/36734126343) passed Windows, macOS, Ubuntu and Windows packaging. The [v8.0 release workflow](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/actions/runs/36734515550) passed all seven jobs. The original failure remains historical evidence; it does not describe the corrected release.
 
 Current public privacy policy: https://researchforumonline.github.io/OpenZero/zero-one-privacy.html . Support: https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/issues . Offline research does not depend on either website.
 

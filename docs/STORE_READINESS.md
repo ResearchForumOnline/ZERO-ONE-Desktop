@@ -2,7 +2,7 @@
 
 ## ZERO ONE 8.0.0 source and public-preview gate
 
-ZERO ONE 7.9.6 is already live in the Microsoft Store, verified in Partner Center on 30 September 2026. Version 8.0.0 adds the local open-source ZeroThink workspace and is now submitted for certification with automatic publication after it passes. Its exact tests, package hash and submission status are recorded in docs/qa/RELEASE_8.0.0.md; source changes are not evidence of certification or publication.
+ZERO ONE 8.0.0 adds the local open-source ZeroThink workspace. Microsoft passed its certification, and Partner Center shows **Update in publishing** on 30 September 2026: publishing has started and Microsoft says it will be available shortly. A Store-signed 8.0 installation and completed public rollout have not been verified. Its exact tests, package hash and submission status are recorded in docs/qa/RELEASE_8.0.0.md; source changes are not evidence of certification or publication.
 
 The Store edition has functional local ZNotes, offline ZeroThink evidence maps and on-demand ZSEC scanning without a separately downloaded AI model. Optional AI uses a configured existing OpenZero server or user-supplied OpenAI/Groq keys. Store model installation is hidden and rejected in the main process. Updates remain Store managed. Direct builds retain existing Ollama support.
 
