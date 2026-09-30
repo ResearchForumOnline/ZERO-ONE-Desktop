@@ -1,16 +1,16 @@
 {
   "name": "zero-one-desktop",
   "desktopName": "zero-one.desktop",
-  "version": "7.9.4",
+  "version": "8.0.0",
   "private": true,
-  "description": "ZERO ONE desktop command center for ZMail, ZeroThink, OpenZero, CallChat, and the local ZSEC Shield preview.",
+  "description": "ZERO ONE with local ZeroThink research, encrypted ZNotes, user-controlled AI, Browser Pilot and ZSEC Shield.",
   "author": "QUANTUMENCRYPTION1 LTD",
   "license": "Apache-2.0",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",
     "build": "tsc --noEmit && vite build",
-    "test": "vitest run && node --test electron/tray-lifecycle.node.cjs electron/zerothink-session.node.cjs electron/ollama-local.node.cjs electron/workspace-logins.node.cjs electron/zmail-integration.node.cjs electron/update-check.node.cjs electron/update-installer.node.cjs electron/browser-pilot.node.cjs",
+    "test": "vitest run && node --test electron/tray-lifecycle.node.cjs electron/ollama-local.node.cjs electron/workspace-logins.node.cjs electron/update-check.node.cjs electron/update-installer.node.cjs electron/browser-pilot.node.cjs electron/store-distribution.node.cjs electron/notes-store.node.cjs electron/zerothink-desktop.node.cjs electron/zerothink-ipc.node.cjs",
     "check": "npm run test && npm run build && npm run check:site",
     "check:site": "node scripts/validate-zeroone-site-release.mjs",
     "pack:win": "npm run check && npm run verify:zsec && electron-builder --win dir --x64 --publish never",
@@ -36,11 +36,11 @@
     "@types/react-dom": "19.2.4",
     "@vitejs/plugin-react": "6.0.5",
     "concurrently": "10.0.4",
-    "electron": "43.2.0",
+    "electron": "43.7.7",
     "electron-builder": "26.15.3",
     "typescript": "7.0.2",
     "vite": "8.2.0",
-    "vitest": "4.1.10",
+    "vitest": "4.1.11",
     "wait-on": "9.1.0"
   },
   "build": {
@@ -55,7 +55,10 @@
       "dist/**/*",
       "electron/**/*",
       "assets/**/*",
-      "package.json"
+      "package.json",
+      "!electron/zerothink-session*",
+      "!electron/zmail-integration*",
+      "!electron/*.node.cjs"
     ],
     "extraResources": [
       {

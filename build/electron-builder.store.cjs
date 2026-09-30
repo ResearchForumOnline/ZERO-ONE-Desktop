@@ -21,6 +21,10 @@ module.exports = {
     ...packageMetadata.build.directories,
     output: "release/store",
   },
+  extraResources: [
+    ...(packageMetadata.build.extraResources || []),
+    { from: "build/store-edition.json", to: "zero-one-store-edition.json" },
+  ],
   win: {
     ...packageMetadata.build.win,
     target: [{ target: "appx", arch: ["x64"] }],

@@ -1,4 +1,4 @@
-export type ServiceId = "zmail" | "zerothink" | "openzero" | "callchat";
+export type ServiceId = "openzero";
 
 export interface ServiceDefinition {
   id: ServiceId;
@@ -8,7 +8,7 @@ export interface ServiceDefinition {
   accent: string;
   glyph: string;
   capabilities: string[];
-  settingKey: "zmailUrl" | "zeroThinkUrl" | "openZeroUrl" | "callChatUrl";
+  settingKey: "openZeroUrl";
 }
 
 export const SERVICES: ServiceDefinition[] = [
@@ -22,36 +22,7 @@ export const SERVICES: ServiceDefinition[] = [
     capabilities: ["Full panel", "Runs & tools", "Recursive Lab", "Tab Pilot"],
     settingKey: "openZeroUrl",
   },
-  {
-    id: "zerothink",
-    name: "ZeroThink",
-    eyebrow: "COGNITIVE STUDIO",
-    description: "Research, reasoning, model routing, quantum workflows, and durable memory.",
-    accent: "#a970ff",
-    glyph: "∞",
-    capabilities: ["Research", "Quantum", "Knowledge"],
-    settingKey: "zeroThinkUrl",
-  },
-  {
-    id: "zmail",
-    name: "ZMail",
-    eyebrow: "SECURE COMMUNICATION",
-    description: "Mail, encrypted messages, signatures, campaigns, files, and team workflows.",
-    accent: "#20c8ff",
-    glyph: "Z",
-    capabilities: ["Inbox", "ZMath Shield", "zSign"],
-    settingKey: "zmailUrl",
-  },
-  {
-    id: "callchat",
-    name: "CallChat",
-    eyebrow: "REAL-TIME PRESENCE",
-    description: "Voice, video, private calling, meetings, and AI-assisted conversations.",
-    accent: "#ff4fd8",
-    glyph: "C",
-    capabilities: ["Voice", "Video", "Live agent"],
-    settingKey: "callChatUrl",
-  },
+
 ];
 
 export function serviceById(id: ServiceId) {
@@ -59,7 +30,7 @@ export function serviceById(id: ServiceId) {
 }
 
 export function serviceIdFromView(view: string): ServiceId | null {
-  const match = /^service:(openzero|zerothink|zmail|callchat)$/.exec(view);
+  const match = /^service:(openzero)$/.exec(view);
   return match ? match[1] as ServiceId : null;
 }
 

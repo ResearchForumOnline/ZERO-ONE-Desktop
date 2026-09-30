@@ -1,11 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ZeroOneSettings {
-  zmailUrl: string;
-  zeroThinkUrl: string;
   openZeroUrl: string;
-  openZeroPublicUrl: string;
-  callChatUrl: string;
   assistantProvider: "openzero" | "openai" | "groq";
   model: string;
   openZeroServerModel: string;
@@ -20,7 +16,6 @@ interface ZeroOneSettings {
   hasOpenZeroToken: boolean;
   hasOpenAiKey: boolean;
   hasGroqKey: boolean;
-  hasZeroThinkAccount: boolean;
   zeroThinkEmail?: string;
   openZeroToken?: string;
   openAiKey?: string;
@@ -123,9 +118,6 @@ interface Window {
     onAppUpdateProgress(callback: (progress: AppUpdateProgress) => void): () => void;
     getUserInterfaceScale(): Promise<number>;
     setUserInterfaceScale(factor: number): Promise<number>;
-    startZeroThinkSignIn(): Promise<{ status: string; email: string; userCode: string; url?: string }>;
-    restoreZeroThinkSession(): Promise<{ status: string; email: string; url?: string; message?: string }>;
-    signOutZeroThink(): Promise<boolean>;
     listSavedWorkspaceLogins?: () => Promise<Array<{ origin: string; username: string; updatedAt?: string }>>;
     getWorkspaceCredentialStatus?: () => Promise<{ available: boolean; backend?: string }>;
     deleteSavedWorkspaceLogin?: (origin: string) => Promise<boolean>;
@@ -134,6 +126,15 @@ interface Window {
     quitApp(): Promise<boolean>;
     onAppNavigate(callback: (view: string) => void): () => void;
     getSystemSnapshot(): Promise<SystemSnapshot>;
+    listNotes(): Promise<Array<{ id: string; title: string; content: string; updatedAt: string }>>;
+    saveNote(note: { id: string; title: string; content: string }): Promise<{ id: string; title: string; content: string; updatedAt: string }>;
+    deleteNote(id: string): Promise<boolean>;
+    getZeroThinkProcesses(): Promise<ZeroThinkProcess[]>;
+    importZeroThinkDocuments(): Promise<ZeroThinkDocument[]>;
+    runZeroThink(request: { runId: string; question: string; mode: "quick" | "research" | "review"; processId: string; documents: ZeroThinkDocument[]; maxPasses: number; tokenBudget: number; useModel: boolean }): Promise<ZeroThinkResult>;
+    cancelZeroThink(runId: string): Promise<{ cancelled: boolean }>;
+    onZeroThinkProgress(callback: (progress: ZeroThinkProgress) => void): () => void;
+    exportZeroThinkReport(input: { format: "markdown" | "json"; result: ZeroThinkResult }): Promise<{ saved: boolean }>;
     loadSettings(): Promise<ZeroOneSettings>;
     saveSettings(settings: Partial<ZeroOneSettings>): Promise<ZeroOneSettings>;
     clearLocalData(): Promise<{ cleared: boolean }>;
@@ -158,6 +159,18 @@ interface Window {
     getZmathSecurityStatus(): Promise<ZmathSecurityStatus>;
     openDiskEncryptionSettings(): Promise<boolean>;
   };
+}
+
+interface ZeroThinkProcess { id: string; label: string; description: string; stages: string[]; checks: string[] }
+interface ZeroThinkDocument { id: string; title: string; text: string; sourceUrl?: string }
+interface ZeroThinkProgress { runId: string; stage: string; status: string; message: string; pass: number; maxPasses: number }
+interface ZeroThinkResult {
+  version: string; status: "completed" | "offline"; mode: string; question: string; answer: string; markdown: string;
+  evidence: Array<{ sourceId: string; title: string; sourceUrl?: string; excerpt: string; chunkId: string; score: number }>;
+  citations: { valid: string[]; unknown: string[]; missing: boolean };
+  steps: Array<{ id: string; label: string; status: string }>;
+  metrics: { passes: number; requestedTokens: number; sourceCount: number; retrievedCount: number };
+  warnings: string[];
 }
 
 declare namespace JSX {

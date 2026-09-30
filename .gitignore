@@ -13,3 +13,4 @@ coverage/
 vendor/zsec-shield/
 vendor/zsec-shield-provenance.json
 .cache-npm/
+dependency-audit.local.json

@@ -44,10 +44,10 @@ const baseStatus = {
 
 describe("desktop security contract", () => {
   it("keeps remote navigation and media on parsed owned origins", () => {
-    expect(main).toContain('"https://webmail.zmail.my"');
-    expect(main).toContain("new URL(value).origin");
+    expect(main).toContain('"http://127.0.0.1:1024"');
+    expect(main).toContain("new URL(runtimeSettings.openZeroUrl).origin");
     expect(main).toContain('url.startsWith("https://") && isAllowedUrl(url)');
-    expect(main).toContain("isCallChatOrigin(details.requestingUrl");
+    expect(main).toContain("callback(allowed)");
     expect(main).toContain("isLocalAppUrl(url)");
     expect(appSource).toContain("https://talktoai.org/report-ai/");
     expect(appSource).not.toContain("4 ready");
@@ -57,13 +57,6 @@ describe("desktop security contract", () => {
     expect(main).not.toContain('url.startsWith("file:")');
   });
 
-  it("keeps the exact zSign SSO hop in the isolated ZMail session", () => {
-    expect(main).toContain('const { ZSIGN_ORIGIN, isZmailWorkspaceUrl, isZmailZsignSsoUrl }');
-    expect(main).toContain("isZmailWorkspaceUrl(contents.getURL()) && isZmailZsignSsoUrl(url)");
-    expect(main).toContain("void contents.loadURL(url)");
-    expect(zmailIntegration).toContain('const ZSIGN_ORIGIN = "https://zsign.zmail.my"');
-    expect(zmailIntegration).toContain('url.searchParams.get("_action") === "plugin.zmail-zsign-sso"');
-  });
 
   it("rejects URL credentials and secret-like configuration data from diagnostics", () => {
     const origins = new Set(["https://openzero.talktoai.org", "https://webmail.zmail.my"]);

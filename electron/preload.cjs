@@ -11,14 +11,10 @@ contextBridge.exposeInMainWorld("zeroOne", {
   },
   getUserInterfaceScale: () => ipcRenderer.invoke("ui:get-zoom"),
   setUserInterfaceScale: (factor) => ipcRenderer.invoke("ui:set-zoom", factor),
-  startZeroThinkSignIn: () => ipcRenderer.invoke("zerothink:sign-in"),
-  restoreZeroThinkSession: () => ipcRenderer.invoke("zerothink:restore-session"),
-  signOutZeroThink: () => ipcRenderer.invoke("zerothink:sign-out"),
   listSavedWorkspaceLogins: () => ipcRenderer.invoke("workspace:list-logins"),
   getWorkspaceCredentialStatus: () => ipcRenderer.invoke("workspace:credential-status"),
   deleteSavedWorkspaceLogin: (origin) => ipcRenderer.invoke("workspace:delete-login", origin),
   clearSavedWorkspaceLogins: () => ipcRenderer.invoke("workspace:clear-logins"),
-  keepZmailSessionAlive: () => ipcRenderer.invoke("workspace:keep-zmail-alive"),
   quitApp: () => ipcRenderer.invoke("app:quit"),
   onAppNavigate: (callback) => {
     const listener = (_event, view) => callback(view);
@@ -26,6 +22,19 @@ contextBridge.exposeInMainWorld("zeroOne", {
     return () => ipcRenderer.removeListener("app:navigate", listener);
   },
   getSystemSnapshot: () => ipcRenderer.invoke("system:snapshot"),
+  listNotes: () => ipcRenderer.invoke("notes:list"),
+  saveNote: (note) => ipcRenderer.invoke("notes:save", note),
+  deleteNote: (id) => ipcRenderer.invoke("notes:delete", id),
+  getZeroThinkProcesses: () => ipcRenderer.invoke("zerothink:processes"),
+  importZeroThinkDocuments: () => ipcRenderer.invoke("zerothink:import"),
+  runZeroThink: (input) => ipcRenderer.invoke("zerothink:run", input),
+  cancelZeroThink: (runId) => ipcRenderer.invoke("zerothink:cancel", { runId }),
+  exportZeroThinkReport: (input) => ipcRenderer.invoke("zerothink:export", input),
+  onZeroThinkProgress: (callback) => {
+    const listener = (_event, progress) => callback(progress);
+    ipcRenderer.on("zerothink:progress", listener);
+    return () => ipcRenderer.removeListener("zerothink:progress", listener);
+  },
   loadSettings: () => ipcRenderer.invoke("settings:load"),
   saveSettings: (settings) => ipcRenderer.invoke("settings:save", settings),
   clearLocalData: () => ipcRenderer.invoke("settings:clear-local-data"),

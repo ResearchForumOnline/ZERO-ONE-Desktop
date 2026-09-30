@@ -51,16 +51,6 @@ describe("responsive desktop shell", () => {
     expect(app).not.toContain("{activeService && <ServiceWorkspace");
   });
 
-  it("offers bounded ZMail assistant actions without automatic sending", () => {
-    expect(app).toContain("Check visible inbox");
-    expect(app).toContain("Compose email");
-    expect(app).toContain("zero-one:zmail-action");
-    expect(app).toContain("review everything in ZMail before you press Send");
-    expect(app).toContain("row.getClientRects().length > 0");
-    expect(app).toContain("onOpenZmail()");
-    expect(app).toContain('navigate("service:zmail", { collapseCopilot: false })');
-    expect(app).toContain("ZMail home");
-  });
 
   it("exposes bounded zoom to the renderer and embedded workspaces", () => {
     expect(main).toContain("const ZOOM_LEVELS");
@@ -139,52 +129,7 @@ describe("responsive desktop shell", () => {
     expect(css).toContain("outline:2px solid var(--cyan)");
   });
 
-  it("uses the ZeroThink CLI device flow through the system browser", () => {
-    expect(main).toContain('zeroThinkApi("device_start"');
-    expect(main).toContain('zeroThinkApi("device_poll"');
-    expect(main).toContain("shell.openExternal(started.verification_url)");
-    expect(main).toContain('session.fromPartition("persist:zero-one-zerothink")');
-    expect(main).toContain("desktop_session.php");
-    expect(main).toContain('credentials: "include"');
-    expect(main).toContain("targetSession.cookies.set");
-    expect(main).toContain('name: "PHPSESSID"');
-    expect(main).toContain("latestPhpSessionCookie");
-    expect(main).toContain("sessionCookie.expirationDate");
-    expect(main).toContain("zeroThinkIdentityFromCookies");
-    expect(main).toContain("flushAllWorkspaceSessions");
-    expect(main).not.toContain("hardenPartitionCookies");
-    expect(main).toContain("buildLoginAssistScript");
-    expect(main).toContain("ZERO_ONE_SAVE_LOGIN_SIGNAL");
-    expect(main).toContain("capturePendingWorkspaceLogin");
-    expect(main).toContain('body: JSON.stringify({ action: "me" })');
-    expect(main).toContain('identity.status !== "success"');
-    expect(main).toContain('body: JSON.stringify({ access_token: accessToken })');
-    expect(main).toContain('const finalResponseUrl = String(studio.url || "")');
-    expect(main).toContain('finalResponseUrl ? new URL(finalResponseUrl) : null');
-    expect(main).toContain('finalUrl && (finalUrl.origin !== ZERO_THINK_ORIGIN || !finalUrl.pathname.startsWith("/studio"))');
-    expect(main).toContain('ipcMain.handle("zerothink:restore-session"');
-    expect(main).toContain('ipcMain.handle("workspace:list-logins"');
-    expect(preload).toContain('restoreZeroThinkSession: () => ipcRenderer.invoke("zerothink:restore-session")');
-    expect(preload).toContain('signOutZeroThink: () => ipcRenderer.invoke("zerothink:sign-out")');
-    expect(preload).toContain("listSavedWorkspaceLogins");
-    expect(preload).toContain("getWorkspaceCredentialStatus");
-    expect(preload).toContain("keepZmailSessionAlive");
-  });
 
-  it("gives ZeroThink a responsive, honest task-space shell", () => {
-    expect(app).toContain('className="zerothink-dock"');
-    expect(app).toContain("Signed in on this PC");
-    expect(app).toContain("Stays signed in after you close ZERO ONE");
-    expect(app).toContain('accountState === "linked"');
-    expect(app).toContain("Sign in once");
-    expect(app).toContain("Saved logins on this PC");
-    expect(app).toContain("Save login is optional");
-    expect(app).toContain("Password saving is off by default");
-    expect(app).not.toContain("it will be remembered automatically");
-    expect(css).toContain(".zerothink-layout.dock-collapsed");
-    expect(css).toContain("@media(max-width:560px)");
-    expect(css).toContain(".saved-login-list");
-  });
 
   it("makes OpenZero the guided Assistant default with optional hosted providers", () => {
     expect(main).toContain('assistantProvider: "openzero"');
@@ -200,7 +145,10 @@ describe("responsive desktop shell", () => {
     expect(app).toContain("Local Assistant mode needs no API key or token");
     expect(app).toContain("Download selected local Assistant");
     expect(app).toContain("no API key required");
-    expect(app).toContain("Assistant needs no config");
+    expect(app).toContain("Assistant setup");
+    expect(app).toContain("Core ZERO ONE features work without an AI model");
+    expect(app).toContain("useState(import.meta.env.PROD)");
+    expect(app).toContain("choose the assistant mode available in this edition");
     expect(app).toContain("chat-clear");
     expect(app).toContain('key === "j"');
     expect(app).toContain("lastView");
@@ -215,7 +163,7 @@ describe("responsive desktop shell", () => {
     expect(main).toContain('new URL("/v1/models", settings.openZeroUrl)');
     expect(main).toContain('await provisionOpenZeroDesktop(runtimeSettings)');
     expect(main).toContain('["127.0.0.1", "localhost", "::1"].includes(endpoint.hostname)');
-    expect(main).toContain("keepZmailSessionAlive");
+    expect(main).not.toContain("keepZmailSessionAlive");
     expect(main).toContain("chatViaLocalOllama");
     expect(preload).toContain('connectOpenZeroDesktop: () => ipcRenderer.invoke("openzero:connect-desktop")');
     expect(app).toContain('chooseProvider("groq")');
@@ -224,13 +172,13 @@ describe("responsive desktop shell", () => {
   });
 
   it("embeds the configured full OpenZero panel and distinguishes connected surfaces", () => {
-    expect(app).toContain("const configuredUrl = serviceUrl(service, settings)");
+    expect(app).toContain("const url = serviceUrl(service, settings)");
     expect(app).not.toContain('service.id === "openzero" ? settings.openZeroPublicUrl');
-    expect(app).toContain("Full OpenZero panel");
-    expect(app).toContain("The top-right drawer is fast everyday chat.");
-    expect(app).toContain("Chrome or Brave actions stay tab-scoped and require your approval.");
+
+
+
     expect(app).toContain("cgaalobjjknalamgchppccbocnhonhbf");
-    expect(app).toContain("Connect full OpenZero");
+
     expect(app).toContain("openZeroServerModel");
     expect(app).not.toMatch(/Install openzerogemma:latest[^\n]*recommended browser-agent model/);
     expect(main).toContain("recommended_model");
@@ -291,3 +239,5 @@ describe("responsive desktop shell", () => {
     expect(app).toContain("if (!window.zeroOne?.onAppNavigate) return");
   });
 });
+
+describe("local notes product boundary", () => { it("exposes ZNotes and removes retired remote account controls", () => { expect(app).toContain("<NotesWorkspace />"); expect(app).not.toContain("service:zmail"); expect(preload).not.toContain("zerothink:sign-in"); expect(main).toContain('requireTrustedIpcSender(event);'); }); });

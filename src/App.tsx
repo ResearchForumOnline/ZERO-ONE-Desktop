@@ -1,9 +1,9 @@
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SERVICES, ServiceDefinition, ServiceId, retainMountedServiceTab, serviceById, serviceIdFromView, serviceUrl } from "./lib/services";
+import ZeroThinkWorkspace from "./ZeroThinkWorkspace";
 
-type View = "home" | "shield" | "agents" | "pilot" | "settings" | `service:${ServiceId}`;
+type View = "home" | "notes" | "zerothink" | "shield" | "agents" | "pilot" | "settings" | `service:${ServiceId}`;
 type ChatMessage = { role: "user" | "assistant"; content: string };
-type ZeroThinkAccountState = "checking" | "linking" | "linked" | "signed-out" | "needs-link";
 type LocalOpenZeroStatus = { reachable: boolean; origin: string; defaultModel: string; version: string; models: Array<{ name: string; size: number; modifiedAt: string }>; runningModels: Array<{ name: string; size: number; expiresAt: string }>; message?: string };
 type LocalOpenZeroProgress = { status: string; completed: number; total: number; percent?: number; done: boolean };
 
@@ -34,11 +34,12 @@ const localOpenZeroApi = () => window.zeroOne as typeof window.zeroOne & {
 const initialAssistant: ChatMessage[] = [
   {
     role: "assistant",
-    content: "I’m your ZERO ONE Assistant. Private Local mode uses OpenZero + Ollama on this PC with no API keys. If the model is installed, just ask — otherwise open Settings once to download the recommended OpenZero Gemma E2B model (~3.4 GB).",
+    content: "I’m your ZERO ONE Assistant. Open Settings to choose the assistant mode available in this edition.",
   },
 ];
 
 const iconPaths: Record<string, string> = {
+  notes: "M7 3h8l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm8 1v4h4M8 12h8M8 16h8",
   home: "M3 11.5 12 4l9 7.5v8a1.5 1.5 0 0 1-1.5 1.5h-5v-6h-5v6h-5A1.5 1.5 0 0 1 3 19.5z",
   agents: "M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm-7 15.5C5 15.5 8.1 13 12 13s7 2.5 7 5.5V21H5z",
   settings: "M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm8.2 4.8.1-1.3-.1-1.3 2-1.6-2-3.5-2.5 1a8 8 0 0 0-2.2-1.3L15.1 3h-4.2l-.4 2.6a8 8 0 0 0-2.2 1.3l-2.5-1-2 3.5 2 1.6-.1 1.3.1 1.3-2 1.6 2 3.5 2.5-1a8 8 0 0 0 2.2 1.3l.4 2.6h4.2l.4-2.6a8 8 0 0 0 2.2-1.3l2.5 1 2-3.5z",
@@ -88,6 +89,8 @@ function Sidebar({ view, mountedServiceIds, version, onNavigate }: { view: View;
       </button>
       <nav className="primary-nav" aria-label="Primary navigation">
         <NavButton active={view === "home"} label="Command" onClick={() => onNavigate("home")} icon="home" />
+        <NavButton active={view === "notes"} label="ZNotes" onClick={() => onNavigate("notes")} icon="notes" />
+        <NavButton active={view === "zerothink"} label="ZeroThink" onClick={() => onNavigate("zerothink")} icon="search" />
         <NavButton active={view === "shield"} label="ZSEC" onClick={() => onNavigate("shield")} icon="shield" />
         <NavButton active={view === "agents"} label="Automation" onClick={() => onNavigate("agents")} icon="agents" />
         <NavButton active={view === "pilot"} label="Browser Pilot" onClick={() => onNavigate("pilot")} icon="browser" />
@@ -123,7 +126,7 @@ function NavButton({ active, label, onClick, icon, compact = false }: { active: 
 
 function Topbar({ view, probes, system, zoom, copilotOpen, onZoom, onToggleCopilot, onRefresh, onSearch, searchRef }: { view: View; probes: ServiceProbe[]; system: SystemSnapshot | null; zoom: number; copilotOpen: boolean; onZoom: (factor: number) => void; onToggleCopilot: () => void; onRefresh: () => void; onSearch: () => void; searchRef: React.RefObject<HTMLButtonElement | null> }) {
   const online = probes.filter((probe) => probe.state === "online").length;
-  const title = view === "home" ? "Command center" : view === "shield" ? "ZSEC Shield" : view === "agents" ? "Automation" : view === "pilot" ? "Browser Pilot" : view === "settings" ? "Settings" : serviceById(view.split(":")[1] as ServiceId).name;
+  const title = view === "home" ? "Command center" : view === "notes" ? "ZNotes" : view === "zerothink" ? "ZeroThink" : view === "shield" ? "ZSEC Shield" : view === "agents" ? "Automation" : view === "pilot" ? "Browser Pilot" : view === "settings" ? "Settings" : serviceById(view.split(":")[1] as ServiceId).name;
   return (
     <header className="topbar">
       <div>
@@ -194,7 +197,7 @@ function Dashboard({ settings, probes, system, zsec, onOpen, onOpenShield }: { s
         <div className="hero-copy">
           <div className="hero-kicker"><span /> PRIVATE DESKTOP COMMAND CENTER</div>
           <h2>Your workspaces.<br /><em>Your configured AI.</em><br />One desktop command.</h2>
-          <p>Mail, research, configured AI, agent controls, calls, and explicit on-demand security scans—composed into one fast desktop experience.</p>
+          <p>Encrypted local notes, your configured AI, Browser Pilot, agent controls and on-demand security scans in one desktop.</p>
           <div className="hero-actions">
             <button className="primary-action" onClick={() => onOpen("openzero")}><span>Open full OpenZero panel</span><span>↗</span></button>
             <button className="secondary-action shield-action" onClick={onOpenShield}><Icon name="shield" size={17} /> Open ZSEC Shield</button>
@@ -371,216 +374,12 @@ function ServiceCard({ service, probe, onOpen }: { service: ServiceDefinition; p
 }
 
 function ServiceWorkspace({ service, settings, probe, active }: { service: ServiceDefinition; settings: ZeroOneSettings; probe?: ServiceProbe; active: boolean }) {
-  const configuredUrl = serviceUrl(service, settings);
-  const [workspaceUrl, setWorkspaceUrl] = useState(configuredUrl);
-  const [reloadKey, setReloadKey] = useState(0);
-  const [pairing, setPairing] = useState(false);
-  const [restoringAccount, setRestoringAccount] = useState(service.id === "zerothink" && settings.hasZeroThinkAccount);
-  const [accountEmail, setAccountEmail] = useState("");
-  const [accountState, setAccountState] = useState<ZeroThinkAccountState>(settings.hasZeroThinkAccount ? "checking" : "signed-out");
-  const [accountError, setAccountError] = useState("");
-  const [zeroThinkDockOpen, setZeroThinkDockOpen] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [openZeroSetup, setOpenZeroSetup] = useState<"idle" | "connecting" | "ready" | "error">(settings.hasOpenZeroToken ? "ready" : "idle");
-  const [openZeroSetupMessage, setOpenZeroSetupMessage] = useState(settings.hasOpenZeroToken ? `${settings.openZeroServerModel || "OpenZero"} connected` : "");
-  const webviewRef = useRef<HTMLElement>(null);
-
-  useEffect(() => { setWorkspaceUrl(configuredUrl); setReloadKey((value) => value + 1); }, [configuredUrl]);
-  useEffect(() => {
-    if (service.id !== "zmail") return;
-    // Ask ZMail to refresh through its own server-controlled session.
-    void window.zeroOne.keepZmailSessionAlive?.();
-  }, [service.id]);
-  useEffect(() => {
-    if (service.id !== "zmail") return;
-    const handleMailAction = async (event: Event) => {
-      const request = (event as CustomEvent<{ id: string; action: "inbox" | "compose" }>).detail;
-      if (!request?.id) return;
-      if (request.action === "compose") {
-        try {
-          const origin = new URL(settings.zmailUrl).origin;
-          setWorkspaceUrl(`${origin}/?_task=mail&_action=compose`);
-          window.dispatchEvent(new CustomEvent("zero-one:zmail-result", { detail: { id: request.id, ok: true, message: "ZMail compose is open. Tell me the recipient, subject and key points and I’ll help draft it; review everything in ZMail before you press Send." } }));
-        } catch {
-          window.dispatchEvent(new CustomEvent("zero-one:zmail-result", { detail: { id: request.id, ok: false, message: "The configured ZMail address is invalid." } }));
-        }
-        return;
-      }
-      try {
-        const webview = webviewRef.current as HTMLElement & { executeJavaScript?: (code: string, userGesture?: boolean) => Promise<unknown> };
-        if (!webview?.executeJavaScript) throw new Error("Open ZMail once, then try Check inbox again.");
-        const rows = await webview.executeJavaScript(`(() => Array.from(document.querySelectorAll('#messagelist tbody tr, table.messagelist tbody tr')).filter((row) => row.getClientRects().length > 0 && row.getAttribute('aria-hidden') !== 'true').slice(0,10).map((row) => ({ sender: (row.querySelector('.fromto, .sender, [class*="from"]')?.textContent || '').trim().replace(/\\s+/g,' ').slice(0,120), subject: (row.querySelector('.subject, [class*="subject"]')?.textContent || '').trim().replace(/\\s+/g,' ').slice(0,180), date: (row.querySelector('.date, [class*="date"]')?.textContent || '').trim().replace(/\\s+/g,' ').slice(0,80), unread: row.classList.contains('unread') || row.getAttribute('aria-label')?.toLowerCase().includes('unread') })))()`, false) as Array<{ sender: string; subject: string; date: string; unread: boolean }>;
-        const clean = Array.isArray(rows) ? rows.filter((row) => row.sender || row.subject).slice(0, 10) : [];
-        const message = clean.length ? `Visible ZMail messages (${clean.length}):\n${clean.map((row, index) => `${index + 1}. ${row.unread ? "UNREAD · " : ""}${row.sender || "Unknown sender"} — ${row.subject || "No subject"}${row.date ? ` · ${row.date}` : ""}`).join("\n")}` : "No message rows are visible. Open the ZMail inbox and try again; ZERO ONE does not bypass login or read hidden mailbox data.";
-        window.dispatchEvent(new CustomEvent("zero-one:zmail-result", { detail: { id: request.id, ok: true, message } }));
-      } catch (error) {
-        window.dispatchEvent(new CustomEvent("zero-one:zmail-result", { detail: { id: request.id, ok: false, message: error instanceof Error ? error.message : "The visible inbox could not be read." } }));
-      }
-    };
-    window.addEventListener("zero-one:zmail-action", handleMailAction);
-    return () => window.removeEventListener("zero-one:zmail-action", handleMailAction);
-  }, [service.id, settings.zmailUrl]);
-  useEffect(() => {
-    if (service.id !== "zerothink") return;
-    if (!settings.hasZeroThinkAccount) {
-      setRestoringAccount(false);
-      setAccountState("signed-out");
-      setAccountEmail("");
-      return;
-    }
-    let active = true;
-    setRestoringAccount(true);
-    setAccountState("checking");
-    window.zeroOne.restoreZeroThinkSession().then((result) => {
-      if (!active) return;
-      if (result.status === "success") {
-        setAccountEmail(result.email || settings.zeroThinkEmail || "");
-        setAccountState("linked");
-        setWorkspaceUrl(result.url || settings.zeroThinkUrl);
-        setAccountError("");
-        setReloadKey((value) => value + 1);
-      } else {
-        setAccountEmail("");
-        setAccountState("needs-link");
-        setAccountError(result.message || "Your saved ZeroThink link needs approval again.");
-        setWorkspaceUrl("https://zerothink.talktoai.org/guest");
-      }
-    }).catch((error) => {
-      if (active) {
-        setAccountState("needs-link");
-        setAccountEmail("");
-        setAccountError(error instanceof Error ? error.message : "The ZeroThink session could not be restored.");
-        setWorkspaceUrl("https://zerothink.talktoai.org/guest");
-      }
-    }).finally(() => { if (active) setRestoringAccount(false); });
-    return () => { active = false; };
-  }, [service.id, settings.hasZeroThinkAccount, settings.zeroThinkEmail, settings.zeroThinkUrl]);
-  useEffect(() => {
-    const webview = webviewRef.current;
-    if (!webview) return;
-    let timer = window.setTimeout(() => { setLoading(false); setLoadError("This workspace is taking too long to load."); }, 20000);
-    const start = () => { window.clearTimeout(timer); setLoading(true); setLoadError(""); timer = window.setTimeout(() => { setLoading(false); setLoadError("This workspace is taking too long to load."); }, 20000); };
-    const stop = () => { window.clearTimeout(timer); setLoading(false); };
-    const fail = (event?: Event & { errorCode?: number; isMainFrame?: boolean }) => {
-      // Chromium aborts navigations with -3 during redirects/reloads; ignore those.
-      if (event && typeof event.errorCode === "number" && (event.errorCode === -3 || event.isMainFrame === false)) return;
-      window.clearTimeout(timer);
-      setLoading(false);
-      setLoadError("The workspace could not be loaded inside ZERO ONE.");
-    };
-    webview.addEventListener("did-start-loading", start);
-    webview.addEventListener("did-stop-loading", stop);
-    webview.addEventListener("did-fail-load", fail as EventListener);
-    webview.addEventListener("render-process-gone", fail as EventListener);
-    return () => {
-      window.clearTimeout(timer);
-      webview.removeEventListener("did-start-loading", start);
-      webview.removeEventListener("did-stop-loading", stop);
-      webview.removeEventListener("did-fail-load", fail as EventListener);
-      webview.removeEventListener("render-process-gone", fail as EventListener);
-    };
-  }, [reloadKey, workspaceUrl]);
-
-  const retry = () => { setLoadError(""); setLoading(true); setReloadKey((value) => value + 1); };
-  const pairZeroThink = async () => {
-    setPairing(true); setAccountState("linking"); setAccountError("");
-    try { const result = await window.zeroOne.startZeroThinkSignIn(); setAccountEmail(result.email || ""); setAccountState("linked"); setWorkspaceUrl(result.url || settings.zeroThinkUrl); retry(); }
-    catch (error) { setAccountState("needs-link"); setAccountError(error instanceof Error ? error.message : "ZeroThink sign-in was not completed."); }
-    finally { setPairing(false); }
-  };
-  const signOutZeroThink = async () => { await window.zeroOne.signOutZeroThink(); setAccountEmail(""); setAccountError(""); setAccountState("signed-out"); setWorkspaceUrl("https://zerothink.talktoai.org/guest"); retry(); };
-  const accountLinked = accountState === "linked";
-  const zeroThinkOrigin = (() => { try { return new URL(settings.zeroThinkUrl).origin; } catch { return "https://zerothink.talktoai.org"; } })();
-  const zeroThinkStudioPath = (() => { try { return new URL(settings.zeroThinkUrl).pathname || "/studio"; } catch { return "/studio"; } })();
-  const zeroThinkPath = (() => { try { return new URL(workspaceUrl).pathname; } catch { return "/"; } })();
-  const openZeroThinkPath = (path: string) => { setLoadError(""); setLoading(true); setWorkspaceUrl(`${zeroThinkOrigin}${path}`); };
-  const connectLocalOpenZero = async () => {
-    setOpenZeroSetup("connecting"); setOpenZeroSetupMessage("Checking OpenZero and selecting its recommended runtime model…");
-    try {
-      const result = await window.zeroOne.connectOpenZeroDesktop();
-      setOpenZeroSetup("ready");
-      setOpenZeroSetupMessage(`Full OpenZero is connected with ${result.model}. Quick Assistant keeps its separate responsive local model.`);
-    } catch (error) {
-      setOpenZeroSetup("error");
-      setOpenZeroSetupMessage(error instanceof Error ? error.message : "OpenZero could not be connected. Start the local OpenZero panel and try again.");
-    }
-  };
-  const workspaceSurface = (
-    <div className="workspace-surface">
-      {loading && <div className="workspace-loading" role="status"><span /><strong>Loading {service.name}…</strong><small>You can keep using the tray or another workspace.</small></div>}
-      {loadError && <div className="workspace-error" role="alert"><span>!</span><h3>{loadError}</h3><p>Check your connection, retry here, or open the service in your browser.</p><div><button className="primary-action" onClick={retry}>Try again</button><button className="secondary-action" onClick={() => window.zeroOne.openExternal(workspaceUrl)}>Open in browser</button></div></div>}
-      <webview key={`${workspaceUrl}-${reloadKey}`} ref={webviewRef} className="product-webview" src={workspaceUrl} partition={`persist:zero-one-${service.id}`} />
-    </div>
-  );
-  return (
-    <section
-      className={`workspace-view workspace-tab-panel ${active ? "active" : "inactive"}`}
-      data-service-tab={service.id}
-      aria-hidden={!active}
-      inert={!active}
-    >
-      <div className="workspace-toolbar" style={{ "--service-accent": service.accent } as React.CSSProperties}>
-        <div className="workspace-identity"><span>{service.glyph}</span><div><p>{service.eyebrow}</p><h2>{service.name}</h2></div></div>
-        <div className="workspace-address"><Icon name="shield" size={16} /><span>{workspaceUrl}</span></div>
-        <div className="workspace-actions"><span className="workspace-health"><StatusDot state={probe?.state} />{probe?.state === "online" ? "reachable" : probe?.state || "checking"}</span>{service.id === "zmail" && <button onClick={() => { setWorkspaceUrl(configuredUrl); setReloadKey((value) => value + 1); }}>ZMail home</button>}<button onClick={retry}>Retry</button><button onClick={() => window.zeroOne.openExternal(workspaceUrl)}><Icon name="external" size={17} /> Browser</button></div>
-      </div>
-      {service.id === "zerothink" && (
-        <div className={`account-banner ${accountLinked ? "linked" : accountState}`} role="status" aria-live="polite"><div><strong>{accountLinked ? "Signed in on this PC" : pairing ? "Finish Google approval in your browser…" : restoringAccount ? "Restoring your saved ZeroThink login…" : accountState === "needs-link" ? "Saved login needs a quick refresh" : "Sign in to ZeroThink (one time)"}</strong><span>{accountError || (accountLinked ? `${accountEmail || "ZeroThink account"} · Stays signed in after you close ZERO ONE.` : "Click Sign in with Google. Approve once in your browser, then return here. ZERO ONE saves the link so you should not need to do this every time.")}</span></div>{accountLinked ? <button className="secondary-action" onClick={signOutZeroThink}>Sign out</button> : <><button className="primary-action" disabled={pairing || restoringAccount} onClick={pairZeroThink}>{pairing ? "Waiting for approval…" : restoringAccount ? "Restoring login…" : accountState === "needs-link" ? "Sign in again ↗" : "Sign in with Google ↗"}</button><button className="secondary-action" disabled={restoringAccount} onClick={() => setWorkspaceUrl("https://zerothink.talktoai.org/guest")}>Continue as guest</button></>}</div>
-      )}
-      {service.id === "callchat" && !settings.mediaEnabled && (
-        <div className="permission-banner"><Icon name="call" size={18} /><span>Camera and microphone are locked. Enable CallChat media in Settings when you want to make a call.</span></div>
-      )}
-      {service.id === "zmail" && (
-        <div className={`openzero-context-banner ${openZeroSetup}`} role="status" aria-live="polite">
-          <strong>Save login is optional</strong>
-          <span>Tick “Save login in ZERO ONE” on the sign-in form only if you want an encrypted copy in your operating-system vault.</span>
-          <i aria-hidden="true" />
-          <strong>You control filling</strong>
-          <span>Use “Fill saved ZERO ONE login” when needed. Server cookie expiry and logout remain unchanged.</span>
-        </div>
-      )}
-      {service.id === "openzero" && probe?.state !== "offline" && (
-        <div className="openzero-context-banner" role="note">
-          <strong>Full OpenZero panel</strong>
-          <span>Models, runs, tools and automation live here.</span>
-          <i aria-hidden="true" />
-          <strong>Assistant</strong>
-          <span>The top-right drawer is fast everyday chat.</span>
-          <i aria-hidden="true" />
-          <strong>Tab Pilot</strong>
-          <span>Chrome or Brave actions stay tab-scoped and require your approval.</span>
-          <button type="button" className="context-link" disabled={openZeroSetup === "connecting"} onClick={connectLocalOpenZero}>{openZeroSetup === "connecting" ? "Connecting…" : openZeroSetup === "ready" ? "Reconnect OpenZero" : "Connect full OpenZero"}</button>
-          <button type="button" className="context-link" onClick={() => window.zeroOne.openExternal("https://chromewebstore.google.com/detail/openzero-tab-pilot/cgaalobjjknalamgchppccbocnhonhbf")}>Install extension ↗</button>
-          {openZeroSetupMessage && <span className={`context-status ${openZeroSetup}`}>{openZeroSetupMessage}</span>}
-        </div>
-      )}
-      {probe?.state === "offline" && service.id === "openzero" && (
-        <div className="runtime-banner"><span className="warning-symbol">!</span><div><strong>The full OpenZero panel is not responding</strong><p>Start OpenZero or its secure tunnel, then check the full-panel address in Settings. The local Assistant can still work independently.</p></div></div>
-      )}
-      {probe?.state === "offline" && service.id !== "openzero" && (
-        <div className="runtime-banner"><span className="warning-symbol">!</span><div><strong>{service.name} is not reachable</strong><p>Check your network, VPN, or the workspace URL in Settings. You can still retry inside ZERO ONE or open the service in a browser.</p></div></div>
-      )}
-      {service.id === "zerothink" ? (
-        <div className={`zerothink-layout ${zeroThinkDockOpen ? "" : "dock-collapsed"}`}>
-          <aside className="zerothink-dock" aria-label="ZeroThink tools">
-            <div className="zerothink-dock-head"><div><span>ZERO THINK</span><strong>Task space</strong></div><button onClick={() => setZeroThinkDockOpen((open) => !open)} aria-expanded={zeroThinkDockOpen} aria-label={zeroThinkDockOpen ? "Collapse ZeroThink tools" : "Expand ZeroThink tools"}>{zeroThinkDockOpen ? "‹" : "›"}</button></div>
-            <button className="zerothink-new-task" onClick={() => openZeroThinkPath(accountLinked ? zeroThinkStudioPath : "/guest")}><span>＋</span><b>New task</b></button>
-            <nav className="zerothink-tools">
-              <p>WORKSPACE</p>
-              <button className={zeroThinkPath === zeroThinkStudioPath || zeroThinkPath === "/guest" ? "active" : ""} onClick={() => openZeroThinkPath(accountLinked ? zeroThinkStudioPath : "/guest")}><Icon name="home" size={16} /><span>Workspace</span></button>
-              <button className={zeroThinkPath === "/oracle" ? "active" : ""} onClick={() => openZeroThinkPath("/oracle")}><Icon name="pulse" size={16} /><span>Oracle</span></button>
-              <p>LEARN &amp; CONNECT</p>
-              <button className={zeroThinkPath === "/faq" ? "active" : ""} onClick={() => openZeroThinkPath("/faq")}><Icon name="shield" size={16} /><span>Help &amp; FAQ</span></button>
-              <button className={zeroThinkPath === "/cli" ? "active" : ""} onClick={() => openZeroThinkPath("/cli")}><Icon name="agents" size={16} /><span>Optional CLI</span></button>
-            </nav>
-            <div className="zerothink-account-card"><span className={accountLinked ? "online" : "guest"}>{accountLinked ? (accountEmail.slice(0, 1).toUpperCase() || "Z") : "G"}</span><div><strong>{accountLinked ? (accountEmail || "ZeroThink account") : "Guest workspace"}</strong><small>{accountLinked ? "Saved on this PC" : accountState === "checking" ? "Restoring login…" : "Not signed in"}</small></div></div>
-          </aside>
-          {workspaceSurface}
-        </div>
-      ) : workspaceSurface}
-    </section>
-  );
+  const url = serviceUrl(service, settings);
+  const [reload, setReload] = useState(0);
+  return <section className={`workspace-view workspace-tab-panel ${active ? "active" : "inactive"}`} data-service-tab={service.id} aria-hidden={!active} inert={!active}>
+    <div className="workspace-toolbar"><div className="workspace-identity"><span>Ø</span><div><p>YOUR RUNTIME</p><h2>OpenZero</h2></div></div><div className="workspace-address"><span>{url}</span></div><div className="workspace-actions"><StatusDot state={probe?.state}/><button onClick={() => setReload(reload + 1)}>Reload</button><button onClick={() => window.zeroOne.openExternal(url)}>Open in browser</button></div></div>
+    <div className="workspace-surface"><webview key={`${url}-${reload}`} className="product-webview" src={url} partition="persist:zero-one-openzero" /></div>
+  </section>;
 }
 
 function AgentLattice({ settings, openZeroProbe, onOpenZero }: { settings: ZeroOneSettings; openZeroProbe?: ServiceProbe; onOpenZero: () => void }) {
@@ -622,8 +421,8 @@ function browserAddress(value: string) {
 }
 
 function BrowserPilotWorkspace({ settings }: { settings: ZeroOneSettings }) {
-  const [address, setAddress] = useState("https://openzero.talktoai.org/");
-  const [pageUrl, setPageUrl] = useState("https://openzero.talktoai.org/");
+  const [address, setAddress] = useState("https://www.wikipedia.org/");
+  const [pageUrl, setPageUrl] = useState("https://www.wikipedia.org/");
   const [task, setTask] = useState("");
   const [ready, setReady] = useState(false);
   const [pageBusy, setPageBusy] = useState(true);
@@ -845,7 +644,6 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
           <div className="settings-heading"><div><p>EVERYDAY CONTROLS</p><h2>Make ZERO ONE work your way</h2></div><span>Safe defaults are already selected</span></div>
           <label className="check-row"><input type="checkbox" checked={draft.closeToTray} onChange={(event) => setDraft({ ...draft, closeToTray: event.target.checked })} /><span><strong>Keep ZERO ONE ready in the system tray</strong><small>Closing or minimising hides the window. Choose Quit from the tray when you want to stop it.</small></span></label>
           <label className="check-row"><input type="checkbox" checked={storeManaged ? false : draft.launchAtLogin} disabled={storeManaged} onChange={(event) => setDraft({ ...draft, launchAtLogin: event.target.checked })} /><span><strong>Start when I sign in to this computer</strong><small>{storeManaged ? "Unavailable in this Store edition; you can still pin and start ZERO ONE normally." : "Starts quietly in the tray."}</small></span></label>
-          <label className="check-row"><input type="checkbox" checked={draft.mediaEnabled} onChange={(event) => setDraft({ ...draft, mediaEnabled: event.target.checked })} /><span><strong>Allow camera and microphone in CallChat</strong><small>Other workspaces remain blocked from camera and microphone access.</small></span></label>
         </section>
         <section className="settings-section glass-card settings-update-section" aria-labelledby="version-updates-heading">
           <div className="settings-heading"><div><p>VERSION &amp; UPDATES</p><h2 id="version-updates-heading">ZERO ONE v{appVersion || "—"}</h2></div><span>{updatesManagedByStore ? "Managed by Microsoft Store" : "Official stable releases only"}</span></div>
@@ -861,16 +659,11 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
             </div>
           </div>
         </section>
-        <section className="settings-section glass-card account-setup">
-          <div className="settings-heading"><div><p>ZEROTHINK</p><h2>Account access</h2></div><span>Sign in once</span></div>
-          <p>Open the ZeroThink workspace and click <strong>Sign in with Google</strong>. Approve once in your browser, then return here. ZERO ONE stores a secure desktop link so you stay signed in after you close the app.</p>
-          {settings.hasZeroThinkAccount ? <p className="no-token-note"><Icon name="shield" size={15} /> Saved ZeroThink account{settings.zeroThinkEmail ? `: ${settings.zeroThinkEmail}` : ""} · restore runs automatically when you open ZeroThink.</p> : <p className="no-token-note">No ZeroThink account linked yet. Open ZeroThink and sign in once.</p>}
-        </section>
         <section className="settings-section glass-card">
-          <div className="settings-heading"><div><p>ZMAIL &amp; WORKSPACES</p><h2>Saved logins on this PC</h2></div><span>{workspaceCredentialStatus === null ? "Checking secure storage" : workspaceCredentialStatus.available ? "Secure OS vault" : "Password saving unavailable"}</span></div>
+          <div className="settings-heading"><div><p>LOCAL WORKSPACE</p><h2>Saved logins on this PC</h2></div><span>{workspaceCredentialStatus === null ? "Checking secure storage" : workspaceCredentialStatus.available ? "Secure OS vault" : "Password saving unavailable"}</span></div>
           <p>Password saving is off by default. On an approved workspace sign-in form, tick <strong>Save login in ZERO ONE on this PC</strong> to opt in. A saved login is filled only when you press <strong>Fill saved ZERO ONE login</strong>. Persistent workspace cookies keep the server’s original expiry and logout rules.</p>
           {workspaceCredentialStatus?.available === false && <p className="runtime-banner" role="status"><span className="warning-symbol">!</span><span>ZERO ONE cannot access a secure operating-system credential vault, so it will not capture, decrypt, or fill workspace passwords.</span></p>}
-          {savedLogins.length === 0 ? <p className="no-token-note">No saved workspace logins. Open ZMail and explicitly tick the save-login option if you want one stored.</p> : (
+          {savedLogins.length === 0 ? <p className="no-token-note">No saved workspace logins. Credentials are saved only after an explicit request on an approved local runtime.</p> : (
             <ul className="saved-login-list">
               {savedLogins.map((entry) => (
                 <li key={entry.origin}>
@@ -896,6 +689,7 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
             <button type="button" role="radio" aria-checked={draft.assistantProvider === "openai"} className={draft.assistantProvider === "openai" ? "selected" : ""} onClick={() => chooseProvider("openai")}><strong>OpenAI</strong><span>Optional · cloud</span><small>Use your own OpenAI API key</small></button>
           </div>
           {draft.assistantProvider === "openzero" && storeManaged && <div className="hosted-provider-help"><div><strong>Microsoft Store edition</strong><span>Local model downloading depends on a separate desktop runtime and is therefore not offered in this Store package. Core ZERO ONE features work without an AI model. For optional quick chat, choose OpenAI or Groq and use your own key.</span></div></div>}
+          {draft.assistantProvider === "openzero" && storeManaged && <div className="server-openzero-setup"><button type="button" className="secondary-action" onClick={() => chooseOpenZeroMode("server")}>Use my self-hosted OpenZero server</button>{openZeroMode === "server" && <div className="settings-grid">{field("openZeroUrl", "Your runtime address", "Your own HTTPS server or local loopback tunnel.")}<label className="setting-field"><span>Runtime token</span><input type="password" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="off" placeholder={draft.hasOpenZeroToken ? "Stored securely · leave blank to keep" : "Token from your runtime"}/><small>Stored encrypted under your operating-system account.</small></label>{field("openZeroServerModel", "Server model", "Model provided by your runtime")}</div>}</div>}
           {draft.assistantProvider === "openzero" && !storeManaged && <>
             <div className="openzero-mode-picker" role="radiogroup" aria-label="OpenZero location">
               <button type="button" role="radio" aria-checked={openZeroMode === "local"} className={openZeroMode === "local" ? "selected" : ""} onClick={() => chooseOpenZeroMode("local")}><span className="recommended-pill">RECOMMENDED</span><strong>Local Assistant model</strong><small>Private, automatic chat setup. No token or technical configuration.</small></button>
@@ -925,12 +719,9 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
         <details className="settings-details glass-card">
           <summary>Advanced connection addresses</summary>
         <section className="settings-section glass-card">
-          <div className="settings-heading"><div><p>CONNECTIONS</p><h2>Owned services</h2></div><span>Only approved ZERO ONE origins are accepted</span></div>
+          <div className="settings-heading"><div><p>CONNECTIONS</p><h2>Your OpenZero runtime</h2></div><span>User-selected HTTPS or local runtime</span></div>
           <div className="settings-grid">
-            {(draft.assistantProvider !== "openzero" || openZeroMode === "local") && field("openZeroUrl", "OpenZero full panel and API", "Used by the OpenZero tile and automation status. Use an approved HTTPS address or secure loopback tunnel.")}
-            {field("zeroThinkUrl", "ZeroThink Studio", "Your signed-in cognitive workspace.")}
-            {field("zmailUrl", "ZMail Workspace", "Your secure webmail and zSign workspace.")}
-            {field("callChatUrl", "CallChat", "Voice and video workspace.")}
+            {field("openZeroUrl", "OpenZero full panel and API", "Used by the OpenZero tile and automation status. Use your own HTTPS server or local loopback tunnel.")}
           </div>
         </section>
         </details>
@@ -949,7 +740,7 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
         </section>
         <section className="settings-section glass-card">
           <div className="settings-heading"><div><p>DESKTOP</p><h2>App behavior</h2></div><span>Privacy-first defaults</span></div>
-          <button type="button" className="secondary-action data-clear-action" onClick={clearLocalData}>Clear desktop data</button><small className="data-clear-note">Removes settings, encrypted tokens, saved ZMail logins, and workspace cookies after confirmation. Server accounts and diagnostics files you saved are not deleted.</small>
+          <button type="button" className="secondary-action data-clear-action" onClick={clearLocalData}>Clear desktop data</button><small className="data-clear-note">Removes settings, encrypted tokens, saved workspace logins, and workspace cookies after confirmation. Server accounts and diagnostics files you saved are not deleted.</small>
           <button type="button" className="secondary-action quit-action" onClick={() => window.zeroOne.quitApp()}>Quit ZERO ONE completely</button>
         </section>
         <section className="settings-section glass-card">
@@ -968,7 +759,84 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
     </div>
   );}
 
-function Copilot({ settings, storeManaged, onOpenSettings, onOpenZmail }: { settings: ZeroOneSettings; storeManaged: boolean; onOpenSettings: () => void; onOpenZmail: () => void }) {
+type LocalNote = { id: string; title: string; content: string; updatedAt: string };
+
+function NotesWorkspace() {
+  const [notes, setNotes] = useState<LocalNote[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [message, setMessage] = useState("Loading notes from this device…");
+  const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const refresh = useCallback(async () => {
+    try {
+      const loaded = await window.zeroOne.listNotes();
+      setNotes(loaded);
+      setMessage(loaded.length ? `${loaded.length} note${loaded.length === 1 ? "" : "s"} stored on this device` : "No notes yet. Start with a new note.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Notes are unavailable on this device.");
+    }
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const openNote = (note: LocalNote) => {
+    setSelectedId(note.id);
+    setTitle(note.title);
+    setContent(note.content);
+  };
+
+  const newNote = () => {
+    setSelectedId(null);
+    setTitle("");
+    setContent("");
+    setMessage("New note — save it to keep it on this device.");
+  };
+
+  const save = async () => {
+    if (!title.trim() && !content.trim()) { setMessage("Add a title or some text before saving."); return; }
+    setBusy(true);
+    try {
+      const saved = await window.zeroOne.saveNote({ id: selectedId || crypto.randomUUID(), title: title.trim() || "Untitled", content });
+      setSelectedId(saved.id);
+      await refresh();
+      setMessage("Saved locally on this device.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save this note.");
+    } finally { setBusy(false); }
+  };
+
+  const remove = async () => {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      await window.zeroOne.deleteNote(selectedId);
+      setSelectedId(null); setTitle(""); setContent(""); await refresh();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not delete this note."); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="notes-view">
+      <aside className="notes-list glass-card">
+        <div className="notes-list-head"><div><p>PRIVATE WORKSPACE</p><h2>ZNotes</h2></div><button className="primary-action" onClick={newNote}>New note +</button></div>
+        <p className="notes-local-hint">Saved on this computer. ZERO ONE does not upload or sync note text.</p>
+        <input aria-label="Search notes" placeholder="Search notes…" value={query} onChange={(event) => setQuery(event.target.value)} /><div className="notes-items">{notes.filter((note) => `${note.title} ${note.content}`.toLowerCase().includes(query.toLowerCase())).map((note) => <button key={note.id} className={`note-item ${selectedId === note.id ? "active" : ""}`} onClick={() => openNote(note)}><strong>{note.title || "Untitled"}</strong><span>{note.content.slice(0, 110) || "Empty note"}</span><small>{new Date(note.updatedAt).toLocaleString()}</small></button>)}</div>
+      </aside>
+      <section className="notes-editor glass-card">
+        <div className="notes-editor-head"><span>{selectedId ? "EDIT NOTE" : "NEW NOTE"}</span><div>{selectedId && <button className="note-delete" onClick={() => { if (window.confirm("Delete this ZNote? This cannot be undone.")) remove(); }} disabled={busy}>Delete</button>}<button className="primary-action" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save locally"}</button></div></div>
+        <input className="note-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Note title" maxLength={160} aria-label="Note title" />
+        <textarea className="note-content" value={content} onChange={(event) => setContent(event.target.value)} placeholder="Write a note… It stays on this device." aria-label="Note content" />
+        <div className="notes-status"><Icon name="shield" size={15} />{message}</div>
+      </section>
+    </div>
+  );
+}
+
+
+function Copilot({ settings, storeManaged, onOpenSettings }: { settings: ZeroOneSettings; storeManaged: boolean; onOpenSettings: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialAssistant);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1025,32 +893,6 @@ function Copilot({ settings, storeManaged, onOpenSettings, onOpenZmail }: { sett
     } finally {
       setPulling(false);
     }
-  };
-
-  const runMailAction = (action: "inbox" | "compose") => {
-    if (busy) return;
-    const id = crypto.randomUUID();
-    setBusy(true);
-    onOpenZmail();
-    const timeout = window.setTimeout(() => {
-      window.removeEventListener("zero-one:zmail-result", receive as EventListener);
-      setMessages((current) => [...current, { role: "assistant", content: "Open the ZMail workspace and try again. ZERO ONE only reads the mailbox view you are already signed into." }]);
-      setBusy(false);
-    }, 8000);
-    const receive = (event: Event) => {
-      const result = (event as CustomEvent<{ id: string; message: string }>).detail;
-      if (result?.id !== id) return;
-      window.clearTimeout(timeout);
-      window.removeEventListener("zero-one:zmail-result", receive as EventListener);
-      setMessages((current) => [...current, { role: "assistant", content: result.message }]);
-      setBusy(false);
-    };
-    window.addEventListener("zero-one:zmail-result", receive as EventListener);
-    // Mount/activate the isolated ZMail webview before dispatching. This keeps
-    // the action one-click even when the user has not opened ZMail yet.
-    window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("zero-one:zmail-action", { detail: { id, action } }));
-    }, 100);
   };
 
   const send = async () => {
@@ -1110,7 +952,6 @@ function Copilot({ settings, storeManaged, onOpenSettings, onOpenZmail }: { sett
         </div>
       )}
       <div className="copilot-report"><button type="button" onClick={() => window.zeroOne.openExternal("https://talktoai.org/report-ai/")}>Report AI output</button><span>Opens privacy-aware support guidance</span></div>
-      <div className="assistant-mail-actions" aria-label="ZMail assistant actions"><button type="button" disabled={busy} onClick={() => runMailAction("inbox")}><Icon name="mail" size={14} /> Check visible inbox</button><button type="button" disabled={busy} onClick={() => runMailAction("compose")}><Icon name="send" size={14} /> Compose email</button></div>
       <div className="chat-compose"><textarea disabled={!ready} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={keyDown} placeholder={ready ? `Ask ${providerLabel}…` : storeManaged && localSelected ? "Optional assistant is not configured" : "Install the local model above — no keys needed"} rows={2} /><button onClick={send} disabled={busy || !input.trim() || !ready} aria-label="Send"><Icon name="send" size={18} /></button><small>{ready ? "Enter to send · Shift+Enter newline · Ctrl+L clear · Ctrl+J toggle" : storeManaged && localSelected ? "Core ZERO ONE features do not require an AI model" : "OpenZero Local is the zero-config private default"}</small></div>
     </aside>
   );
@@ -1129,6 +970,8 @@ function CommandPalette({ onClose, onNavigate }: { onClose: () => void; onNaviga
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   };
   const actions = useMemo(() => [
+    { label: "Open ZeroThink", hint: "Local research and evidence maps", view: "zerothink" as View },
+    { label: "Open ZNotes", hint: "Private on-device notes", view: "notes" as View },
     { label: "Open command center", hint: "Dashboard", view: "home" as View },
     { label: "Open ZSEC Shield", hint: "Deterministic endpoint security", view: "shield" as View },
     { label: "Inspect 16-agent lattice", hint: "Autonomy", view: "agents" as View },
@@ -1145,12 +988,13 @@ function CommandPalette({ onClose, onNavigate }: { onClose: () => void; onNaviga
     </div>
   );}
 
-function Welcome({ onFinish, onSetup }: { onFinish: () => void; onSetup: () => void }) {
+function Welcome({ storeManaged, onFinish, onSetup }: { storeManaged: boolean; onFinish: () => void; onSetup: () => void }) {
   return <div className="welcome-backdrop"><section className="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
     <span className="welcome-mark">Ø</span><p>WELCOME TO ZERO ONE</p><h1 id="welcome-title">Your workspaces, in one calm desktop.</h1>
     <div className="welcome-points">
-      <article><strong>1. Assistant needs no config</strong><span>Private chat uses OpenZero Local + Ollama on this PC. Download the model once if prompted — no cloud key.</span></article>
-      <article><strong>2. Sign in with control</strong><span>ZMail passwords are saved only after you tick the opt-in box, then filled only when you request it. ZeroThink linking remains an explicit browser approval.</span></article>
+      <article><strong>1. Assistant setup</strong><span>{storeManaged ? "Core ZERO ONE features work without an AI model. The Store edition does not download local AI models; optional cloud chat can be configured in Settings." : "Private chat uses OpenZero Local + Ollama on this PC. Download the model once if prompted — no cloud key."}</span></article>
+      <article><strong>2. Write privately with ZNotes</strong><span>ZNotes encrypts your notes on this device. No hosted notes account or automatic cloud sync is required.</span></article>
+      <article><strong>Research with ZeroThink</strong><span>Import local sources, build offline evidence maps, then optionally draft and review with your selected model. Save reports to encrypted ZNotes.</span></article>
       <article><strong>3. Browser Pilot is built in</strong><span>Grant one isolated tab to OpenZero, with secret-field blocking, approval pauses, a 12-step limit and an immediate stop control.</span></article>
       <article><strong>4. ZSEC Shield is local</strong><span>On-demand folder scanning stays on this computer. Server ZSEC handles Linux security updates separately.</span></article>
     </div>
@@ -1160,8 +1004,8 @@ function Welcome({ onFinish, onSetup }: { onFinish: () => void; onSetup: () => v
 
 function isValidView(value: string | undefined): value is View {
   if (!value) return false;
-  if (value === "home" || value === "shield" || value === "agents" || value === "pilot" || value === "settings") return true;
-  return /^service:(openzero|zerothink|zmail|callchat)$/.test(value);
+  if (value === "home" || value === "notes" || value === "zerothink" || value === "shield" || value === "agents" || value === "pilot" || value === "settings") return true;
+  return /^service:(openzero)$/.test(value);
 }
 
 export default function App() {
@@ -1178,7 +1022,9 @@ export default function App() {
   const [mountedServiceIds, setMountedServiceIds] = useState<ServiceId[]>([]);
   const [appUpdate, setAppUpdate] = useState<AppUpdateInfo | null>(null);
   const [appVersion, setAppVersion] = useState("");
-  const [storeManaged, setStoreManaged] = useState(false);
+  // Hide Store-incompatible setup during startup until the main process proves
+  // this is a direct build. This avoids briefly advertising model downloads.
+  const [storeManaged, setStoreManaged] = useState(import.meta.env.PROD);
   const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState("");
   const searchButtonRef = useRef<HTMLButtonElement>(null);
   const bridgeUnavailable = "ZERO ONE could not start its secure desktop bridge. Restart the app; if this continues, install the latest update.";
@@ -1219,7 +1065,7 @@ export default function App() {
   const navigate = useCallback((next: View, options?: { collapseCopilot?: boolean }) => {
     setMountedServiceIds((current) => retainMountedServiceTab(current, serviceIdFromView(next)) as ServiceId[]);
     setView(next);
-    const collapseCopilot = options?.collapseCopilot ?? (next.startsWith("service:") || next === "pilot");
+    const collapseCopilot = options?.collapseCopilot ?? (next.startsWith("service:") || next === "pilot" || next === "zerothink");
     if (collapseCopilot) setCopilotOpen(false);
   }, []);
 
@@ -1314,6 +1160,10 @@ export default function App() {
           {view === "shield" && <ZsecView snapshot={zsec} onRefresh={refresh} />}
           {view === "agents" && <AgentLattice settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onOpenZero={() => navigate("service:openzero")} />}
           {view === "pilot" && <BrowserPilotWorkspace settings={settings} />}
+          {view === "notes" && <NotesWorkspace />}
+          <div hidden={view !== "zerothink"} inert={view !== "zerothink"} aria-hidden={view !== "zerothink"}>
+            <ZeroThinkWorkspace settings={settings} storeManaged={storeManaged} onSettings={() => navigate("settings")} />
+          </div>
           {view === "settings" && <SettingsView settings={settings} appVersion={appVersion} storeManaged={storeManaged} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onSaved={(saved) => { setSettings(saved); refresh(); }} />}
           {renderedServiceIds.map((serviceId) => {
             const service = serviceById(serviceId);
@@ -1321,9 +1171,9 @@ export default function App() {
           })}
         </div>
       </main>
-      <Copilot settings={settings} storeManaged={storeManaged} onOpenSettings={() => navigate("settings")} onOpenZmail={() => navigate("service:zmail", { collapseCopilot: false })} />
+      <Copilot settings={settings} storeManaged={storeManaged} onOpenSettings={() => navigate("settings")} />
       {palette && <CommandPalette onClose={closePalette} onNavigate={navigate} />}
-      {!settings.onboardingCompleted && <Welcome onFinish={() => completeOnboarding()} onSetup={() => completeOnboarding("settings")} />}
+      {!settings.onboardingCompleted && <Welcome storeManaged={storeManaged} onFinish={() => completeOnboarding()} onSetup={() => completeOnboarding("settings")} />}
     </div>
   );
 }

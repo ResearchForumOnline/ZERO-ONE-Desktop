@@ -4,10 +4,10 @@
   <img src="assets/zero-one-icon.png" width="112" alt="ZERO ONE orbit mark">
 </p>
 
-<p align="center"><strong>One private desktop command center for OpenZero, ZeroThink, ZMail, CallChat, ZSEC Shield, and ZMath Secure.</strong></p>
+<p align="center"><strong>Private on-device ZNotes, local ZeroThink research, your OpenZero runtime, Browser Pilot, ZSEC Shield and ZMath Secure.</strong></p>
 
 <p align="center">
-  <a href="https://talktoai.org/ZeroOne/">Download</a> ·
+  <a href="https://apps.microsoft.com/detail/9PMPR7PTW025">Microsoft Store</a> ·
   <a href="https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/latest">Latest release</a> ·
   <a href="docs/SECURITY_ARCHITECTURE.md">Security</a> ·
   <a href="docs/PRIVACY.md">Privacy</a>
@@ -30,27 +30,39 @@ Use the authenticated [latest ZERO ONE release](https://github.com/ResearchForum
 | Linux x64 | `ZERO-ONE-*-linux-x86_64.AppImage` | Make executable and open |
 | Debian/Ubuntu x64 | `ZERO-ONE-*-linux-amd64.deb` | Open with the software installer or use `sudo apt install ./ZERO-ONE-*-linux-amd64.deb` |
 
-Current source version is **7.9.4**. Published installers are unsigned public builds until Authenticode/notarization ships. Windows SmartScreen or macOS Gatekeeper may show an unknown-publisher warning. ZERO ONE's in-app updater accepts only the exact stable package published by this repository when GitHub's asset digest and `SHA256SUMS.txt` agree.
+Current source version is **8.0.0**. The 8.0.0 Microsoft Store update is submitted for certification; 7.9.6 remains the verified live Store version until certification and publication finish. Existing direct installer releases are separate from this Store submission. Published direct installers are unsigned public builds until Authenticode/notarization ships. Windows SmartScreen or macOS Gatekeeper may show an unknown-publisher warning. ZERO ONE's direct-edition in-app updater accepts only the exact stable package published by this repository when GitHub's asset digest and `SHA256SUMS.txt` agree.
 
 ## What is included
 
-- Four isolated workspaces with strict owned-origin navigation.
+- Encrypted on-device ZNotes and an isolated user-configured OpenZero workspace.
+- Built-in **ZeroThink**: local source import, nine research processes, offline evidence maps, optional bounded model review passes, progress and cancellation, encrypted report retention and Markdown/JSON exports. No company-hosted ZeroThink account or database is required.
 - A built-in Browser Pilot: one isolated tab, one user-granted task, a 12-step limit, structural snapshots that omit form values, secret/payment/file/CAPTCHA blocking, cross-site and consequential approval pauses, and an immediate stop-and-revoke control.
 - Guided Assistant setup with private local OpenZero Gemma4 E2B as the recommended lightweight default and optional OpenZero server, OpenAI or Groq providers.
 - A truthful automation surface that reports real endpoint reachability and permissions, not invented worker telemetry.
 - OS-protected credential storage; insecure Linux fallback storage is refused.
 - The matching native ZSEC Shield 0.1.2 selected-folder scanner on every published platform.
 - ZMath Secure status for HTTPS/loopback transport, credential storage, and optional Windows BitLocker.
-- Redacted diagnostics and consent-based camera/microphone access.
+- Redacted diagnostics that exclude note content and credentials; embedded runtime camera/microphone access is denied.
 - A visible update control that checks the official stable GitHub release, verifies the platform package against two matching SHA-256 records, and starts the installer only after the user approves.
 
 ![ZSEC Shield selected-folder scanning](store/screenshots/02-zsec-shield.png)
 
 ## First run
 
-1. Open ZERO ONE and choose OpenZero, ZeroThink, ZMail or CallChat.
-2. The default service addresses work without configuration. Add an OpenZero token in Settings only for authenticated copilot requests.
-3. Open ZSEC Shield, choose one folder and review the local result. No background scan, deletion, upload or quarantine starts automatically.
+1. Open ZNotes and write a note; it is encrypted on this device.
+2. Open ZeroThink, import selected UTF-8 files or add selected ZNotes, and build an offline evidence map. Model mode is optional and sends only the question and retrieved excerpts to the configured provider.
+3. Configure your own OpenZero runtime address and token if you want runtime automation, or add your own OpenAI/Groq key for optional Assistant chat.
+4. Open ZSEC Shield, choose one folder and review the local result. No background scan, deletion, upload or quarantine starts automatically.
+
+## ZeroThink local research
+
+The workspace uses the open-source [ZeroThink engine and cross-platform CLI](https://github.com/ResearchForumOnline/ZeroThink), licensed Apache-2.0. The engine is vendored with its licence and provenance under `electron/zerothink/`. It searches selected documents, assigns inspectable source IDs, builds evidence maps and provides nine research processes. Optional model passes draft, critique and revise. Source-ID validation establishes whether a referenced excerpt exists, not whether a scientific claim is true.
+
+Desktop limits are eight UTF-8 sources, one MiB each and two MiB total. Imports currently support TXT, Markdown, JSON and CSV; PDF extraction is not implemented. Session sources and results remain in memory unless a report is explicitly saved to encrypted ZNotes or exported. Exports are readable plaintext. The app never automatically scans folders or uploads private research to publish it.
+
+Offline research needs no model, API key, hosted account, website or database. The Store edition supports an existing user-owned OpenZero endpoint or optional OpenAI/Groq keys for model passes. Direct builds also support existing local Ollama. There is no automatic switch from a local provider to a cloud provider. Research mode has no shell execution, weight editing or automatic computer control; Browser Pilot remains a separate user-granted task.
+
+ZERO ONE 8.0.0 package and submission evidence is recorded in `docs/qa/RELEASE_8.0.0.md`. Previous releases do not establish certification of this version.
 
 ## Browser Pilot
 

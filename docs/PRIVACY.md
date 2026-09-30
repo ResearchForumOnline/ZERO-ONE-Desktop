@@ -1,51 +1,55 @@
-# ZERO ONE privacy boundary
+# ZERO ONE Desktop 8.0.0 privacy boundary
 
-This document describes the reviewed desktop source boundary. Store answers and public promises must still be reconciled with the exact signed binary and the live data practices of every connected service.
+Updated 30 September 2026. This source disclosure describes the 8.0.0 Store candidate. Public policy: https://researchforumonline.github.io/OpenZero/zero-one-privacy.html. Publisher: QUANTUMENCRYPTION1 LTD. The application's live Store listing, certified package and public notice should describe this same scope.
 
-## Local desktop data
+## ZNotes and local settings
 
-ZERO ONE stores user-chosen service URLs, model alias, media preference, and launch-at-login preference in its operating-system application-data directory. An OpenZero API token is stored only when secure operating-system encryption is available. The app rejects Linux `basic_text` fallback storage.
+ZNotes titles, text and update timestamps are kept in the user's application-data directory in an encrypted notebook. Encryption uses Electron safeStorage protected by the operating-system account. The app rejects unavailable encryption and Linux basic_text credential storage. Note mutation is serialized and writes use an atomic temporary-file replacement. Invalid or corrupted notebooks are not silently overwritten. ZNotes does not upload or automatically synchronize notes, require a website account, or send notebook contents to Assistant. Opening a note decrypts it for display inside the local app. A user who separately copies note content into chat or a browser task chooses to send that content to that destination.
 
-The desktop does not merge service credentials. ZMail, ZeroThink, OpenZero, CallChat, and the built-in Browser Pilot keep separate persistent Electron partitions and remain governed by their own account, server, cookie, content, logging, retention, and privacy behavior. Those partitions retain cookies, cache, authentication state, and site storage across app restarts.
+Runtime addresses, model choices, Assistant mode and layout/preferences are stored locally. OpenZero tokens and optional OpenAI/Groq API keys are encrypted when saved; decrypted key values stay in the main process and accompany requests to their selected runtime/provider. The app does not expose saved keys through the renderer settings bridge or diagnostics. No publisher-hosted model account is required.
 
-On launch and every 30 seconds while the main interface is mounted, the desktop sends one bounded HTTP `GET` probe to each configured ZMail, ZeroThink, OpenZero, and CallChat URL. A manual refresh and a diagnostics export also run the four probes. Each request follows redirects, uses a `ZERO-ONE/<version>` user agent, and times out after 6.5 seconds. The destination service can therefore receive the user's network address and request metadata even if its workspace is not opened.
+The OpenZero workspace and Browser Pilot use separate persistent Electron partitions. Cookies, cache and site storage can survive app restarts. Optional saved workspace logins require explicit opt-in and secure OS encryption; filling a saved login requires a user request on the approved runtime origin. ZERO ONE does not collect an independent hosted account for this workflow.
 
-Camera and microphone are denied by default. When the user explicitly enables CallChat media, permission is limited to the exact CallChat HTTPS origin. Other embedded services remain denied.
+## Connections and model requests
 
-## Browser Pilot
+The OpenZero address belongs to the user-selected local or self-hosted runtime. By default it is http://127.0.0.1:1024/. The interface probes this one configured endpoint on launch, every 30 seconds, manual refresh and diagnostics export. A bounded GET uses a ZERO-ONE/version user agent, follows redirects and times out after 6.5 seconds. A remote endpoint receives the network address and request metadata even when its embedded panel is not open.
 
-Browser Pilot is off until the user opens its dedicated workspace, describes one bounded task and grants that exact isolated tab. The page-side bridge builds a compact snapshot of visible page text, headings and interactive-control metadata. It omits input, textarea, select and editable-region values; removes URL queries and fragments; redacts long token-like path segments; does not return passwords, payment details, secret fields, file selections or CAPTCHA values; and sends the bounded snapshot only to the configured OpenZero endpoint. A remote OpenZero endpoint therefore receives this page context under that server's own logging, retention and privacy practices.
+Assistant prompts, recent conversation messages, chosen model and response parameters go to the selected runtime, or directly to OpenAI or Groq when that optional provider is chosen. The endpoint can process and retain them under its own terms. Local Ollama chat is available in direct editions; the Store edition does not install/download local AI models. Store users can configure their own existing OpenZero server or an optional cloud provider. Runtime inference, response quality and provider availability depend on that configuration.
 
-The pilot does not persist snapshots or task history to disk. The main process retains only the current in-memory run, at most eight short step results and the pending approval preview. A run ends when it finishes, is stopped, errors, reaches 12 steps, the workspace is left, or the app closes. Browser cookies and site storage in the dedicated pilot partition persist until the user invokes Clear desktop data.
+Embedded runtime camera and microphone permission are denied. Opening external setup, support, update or reporting links uses the user's browser; those destinations receive ordinary browser/network metadata.
 
-## ZSEC selected-folder scans
+## ZeroThink local research
 
-The Windows x64 package bundles ZSEC Shield 0.1.2 from an immutable public release. The user must press the scan button and choose exactly one folder through the operating-system picker. The desktop invokes a fixed runtime with bounded arguments. It does not start background scanning, sample upload, automatic deletion, or automatic quarantine.
+ZeroThink is packaged locally and has no hosted login, admin account, subscription service or company backend. The user explicitly selects UTF-8 text files or individual ZNotes as session sources. Source titles/text, the research question, progress and results remain in memory while the workspace is mounted. Navigating between ZERO ONE sections retains that workspace; closing the app ends the session. A report is retained only when the user saves it as an OS-encrypted ZNote or exports it to a selected plaintext Markdown/JSON file.
 
-The trusted renderer receives only aggregate outcome, files/bytes read, configured-rule match count, error count, engine/definition labels, scan timestamp, and quarantine count. Local ZSEC CLI reports may contain paths, hashes, matches, and operational errors; those reports stay under the user's local ZSEC state directory unless the user separately shares them.
+Offline evidence maps use deterministic local document retrieval without a model or network request. If model mode is enabled, the chosen provider receives the question, retrieved source excerpts and the bounded draft/review context. No automatic provider fallback occurs. Optional endpoints are the user's existing OpenZero server, OpenAI or Groq; direct editions additionally support local Ollama. The Store edition does not download models. Third-party retention is governed by the provider's own practices. The engine does not automatically browse, execute generated commands or change model weights.
 
-The bundle declares on-demand mode, no telemetry, no real-time protection, and zero production feed trust keys. Before any cloud lookup, telemetry, crash reporting, sample submission, or signed definition feed is activated, disclosure, consent, retention, and deletion controls must be updated first.
+The research transport refuses credential-bearing redirects, requires HTTPS for remote endpoints, bounds responses to one MiB and uses a 120-second per-stage transport limit. Stop or Escape cancels future stages and aborts the active request; it cannot retract material already received by a remote provider. Diagnostics do not include ZeroThink source text, titles, questions or reports.
 
-## Diagnostics and AI output
+## Browser Pilot behavior
 
-Diagnostics export is user-initiated. The JSON contains its generation time; app version and platform; operating-system release, logical-core count, and total memory bytes; and, for each of the four service probes, the service name, state, HTTP status, latency, and origin. An offline probe can also contain the fixed message `Timed out` or `Unavailable`. It records the configured service origins, media-enabled and launch-at-login booleans, and whether an OpenZero token exists.
+Browser Pilot operates only after the user opens its dedicated isolated browser tab, supplies a task and grants that tab. For each planned step, the configured OpenZero runtime receives the task, selected model, step number, up to six short prior action/result records and a compact page snapshot. Snapshot data includes bounded visible page text, page title, headings, a redacted page URL, viewport information and interactive-control metadata such as labels, roles, checked state, presence of a value and select-option labels. Form input/textarea/select and editable-region values are omitted. URL queries/fragments and long token-like path segments are removed. Visible page text and labels may still contain personal or confidential information; snapshot redaction does not guarantee every sensitive value is identified.
 
-The export excludes the operating-system hostname, API-token value, URL credentials, URL paths, queries and fragments, cookies, mail, notes, chat/call content, prompts, and model responses. The user chooses the local JSON destination and controls how long that saved file is retained. ZERO ONE does not automatically upload or delete it. This schema and redaction boundary must be reconfirmed against the final signed package.
+The planner uses the configured OpenZero /v1/browser/plan endpoint; a remote self-hosted runtime receives this page context. Browser Pilot does not directly use the optional OpenAI/Groq Assistant keys. Its runtime may independently call a model provider under that runtime's configuration and privacy practices.
 
-OpenZero model requests go to the user-configured allowed OpenZero endpoint. ZERO ONE does not automatically send model output as mail, chat, calls, or reports. The current interface links visibly to `https://talktoai.org/report-ai/`; users should not include passwords, tokens, private prompts, or unrelated personal data in a report. Reporting is one control only and does not replace model/output safety, moderation, governance, incident response, and policy-compliance testing required before Store submission.
+The application blocks fields it identifies as passwords, payments, secrets, file selections or CAPTCHA. Cross-site actions, entering identified personal information and consequential actions pause for approval. Detection is based on page structure and labels. There is a 12-step limit and a stop/revoke control. Downloads are blocked in the pilot partition. Leaving the workspace, stopping, an error, completion or closing the app ends the run. Snapshots/run history are not written to disk by ZERO ONE; current task state, short step results and pending approval remain in memory during the run. Browser cookies and site storage persist until cleared. Ordinary navigation also sends requests to visited websites.
+
+## On-demand ZSEC
+
+The Windows x64 Store package contains the exact pinned ZSEC Shield 0.1.2 runtime. Scanning begins after the user selects a folder through the OS picker and requests a scan. The desktop invokes fixed bounded commands and reports aggregate outcomes and counts. It does not automatically upload samples, quarantine/delete files or begin background scans. Local CLI reports and ZSEC state can contain paths, hashes, matches and errors. The Store edition uses its app-local ZSEC state directory. The pinned runtime has no real-time protection or production definition-feed trust keys; these features are not implied by a clear scan result.
+
+## Diagnostics
+
+Diagnostics export is a user-selected local JSON file. It contains generation time, app version/platform, OS release, logical-core count, total memory, one OpenZero probe's state/status/latency/origin and fixed offline message, runtime origin, launch/media preference flags and whether an OpenZero token exists. Origins can identify a user-configured server. The media flag is a retained settings field; embedded media remains denied.
+
+The export excludes OS hostname, key/token values, URL credentials/paths/queries/fragments, cookies, ZNotes titles/text, prompts, model responses and browser task/page contents. ZERO ONE does not automatically send this file anywhere. The user controls sharing and retention. The AI-output reporting link is https://talktoai.org/report-ai/; users choose what to provide and should avoid credentials and unrelated private material.
 
 ## Retention and deletion
 
-`Clear desktop data` requires confirmation, clears storage, cache, and authentication cache for all five persistent service partitions, deletes the local settings file and encrypted OpenZero token, disables launch at login, and restarts ZERO ONE. It does not delete connected-service accounts or server-side data, ZSEC state/reports, or diagnostics JSON files the user saved elsewhere.
+Deleting a ZNote removes it from the encrypted notebook. There is no app-provided recovery for a confirmed note deletion; separate user backups may retain old copies. Clear desktop data requires confirmation and clears local settings, encrypted keys, saved workspace logins and the OpenZero/pilot session partitions. In the Store edition it also clears app-local ZSEC state. The encrypted ZNotes notebook is deliberately retained and the confirmation explains this. Saved diagnostics files remain where the user saved them. The operation does not delete remote runtime/provider data or accounts.
 
-The current NSIS configuration deliberately uses `deleteAppDataOnUninstall: false`. Uninstall removes program files and shortcuts but does not promise removal of ZERO ONE application data, service partitions, settings, or the encrypted token. Users should use `Clear desktop data` before uninstalling when they want those desktop-held settings and sessions removed. Final Store disclosures and uninstall testing must match the exact signed installer.
+The direct NSIS installer retains application data on uninstall. Store uninstall retention follows Windows package behavior and requires verification on the final Store-signed installation; the local unsigned candidate does not establish that behavior. No universal data-removal promise is made by the source build.
 
-## Platform limits
+## Verification boundary
 
-ZERO ONE 7.9.2 publishes preview packages for Windows 10/11 x64, macOS Apple silicon and Linux x64. Each package carries the matching native ZSEC Shield runtime. Linux refuses to save an OpenZero token when Electron exposes only the insecure `basic_text` backend. Windows arm64 and Intel macOS are not published targets.
-
-The packages are not yet publisher-signed, notarized or Store-approved. Distribution status does not change the data-handling boundary described above.
-
-## Public policy gate
-
-The public policy target is `https://talktoai.org/privacy`. Before Store submission it must explicitly cover ZERO ONE Desktop, connected ZMail/ZeroThink/OpenZero/CallChat surfaces, local ZSEC selected-folder processing, support/reporting contacts, controller identity, user rights, retention/deletion ownership, processors, transfers, and the exact production build. Do not select “no data collected” merely because the desktop shell itself minimizes data.
+The current candidate's tests, package hash and actual Partner Center state are recorded separately in `docs/qa/RELEASE_8.0.0.md`. Source-level privacy statements must be reconciled with Microsoft certification, the Store-signed installation, the chosen remote runtime/provider's practices and the public notice. Older release evidence and retired hosted integrations are historical rather than current product behavior.

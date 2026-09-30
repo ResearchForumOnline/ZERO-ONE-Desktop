@@ -1,0 +1,13 @@
+ZeroThink Local 1.0
+Copyright 2026 Shafaet Brady Hussain
+
+Licensed under the Apache License, Version 2.0.
+
+This portable implementation develops the author's earlier ZeroThink concepts:
+evidence-first research processes, deterministic source retrieval, and bounded
+draft, critique and revision orchestration. It was created with coding-assistant
+help. Source provenance and design limitations are recorded in PROVENANCE.json.
+
+This distribution does not contain the old hosted PHP service, private user
+records, credentials, DNA data, payment integration, entitlement service,
+commercial encryption code, or third-party model weights.

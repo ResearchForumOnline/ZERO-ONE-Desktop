@@ -1,0 +1,18 @@
+{
+  "project": "ZeroThink Local",
+  "version": "1.0.0",
+  "publication_date": "2026-09-30",
+  "author": "Shafaet Brady Hussain",
+  "license": "Apache-2.0",
+  "implementation": "New dependency-free portable Node.js implementation, created with coding-assistant help. Original historical files listed here were reviewed for concepts; they are not included or copied wholesale.",
+  "concept_sources": [
+    { "relative_source": "ZeroThink/app/core/agents.php", "sha256": "512f9c80cd60dcec05735e248392769403129f400744f8ca628df8dd607943d6", "concept": "Bounded research, critic and final orchestration with source IDs" },
+    { "relative_source": "ZeroThink/app/core/zerorouter.php", "sha256": "681c3d7d0258bdb9094459b404c9714db26930cdd9cd56cad70810720bbec537", "concept": "Deterministic routing and evidence-demand awareness; stale models and unvalidated numeric mixing are not carried over" },
+    { "relative_source": "ZeroThink/app/core/research_tools.php", "sha256": "6d07ed545d2c2b26420d7ba4ae3b098c1842f960f819dcff47b1d40dd2b6e8c7", "concept": "Nine evidence-first research processes with source ledgers and validation checks" },
+    { "relative_source": "ZeroThink/cli-assets/zerothink.py", "sha256": "6a0327c5d023f2b4d4af8ec78dafaf5f786f3a470a32b9c9916af32c7ab8ac56", "concept": "Local session and research-workspace workflows; legacy CLI, private configuration, account routes and experimental cipher are not bundled" }
+  ],
+  "included_data": "One clearly labeled fictional research-note fixture and synthetic test strings only",
+  "excluded": ["Credentials", "API keys", "private environment files", "runtime vaults", "customer records", "databases", "DNA or medical data", "payment and entitlement services", "third-party model weights", "old hosted PHP application"],
+  "claim_boundary": "Software tests establish the tested workflow behavior, not scientific novelty, factual truth, AGI, independent cryptographic security, quantum advantage or independently audited research quality.",
+  "references": ["https://docs.ollama.com/api/chat", "https://www.apache.org/licenses/LICENSE-2.0.txt", "https://github.com/ResearchForumOnline/research"]
+}

@@ -8,11 +8,7 @@ const previewVersion = `${packageMetadata.version.split(".").slice(0, 2).join(".
 
 if (!window.zeroOne && import.meta.env.DEV) {
   const previewSettings: ZeroOneSettings = {
-    zmailUrl: "https://webmail.zmail.my/?_task=workspace",
-    zeroThinkUrl: "https://zerothink.talktoai.org/studio",
     openZeroUrl: "http://127.0.0.1:1024/",
-    openZeroPublicUrl: "https://openzero.talktoai.org/",
-    callChatUrl: "https://callchat.org/app/",
     assistantProvider: "openzero",
     model: "hf.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF:Q4_K_M",
     openZeroServerModel: "hf.co/shafire/OpenZero-Ministral3-8B-Runtime-Agent-GGUF:Q5_K_M",
@@ -25,18 +21,51 @@ if (!window.zeroOne && import.meta.env.DEV) {
     hasOpenZeroToken: false,
     hasOpenAiKey: false,
     hasGroqKey: false,
-    hasZeroThinkAccount: false,
   };
   window.zeroOne = {
+    getZeroThinkProcesses: async () => {
+      const response = await fetch("/api/dev-zerothink/processes");
+      if (!response.ok) throw new Error("Local research preview is unavailable.");
+      return response.json();
+    },
+    importZeroThinkDocuments: () => new Promise((resolve, reject) => {
+      const input = document.createElement("input");
+      input.type = "file"; input.accept = ".txt,.md,.csv,.json"; input.multiple = true;
+      input.oncancel = () => resolve([]);
+      input.onchange = async () => {
+        try {
+          const files = Array.from(input.files || []);
+          if (files.length > 8 || files.some((file) => file.size > 1024 * 1024) || files.reduce((sum, file) => sum + file.size, 0) > 2 * 1024 * 1024) throw new Error("Choose up to 8 UTF-8 sources, 1 MB each and 2 MB total.");
+          const documents = await Promise.all(files.map(async (file) => ({ id: crypto.randomUUID(), title: file.name, text: new TextDecoder("utf-8", { fatal: true }).decode(await file.arrayBuffer()) })));
+          resolve(documents);
+        } catch (error) { reject(error); }
+      };
+      input.click();
+    }),
+    runZeroThink: async (input) => {
+      const response = await fetch("/api/dev-zerothink/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Local research preview failed.");
+      return result;
+    },
+    cancelZeroThink: async () => ({ cancelled: false }),
+    onZeroThinkProgress: () => () => undefined,
+    exportZeroThinkReport: async ({ format, result }) => {
+      const blob = new Blob([format === "json" ? JSON.stringify(result, null, 2) : result.markdown], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob); const link = document.createElement("a");
+      link.href = url; link.download = `ZeroThink-report.${format === "json" ? "json" : "md"}`; link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return { saved: true };
+    },
+    listNotes: async () => [],
+    saveNote: async () => { throw new Error("ZNotes requires the desktop app and secure OS storage."); },
+    deleteNote: async () => false,
     getAppInfo: async () => ({ name: "ZERO ONE", version: previewVersion, platform: navigator.platform.toLowerCase().includes("mac") ? "darwin" : navigator.platform.toLowerCase().includes("linux") ? "linux" : "win32", packaged: false, distribution: "direct" }),
     checkForAppUpdate: async () => ({ status: "current", updateAvailable: false, currentVersion: packageMetadata.version, latestVersion: packageMetadata.version, releaseUrl: `https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v${packageMetadata.version}`, assetName: "", assetUrl: "", assetSize: 0, assetDigest: "", checksumUrl: "", installSupported: false, checkedAt: new Date().toISOString() }),
     installAppUpdate: async () => ({ status: "current", message: "Preview mode does not install updates." }),
     onAppUpdateProgress: () => () => undefined,
     getUserInterfaceScale: async () => 1,
     setUserInterfaceScale: async (factor) => factor,
-    startZeroThinkSignIn: async () => ({ status: "success", email: "preview@example.com", userCode: "PREVIEW" }),
-    restoreZeroThinkSession: async () => ({ status: "signed_out", email: "" }),
-    signOutZeroThink: async () => true,
     quitApp: async () => true,
     onAppNavigate: () => () => undefined,
     getSystemSnapshot: async () => ({ hostname: "ZERO-ONE-PREVIEW", platform: "Windows 11", cpu: "Preview CPU", cores: 16, memoryTotal: 32 * 1024 ** 3, memoryUsed: 11 * 1024 ** 3, memoryPercent: 34, uptimeSeconds: 420000 }),
@@ -45,9 +74,6 @@ if (!window.zeroOne && import.meta.env.DEV) {
     clearLocalData: async () => ({ cleared: false }),
     probeServices: async () => [
       { name: "openzero", state: "online", status: 200, latencyMs: 14, url: previewSettings.openZeroUrl },
-      { name: "zerothink", state: "online", status: 200, latencyMs: 32, url: previewSettings.zeroThinkUrl },
-      { name: "zmail", state: "online", status: 200, latencyMs: 38, url: previewSettings.zmailUrl },
-      { name: "callchat", state: "online", status: 200, latencyMs: 29, url: previewSettings.callChatUrl },
     ],
     connectOpenZeroDesktop: async () => ({ settings: { ...previewSettings, hasOpenZeroToken: true }, hint: "oz_preview", model: previewSettings.openZeroServerModel, models: [previewSettings.openZeroServerModel] }),
     startBrowserPilot: async () => ({ status: "finished", runId: "preview", step: 1, message: "Preview Browser Pilot completed without controlling the page.", pending: null }),
