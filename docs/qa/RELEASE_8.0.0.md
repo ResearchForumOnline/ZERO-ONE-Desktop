@@ -45,11 +45,11 @@ This AppX is unsigned for Microsoft Store signing. It is not a sideload release.
 
 Product: **ZERO ONE Desktop**, `9PMPR7PTW025`.
 
-Submission3: `1152921505702011222`. The reviewed 8.0.0 AppX was uploaded and displayed **Validated** in Partner Center. English UK listing, current privacy/support links and reviewer notes were saved. Microsoft accepted the submission, then passed certification. The latest Partner Center overview on 30 September 2026 shows **Update in publishing** and states: certification passed, publishing has started, and the product will be available shortly. Submission, preprocessing and certification are complete; publishing is in progress under the existing automatic schedule.
+Submission3: `1152921505702011222`. The reviewed 8.0.0 AppX was uploaded and displayed **Validated** in Partner Center. English UK listing, current privacy/support links and reviewer notes were saved. Microsoft accepted the submission, passed certification and completed publication. A fresh Partner Center overview on 30 September 2026 confirmed that the latest product is available in the Microsoft Store. Its live Store-presence Submission3 package page offers `ZERO-ONE-8.0.0-win-x64.appx`, version8.0.0.0, ranked first for Windows desktop. The preceding 7.9.3 package is superseded and marked as not distributed to customers.
 
-Microsoft certification of 8.0.0 is now established by Partner Center. Completed Store rollout and a Store-signed 8.0 installation have not been verified. Version7.9.6 was the live Store version before this update began publishing. Direct 8.0 Windows x64, macOS Apple Silicon and Linux x64 installers are already public at https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v8.0.0 .
+Microsoft certification and publication of 8.0.0 are established by Partner Center. A Store-signed installation on this PC and manual installed-upgrade checks have not been verified. Direct 8.0 Windows x64, macOS Apple Silicon and Linux x64 installers are also public at https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v8.0.0 .
 
-Local proof of the submitted state is retained as `store-submitted-8.0.0.jpg`, and the certified publishing state as `store-publishing-8.0.0.jpg`; the source repository publishes this sanitized receipt instead of the Partner Center account screens.
+Local proof is retained as `store-submitted-8.0.0.jpg`, `store-publishing-8.0.0.jpg` and `store-live-8.0.0.jpg`; the source repository publishes this sanitized receipt instead of the Partner Center account screens.
 
 ## Cross-platform CI correction
 
