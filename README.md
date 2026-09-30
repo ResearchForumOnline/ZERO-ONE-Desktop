@@ -30,7 +30,7 @@ Use the authenticated [latest ZERO ONE release](https://github.com/ResearchForum
 | Linux x64 | `ZERO-ONE-*-linux-x86_64.AppImage` | Make executable and open |
 | Debian/Ubuntu x64 | `ZERO-ONE-*-linux-amd64.deb` | Open with the software installer or use `sudo apt install ./ZERO-ONE-*-linux-amd64.deb` |
 
-Current source version is **8.1.0**. This repair restores ZeroThink's chat/persona/memory/research workflows inside the desktop app, adds a native project agent and repairs ZNotes creation, autosave and encryption. See [8.1 release notes](store/RELEASE_NOTES_8.1.0.md) and the current [release receipt](docs/qa/RELEASE_8.1.0.md) for tests, package hashes and actual Store status. The preceding 8.0.0 Store-signed package was verified installed on this PC on 30 September 2026; changing source does not update that installation. Direct installers are unsigned until publisher signing ships. The direct updater accepts only a stable repository asset with matching GitHub digest and SHA256SUMS.
+Current source and published GitHub installer version is **8.1.0**. Microsoft Store 8.1.0.0 is submitted and in certification. This repair restores ZeroThink's chat/persona/memory/research workflows inside the desktop app, adds a native project agent and repairs ZNotes creation, autosave and encryption. See [8.1 release notes](store/RELEASE_NOTES_8.1.0.md) and the current [release receipt](docs/qa/RELEASE_8.1.0.md) for tests, package hashes and actual Store status. The preceding 8.0.0 Store-signed package was verified installed on this PC on 30 September 2026; changing source does not update that installation. Direct installers are unsigned until publisher signing ships. The direct updater accepts only a stable repository asset with matching GitHub digest and SHA256SUMS.
 
 ## What is included
 
@@ -51,8 +51,8 @@ Current source version is **8.1.0**. This repair restores ZeroThink's chat/perso
 ## First run
 
 1. Open ZNotes and write a note; it is encrypted on this device.
-2. Open ZeroThink, import selected UTF-8 files or add selected ZNotes, and build an offline evidence map. Model mode is optional and sends only the question and retrieved excerpts to the configured provider.
-3. Configure your own OpenZero runtime address and token if you want runtime automation, or add your own OpenAI/Groq key for optional Assistant chat.
+2. Open ZeroThink, import selected UTF-8 files or add selected ZNotes, and build an offline evidence map. Research model mode is optional. Model runs send bounded selected sources, conversation and your saved persona/latest explicit facts to the configured provider.
+3. Configure your own OpenZero runtime address and token if you want runtime automation, or add your own OpenAI/Groq key for optional Assistant/ZeroThink chat. An optional Serper key enables labelled web snippets and opt-in automatic research.
 4. Open ZSEC Shield, choose one folder and review the local result. No background scan, deletion, upload or quarantine starts automatically.
 
 ## ZeroThink local research

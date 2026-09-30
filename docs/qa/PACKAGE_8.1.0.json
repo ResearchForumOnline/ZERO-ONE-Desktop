@@ -1,0 +1,44 @@
+{
+  "source_sha": "103991725a72a811c00e72ea72e142c702b44632",
+  "tracked_source_changes": false,
+  "electron": "43.7.7",
+  "builder": "26.15.3",
+  "runtime_workaround": "supported unpacked electronDist; all 75 runtime files matched the fresh builder extraction",
+  "nsis": {
+    "bytes": 115543581,
+    "sha256": "5d096777f2b38bda938e19b5c7d48c4fa2bb46435121f21899e473806d08f374",
+    "authenticode": "NotSigned"
+  },
+  "store_appx": {
+    "bytes": 172797681,
+    "sha256": "d11df99c37e114b63a9ed67a0abb84da746ff76b76b519ed675f244bd2dc8637",
+    "identity": {
+      "Name": "talktoai.ZEROONEDesktop",
+      "ProcessorArchitecture": "x64",
+      "Publisher": "CN=9B704446-6F62-4D52-954E-775436315422",
+      "Version": "8.1.0.0"
+    },
+    "store_id": "9PMPR7PTW025",
+    "manifest_capabilities": [
+      "runFullTrust"
+    ],
+    "archive_entries": 175,
+    "archive_crc": "passed",
+    "asar_sha256": "a173a723c17a9c2aa9a1433226c5e542398f40dadf501690c301b553c34978f3",
+    "store_marker": "passed",
+    "pinned_zsec_entrypoint": "passed",
+    "signature_present": false
+  },
+  "verification_limits": "Unsigned Store upload candidate. Not Store-certified, installed or live-provider acceptance. Tagged CI owns public GitHub release. Parent-created untracked reviewer notes are outside package files.",
+  "public_release": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v8.1.0",
+  "public_windows_sha256": "011f3f214d37084e77ae1e84d6a488eaeec5cab1a8140269dff34335ad92715f",
+  "release_ci": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/actions/runs/36775510807",
+  "microsoft_store": {
+    "submission": 4,
+    "submission_id": "1152921505702015080",
+    "status": "Update in certification",
+    "phase": "Pre-processing",
+    "auto_publish_after_certification": true,
+    "installed_verified_preceding": "8.0.0.0"
+  }
+}
