@@ -1,0 +1,78 @@
+{
+  "electron": "43.7.7",
+  "node": "24.21.0",
+  "platform": "win32",
+  "data": "synthetic only",
+  "moduleOrigin": "packaged app.asar",
+  "visibleWindows": 0,
+  "hiddenArtifactWindow": true,
+  "sandboxEnabled": true,
+  "javascriptEnabled": false,
+  "nodeIntegrationEnabled": false,
+  "contextIsolationEnabled": true,
+  "remoteRequests": 0,
+  "productionReportHtmlUsed": true,
+  "escapedModelHtmlVerified": true,
+  "realPrintToPDFUsed": true,
+  "realElectronNodeWorkerUsed": true,
+  "pdfjsVersion": "6.3.289",
+  "pages": 2,
+  "fixtureLineCount": 62,
+  "pdfBytes": 34963,
+  "pdfSHA256": "1e80c2dbf6ac3373e855d000f03c8936bd68b16e438f3736788cec6a0470f004",
+  "extractedTextBytes": 4166,
+  "extractedTextSHA256": "0bf4997edc9e4096fb7c5a0c065cb8ba2072d8f24b7eab5cc2bdbbe41391a7da",
+  "titlesAndParagraphsVerified": true,
+  "sourceHashes": {
+    "electron/zerothink-pdf.cjs": "ed46b107206669e8ea896f2c6691cb58933e2f93205e7a9e89d51eb72481d12a",
+    "electron/zerothink-pdf-worker.cjs": "7faf586583671ab0a5800d45b7270e12dfdbe13b53a397cf6f4cdd90973d604e",
+    "scripts/smoke-zerothink-pdf.cjs": "71455e09174f4f4202381a16215c92f9b9cf11f4261219262bacd5f0c8b3e1d6"
+  },
+  "packagedSourceComparison": {
+    "electron/main.cjs": {
+      "packagedSHA256": "83d461b1fdf3674553db10e4c81693d6d5dc47f26dba2c86b745a20df4572b87",
+      "sourceSHA256": "83d461b1fdf3674553db10e4c81693d6d5dc47f26dba2c86b745a20df4572b87",
+      "matches": true
+    },
+    "electron/preload.cjs": {
+      "packagedSHA256": "018f85a514a9d16d3412871da83318ae7738d67a929cfd64c318f7ec0797ac85",
+      "sourceSHA256": "018f85a514a9d16d3412871da83318ae7738d67a929cfd64c318f7ec0797ac85",
+      "matches": true
+    },
+    "electron/zerothink-vault.cjs": {
+      "packagedSHA256": "c630f0fbc2356f015367aa6ddc29bd34e65e56a4deed4c87449b6aed47b7df68",
+      "sourceSHA256": "c630f0fbc2356f015367aa6ddc29bd34e65e56a4deed4c87449b6aed47b7df68",
+      "matches": true
+    },
+    "electron/zerothink-providers.cjs": {
+      "packagedSHA256": "4781187a991de0f2aaf0498dbdc123dd87e7f858071b4dfe936cc9e76236d21a",
+      "sourceSHA256": "4781187a991de0f2aaf0498dbdc123dd87e7f858071b4dfe936cc9e76236d21a",
+      "matches": true
+    },
+    "electron/zerothink-quantum.cjs": {
+      "packagedSHA256": "fcfc6ab6301c0bffff8f942e32c2fe23875efadb55cd331d1109d417ba16838e",
+      "sourceSHA256": "fcfc6ab6301c0bffff8f942e32c2fe23875efadb55cd331d1109d417ba16838e",
+      "matches": true
+    },
+    "electron/zerothink-ibm.cjs": {
+      "packagedSHA256": "5df507ea55d181ee530edc8d804203aaeddf1d69dd8f57e5268a67bcb90605cc",
+      "sourceSHA256": "5df507ea55d181ee530edc8d804203aaeddf1d69dd8f57e5268a67bcb90605cc",
+      "matches": true
+    },
+    "electron/zerothink-templates.cjs": {
+      "packagedSHA256": "a0e9d2bb5bf66934f7dbefcc0c5c416bee89de669fec7a6343996da47bc32954",
+      "sourceSHA256": "a0e9d2bb5bf66934f7dbefcc0c5c416bee89de669fec7a6343996da47bc32954",
+      "matches": true
+    },
+    "electron/zerothink-pdf.cjs": {
+      "packagedSHA256": "ed46b107206669e8ea896f2c6691cb58933e2f93205e7a9e89d51eb72481d12a",
+      "sourceSHA256": "ed46b107206669e8ea896f2c6691cb58933e2f93205e7a9e89d51eb72481d12a",
+      "matches": true
+    },
+    "electron/zerothink-pdf-worker.cjs": {
+      "packagedSHA256": "7faf586583671ab0a5800d45b7270e12dfdbe13b53a397cf6f4cdd90973d604e",
+      "sourceSHA256": "7faf586583671ab0a5800d45b7270e12dfdbe13b53a397cf6f4cdd90973d604e",
+      "matches": true
+    }
+  }
+}

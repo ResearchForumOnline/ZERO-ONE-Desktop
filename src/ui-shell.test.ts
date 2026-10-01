@@ -136,8 +136,8 @@ describe("responsive desktop shell", () => {
     expect(main).toContain('model: DEFAULT_LOCAL_MODEL');
     expect(main).toContain('"https://api.openai.com/v1/chat/completions"');
     expect(main).toContain('"https://api.groq.com/openai/v1/chat/completions"');
-    expect(main).toContain('decryptSecret(settings, "openAiKeyEncrypted")');
-    expect(main).toContain('decryptSecret(settings, "groqKeyEncrypted")');
+    expect(main).toContain('hasOpenAiKey: has("openai")');
+    expect(main).toContain('hasGroqKey: has("groq")');
     expect(app).toContain("Local model recommended");
     expect(app).toContain("Set up Assistant");
     expect(app).toContain("Local Assistant model");
@@ -206,7 +206,7 @@ describe("responsive desktop shell", () => {
     expect(main).toContain('LOCAL_ASSISTANT_SYSTEM_PROMPT');
     expect(main).toContain("localResourceOptions(runtimeSettings.localResourceProfile)");
     expect(main).toContain("inferOpenZeroRoutingSettings(stored)");
-    expect(main).toContain('const useLocalOllama = provider === "openzero" && settings.openZeroAssistantMode !== "server";');
+    expect(main).toContain('if (provider === "openzero" && settings.openZeroAssistantMode !== "server") return chatViaLocalOllama');
     expect(app).toContain('const localSelected = settings.assistantProvider === "openzero" && settings.openZeroAssistantMode !== "server";');
     expect(app).toContain("Current custom model · {selectedLocalModel}");
     expect(main).toContain("if (!isPublishedLocalModelName(running.name)) continue;");

@@ -26,6 +26,16 @@ if (!window.zeroOne && import.meta.env.DEV) {
     hasGroqKey: false,
   };
   window.zeroOne = {
+    getZeroThinkVault: async () => ({ version: 1, secure: false, activeProfileId: null, profiles: [], providers: [], message: "Native encrypted vault requires the desktop app. This browser is a layout review." }),
+    saveZeroThinkVaultProfile: async () => { throw new Error("API keys can only be saved in the native encrypted vault."); },
+    deleteZeroThinkVaultProfile: async () => { throw new Error("Vault changes require the desktop app."); },
+    selectZeroThinkVaultProfile: async () => { throw new Error("Provider selection requires the desktop app."); },
+    quantumZeroThinkRequest: async () => { throw new Error("Quantum execution requires the desktop app. This browser review does not contact IonQ."); },
+    quantumZeroThinkIBM: async () => { throw new Error("IBM Quantum inspection requires the desktop app and your credentials."); },
+    listZeroThinkTemplates: async () => [],
+    saveZeroThinkTemplate: async () => { throw new Error("Saved templates require desktop encryption."); },
+    deleteZeroThinkTemplate: async () => false,
+    renderZeroThinkTemplate: async () => { throw new Error("Research templates require the desktop app."); },
     listZeroThinkSessions: async () => Array.from(previewSessions.values()).map(({ id, title, pinned, updatedAt, messages }) => ({ id, title, pinned, updatedAt, messageCount: messages.length })),
     getZeroThinkSession: async (id) => previewSessions.get(id) || null,
     saveZeroThinkSession: async (input) => { const value = { ...input, updatedAt: new Date().toISOString() }; previewSessions.set(input.id, value); return value; },
@@ -70,6 +80,7 @@ if (!window.zeroOne && import.meta.env.DEV) {
     cancelZeroThink: async () => ({ cancelled: false }),
     onZeroThinkProgress: () => () => undefined,
     exportZeroThinkReport: async ({ format, result }) => {
+      if (format === "pdf") throw new Error("PDF export requires the desktop app.");
       const blob = new Blob([format === "json" ? JSON.stringify(result, null, 2) : result.markdown], { type: "text/plain;charset=utf-8" });
       const url = URL.createObjectURL(blob); const link = document.createElement("a");
       link.href = url; link.download = `ZeroThink-report.${format === "json" ? "json" : "md"}`; link.click();

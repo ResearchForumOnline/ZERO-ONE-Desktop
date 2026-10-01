@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export default function ZeroThinkAgentWorkspace({ settings, onSettings }: { settings: ZeroOneSettings; onSettings: () => void }) {
+export default function ZeroThinkAgentWorkspace({ settings, onSettings, providerName, onBusyChange }: { settings: ZeroOneSettings; onSettings: () => void; providerName?: string; onBusyChange?: (busy: boolean) => void }) {
   const [project, setProject] = useState<{ path: string; name: string } | null>(null);
   const [task, setTask] = useState("");
   const [maxSteps, setMaxSteps] = useState(16);
@@ -13,7 +13,8 @@ export default function ZeroThinkAgentWorkspace({ settings, onSettings }: { sett
   const [approvalSendingId, setApprovalSendingId] = useState<string | null>(null);
   const approvalSending = useRef<string | null>(null);
   const runId = useRef("");
-  const provider = settings.assistantProvider === "groq" ? "Groq" : settings.assistantProvider === "openai" ? "OpenAI" : settings.openZeroAssistantMode === "server" ? "your OpenZero server" : "local Ollama";
+  const provider = providerName || (settings.assistantProvider === "groq" ? "Groq" : settings.assistantProvider === "openai" ? "OpenAI" : settings.openZeroAssistantMode === "server" ? "your OpenZero server" : "local Ollama");
+  useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
   useEffect(() => window.zeroOne.onZeroThinkAgentProgress((event) => {
     if (event.runId !== runId.current) return;
     setProgress(previous => ({ ...previous, ...event }));

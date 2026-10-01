@@ -154,7 +154,7 @@ interface Window {
     runZeroThink(request: { runId: string; question: string; mode: "chat" | "quick" | "research" | "review"; processId: string; documents: ZeroThinkDocument[]; maxPasses: number; tokenBudget: number; useModel: boolean; conversation?: Array<{ role: "user" | "assistant"; content: string }>; zeroMode?: boolean; autoWeb?: boolean }): Promise<ZeroThinkResult>;
     cancelZeroThink(runId: string): Promise<{ cancelled: boolean }>;
     onZeroThinkProgress(callback: (progress: ZeroThinkProgress) => void): () => void;
-    exportZeroThinkReport(input: { format: "markdown" | "json"; result: ZeroThinkResult }): Promise<{ saved: boolean }>;
+    exportZeroThinkReport(input: { format: "markdown" | "json" | "pdf"; result: ZeroThinkResult }): Promise<{ saved: boolean }>;
     loadSettings(): Promise<ZeroOneSettings>;
     saveSettings(settings: Partial<ZeroOneSettings>): Promise<ZeroOneSettings>;
     clearLocalData(): Promise<{ cleared: boolean }>;
@@ -178,7 +178,7 @@ interface Window {
     scanWithZsec(): Promise<ZsecScanResult>;
     getZmathSecurityStatus(): Promise<ZmathSecurityStatus>;
     openDiskEncryptionSettings(): Promise<boolean>;
-  };
+  } & ZeroThinkVaultAPI & ZeroThinkQuantumBridge & ZeroThinkIBMBridge & ZeroThinkTemplateAPI;
 }
 
 interface ZeroThinkProcess { id: string; label: string; description: string; stages: string[]; checks: string[] }

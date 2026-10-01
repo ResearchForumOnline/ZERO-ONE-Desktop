@@ -153,23 +153,35 @@ async function requestBrowserPlan({ apiBaseUrl, apiKey, model, task, snapshot, s
   const origin = normalizeApiOrigin(apiBaseUrl);
   if (!apiKey) throw new Error("Connect full OpenZero in Settings before using Browser Pilot.");
   const safeSnapshot = compactSnapshot(snapshot);
-  const response = await fetchImpl(`${origin}/v1/browser/plan`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "User-Agent": "ZERO-ONE-Browser-Pilot/1" },
-    body: JSON.stringify({
-      model: clip(model, 200), task: clip(task, 3000), step,
-      history: (Array.isArray(history) ? history : []).slice(-6).map((entry) => ({ action: clip(entry?.action, 32), result: clip(entry?.result, 500) })),
-      snapshot: safeSnapshot,
-    }),
-    signal,
-    cache: "no-store",
-    credentials: "omit",
-    referrerPolicy: "no-referrer",
-  });
+  let response;
+  try {
+    response = await fetchImpl(`${origin}/v1/browser/plan`, {
+      method: "POST",
+      redirect: "error",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "User-Agent": "ZERO-ONE-Browser-Pilot/1" },
+      body: JSON.stringify({
+        model: clip(model, 200), task: clip(task, 3000), step,
+        history: (Array.isArray(history) ? history : []).slice(-6).map((entry) => ({ action: clip(entry?.action, 32), result: clip(entry?.result, 500) })),
+        snapshot: safeSnapshot,
+      }),
+      signal,
+      cache: "no-store",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+    });
+  } catch {
+    const error = new Error(signal?.aborted ? "Browser Pilot planning was cancelled." : "OpenZero planner could not be reached. Check its server connection.");
+    if (signal?.aborted) error.name = "AbortError";
+    throw error;
+  }
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(clip(payload?.error?.message || payload?.message || `OpenZero returned HTTP ${response.status}.`, 400));
-    error.status = Number(response.status) || 0;
+    // Server bodies and transport exceptions can echo authentication headers.
+    // Preserve the numeric status for the bounded 401 repair without exposing
+    // untrusted provider text to the desktop renderer or computer-use overlay.
+    const status = Number.isInteger(response.status) && response.status >= 100 && response.status <= 599 ? response.status : 0;
+    const error = new Error(status ? `OpenZero planner returned HTTP ${status}. Check its server connection and saved credential.` : "OpenZero planner could not complete this request.");
+    error.status = status;
     throw error;
   }
   return normalizeBrowserAction(payload?.action, safeSnapshot.url);

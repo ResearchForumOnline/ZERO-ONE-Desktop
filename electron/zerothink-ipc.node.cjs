@@ -32,7 +32,7 @@ function loadMain({ settings = {}, fetcher, dialog = {}, fileSystem = fsp, profi
     __testWindow: { webContents: sender }, __testProfile: profile, __testSettings: { assistantProvider: "openzero", openZeroAssistantMode: "server", openZeroUrl: "https://example.org/", model: "synthetic-model", openZeroServerModel: "synthetic-model", ...settings },
   });
   const source = fs.readFileSync(path.join(__dirname, "main.cjs"), "utf8");
-  vm.runInContext(`${source}\nmainWindow = __testWindow; loadSettingsInternal = async () => __testSettings; decryptSecret = () => 'synthetic-key'; decryptToken = () => 'synthetic-key'; localStudio = () => ({ getProfile: async () => __testProfile });`, context);
+  vm.runInContext(`${source}\nmainWindow = __testWindow; loadSettingsInternal = async () => __testSettings; decryptSecret = () => 'synthetic-key'; decryptToken = () => 'synthetic-key'; localStudio = () => ({ getProfile: async () => __testProfile }); readyVault = async () => ({ snapshot: async () => ({ secure:true, profiles:[] }), getActiveCompletion: async () => null, getServiceKey: async () => "synthetic-key" });`, context);
   const event = { sender, senderFrame: sender.mainFrame };
   function attachContents(contents) {
     const callbacks = new Map();
@@ -85,7 +85,7 @@ test("native agent approvals bind to the exact preview and reject duplicate or s
 
 test("all ZeroThink IPC methods reject other frames before acting", async () => {
   const main = loadMain();
-  for (const channel of ["zerothink:processes", "zerothink:import", "zerothink:run", "zerothink:cancel", "zerothink:export", "zerothink:sessions-list", "zerothink:session-get", "zerothink:session-save", "zerothink:session-delete", "zerothink:library-list", "zerothink:library-save", "zerothink:profile-get", "zerothink:profile-save", "zerothink:web-search", "zerothink:project-select", "zerothink:agent-run", "zerothink:agent-approve", "notes:import", "notes:export"]) {
+  for (const channel of ["zerothink:vault-get", "zerothink:vault-save", "zerothink:vault-delete", "zerothink:vault-select", "zerothink:quantum", "zerothink:templates-list", "zerothink:template-save", "zerothink:template-delete", "zerothink:template-render", "zerothink:processes", "zerothink:import", "zerothink:run", "zerothink:cancel", "zerothink:export", "zerothink:sessions-list", "zerothink:session-get", "zerothink:session-save", "zerothink:session-delete", "zerothink:library-list", "zerothink:library-save", "zerothink:profile-get", "zerothink:profile-save", "zerothink:web-search", "zerothink:project-select", "zerothink:agent-run", "zerothink:agent-approve", "notes:import", "notes:export"]) {
     await assert.rejects(async () => main.call(channel, request(), { sender: main.event.sender, senderFrame: {} }), /untrusted renderer/);
     await assert.rejects(async () => main.call(channel, request(), { sender: { id: 42 }, senderFrame: {} }), /untrusted renderer/);
   }

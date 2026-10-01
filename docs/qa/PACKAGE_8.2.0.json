@@ -1,0 +1,75 @@
+{
+  "version": "8.2.0",
+  "preparedAt": "2026-10-01T00:42:08.839Z",
+  "electron": "43.7.7",
+  "builder": "26.15.3",
+  "tests": {
+    "vitest": 55,
+    "node": 188,
+    "build": "passed",
+    "zsecVendor": "passed"
+  },
+  "store_appx": {
+    "bytes": 197017209,
+    "sha256": "7a6783e2959a5a05c2b4c952e6123b0559772b066d148e87fca95a7bbda073f6",
+    "identity": {
+      "Name": "talktoai.ZEROONEDesktop",
+      "ProcessorArchitecture": "x64",
+      "Publisher": "CN=9B704446-6F62-4D52-954E-775436315422",
+      "Version": "8.2.0.0"
+    },
+    "store_id": "9PMPR7PTW025",
+    "manifest_capabilities": [
+      "runFullTrust"
+    ],
+    "archive_entries": 178,
+    "archive_crc": "passed",
+    "asar_sha256": "7daf01c85c39c88d28f36680a4b998e9f3cbc1b2900afd4517dd59cbc07c43e6",
+    "store_marker": "passed",
+    "pinned_zsec_entrypoint": "6bc60026691fff00319e23c7ba9d49d1ab9f893715766177226062baa069d501",
+    "signature_present": false
+  },
+  "packaged_source_files": {
+    "electron/browser-pilot-preload.cjs": "db707d962fe42dcf3d941e6b3f12a582997087215bf0fa433aca497beb4c454d",
+    "electron/browser-pilot.cjs": "030f7c6a99122517deff19bb7d1f5f434a6109e3a40ec7cf32fe1546178347df",
+    "electron/main.cjs": "83d461b1fdf3674553db10e4c81693d6d5dc47f26dba2c86b745a20df4572b87",
+    "electron/notes-crypto.cjs": "4333861a9ae6a65c5c88cd17f60b8e6a4dd9e47e8cf915106207e576559efa4b",
+    "electron/notes-store.cjs": "267ed9cef09f405895d92e89c1de302589b6cd5eafb59263b2e051efa2762547",
+    "electron/ollama-local.cjs": "307bbfc800f1823b288d02f804fe7089d58bd5d7495b11b60aee3880011e42bc",
+    "electron/preload.cjs": "018f85a514a9d16d3412871da83318ae7738d67a929cfd64c318f7ec0797ac85",
+    "electron/store-distribution.cjs": "4f54f6bd7af37d4f58796a094eef797cfffc975b585734d77967a3630e3abe11",
+    "electron/tray-lifecycle.cjs": "63de237ee4436852dce1add78720a27db65e36fc4b1a64e0f5ead02c62810110",
+    "electron/update-check.cjs": "264c81a012e5c500bb35e6781890ac71a6f8f93f43e6374069b5fe857d66c879",
+    "electron/update-installer.cjs": "4a1655744146fff6261dedbbbf2db54ff398e11aad0b68eb929a5862c7fcdaff",
+    "electron/url-policy.cjs": "f76c78c4e516389a0b9db8b1f0a06c979836c1092a9fd25e1f7d5f295ef4b8a5",
+    "electron/workspace-logins.cjs": "9ec9b9bb708c8147fa9429d7840b19b5e34b4c72588bee97ce15adfba932a07f",
+    "electron/zerothink-agent.cjs": "4f293e10b6c43f1d489d3ee72fe30115c0f84e563d3f0dba44b7dbf605f4f8d2",
+    "electron/zerothink-desktop.cjs": "4c68c895577ec00f2617c817fe335d31007a8c93b863cd606643fbb65a701d80",
+    "electron/zerothink-ibm.cjs": "5df507ea55d181ee530edc8d804203aaeddf1d69dd8f57e5268a67bcb90605cc",
+    "electron/zerothink-pdf-worker.cjs": "7faf586583671ab0a5800d45b7270e12dfdbe13b53a397cf6f4cdd90973d604e",
+    "electron/zerothink-pdf.cjs": "ed46b107206669e8ea896f2c6691cb58933e2f93205e7a9e89d51eb72481d12a",
+    "electron/zerothink-providers.cjs": "4781187a991de0f2aaf0498dbdc123dd87e7f858071b4dfe936cc9e76236d21a",
+    "electron/zerothink-quantum.cjs": "fcfc6ab6301c0bffff8f942e32c2fe23875efadb55cd331d1109d417ba16838e",
+    "electron/zerothink-studio-store.cjs": "dc15797ef9aba87da7a9d37658caa4e808def5c22861e456192af584e90a62c2",
+    "electron/zerothink-studio.cjs": "04340def9036f08c65ebddc1c388a562bc5dd1f2e1a638973d1fac0200a5cb6c",
+    "electron/zerothink-templates.cjs": "a0e9d2bb5bf66934f7dbefcc0c5c416bee89de669fec7a6343996da47bc32954",
+    "electron/zerothink-vault.cjs": "c630f0fbc2356f015367aa6ddc29bd34e65e56a4deed4c87449b6aed47b7df68",
+    "electron/zerothink-web.cjs": "2e777bf234ab480c5b5df1c1efd8f90067cbac96854a11f6473567eb73dc005b",
+    "electron/zsec-contract.cjs": "c4e34041f31a5bd4230c642b21d7ac7c9d763aa40f2862235a7337ab8bff42a8",
+    "dist/assets/index-CDnxJ-h0.js": "71b1d3804fd179cae11d93cb4a729b6c7ccaa99f580a87ad08df7c1e1a5bfa65",
+    "dist/assets/index-DWpRvN0v.css": "e5b194ef9092d0f7fcfd63955c7bb97c3dfd5178af8f11f41e31f06971fb80d3",
+    "dist/index.html": "a85ee28c570b997a9e5309c4d55047e01fbfbc8c2bf51733bb701a5701deda91"
+  },
+  "packaged_metadata": {
+    "name": "zero-one-desktop",
+    "version": "8.2.0",
+    "main": "electron/main.cjs",
+    "dependencies": {
+      "pdfjs-dist": "6.3.289",
+      "react": "19.2.8",
+      "react-dom": "19.2.8"
+    },
+    "verified": "name/version/main/dependencies match source; builder removes development metadata"
+  },
+  "acceptance_limits": "Native synthetic OS storage and packaged PDF checks passed. No real account or paid provider calls; not installed Store-signed UI acceptance. Store unsigned upload package requires Microsoft certification and signing."
+}

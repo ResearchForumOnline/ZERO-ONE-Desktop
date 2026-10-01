@@ -19,6 +19,12 @@ const { runStudio } = require("./zerothink-studio.cjs");
 const { createStudioStore } = require("./zerothink-studio-store.cjs");
 const { searchWeb } = require("./zerothink-web.cjs");
 const { runAgent } = require("./zerothink-agent.cjs");
+const { createVaultStore } = require("./zerothink-vault.cjs");
+const { buildVaultCompletion, endpointFor } = require("./zerothink-providers.cjs");
+const { runQuantumRequest } = require("./zerothink-quantum.cjs");
+const { runIBMQuantumRequest } = require("./zerothink-ibm.cjs");
+const { createTemplateStore, renderTemplate } = require("./zerothink-templates.cjs");
+const { extractPdf, reportHtml, MAX_PDF_BYTES } = require("./zerothink-pdf.cjs");
 const { buildCompletionAdapter, normalizeResearchRequest, cleanImportedDocument, DOCUMENT_BYTES, CORPUS_BYTES } = require("./zerothink-desktop.cjs");
 const {
   saveLogin,
@@ -157,13 +163,13 @@ async function continuePilotRun(run) {
   emitPilotState(run);
   try {
     let settings = await loadSettingsInternal();
-    let apiKey = decryptToken(settings);
+    let apiKey = await (await readyVault()).getServiceKey("openzero", new URL("/v1/chat/completions", settings.openZeroUrl).toString());
     if (!apiKey && isLoopbackOpenZero(settings.openZeroUrl)) {
       run.message = "Pairing securely with local OpenZero…";
       emitPilotState(run);
       await provisionOpenZeroDesktop(settings);
       settings = await loadSettingsInternal();
-      apiKey = decryptToken(settings);
+      apiKey = await (await readyVault()).getServiceKey("openzero", new URL("/v1/chat/completions", settings.openZeroUrl).toString());
     }
     if (!apiKey) throw new Error("Connect full OpenZero in Settings before using Browser Pilot.");
     let repairedCredential = false;
@@ -194,7 +200,7 @@ async function continuePilotRun(run) {
         emitPilotState(run);
         await provisionOpenZeroDesktop(settings);
         settings = await loadSettingsInternal();
-        apiKey = decryptToken(settings);
+        apiKey = await (await readyVault()).getServiceKey("openzero", new URL("/v1/chat/completions", settings.openZeroUrl).toString());
         action = await requestBrowserPlan({
           apiBaseUrl: settings.openZeroUrl,
           apiKey,
@@ -380,9 +386,13 @@ function decryptSecret(settings, key) {
 
 function decryptToken(settings) { return decryptSecret(settings, "openZeroTokenEncrypted"); }
 
-function publicSettings(settings) {
+async function publicSettings(settings) {
   const { openZeroTokenEncrypted: _privateToken, openAiKeyEncrypted: _openAiKey, groqKeyEncrypted: _groqKey, serperKeyEncrypted: _serperKey, zeroThinkTokenEncrypted: _zeroThinkToken, trayNoticeShown: _trayNoticeShown, ...visible } = settings;
-  return { ...visible, hasOpenZeroToken: Boolean(decryptToken(settings)), hasOpenAiKey: Boolean(decryptSecret(settings, "openAiKeyEncrypted")), hasGroqKey: Boolean(decryptSecret(settings, "groqKeyEncrypted")), hasSerperKey: Boolean(decryptSecret(settings, "serperKeyEncrypted")) };
+  let snapshot;
+  try { snapshot = await (await readyVault()).snapshot(); }
+  catch { snapshot = { secure: false, profiles: [] }; }
+  const has = (provider) => snapshot.secure && snapshot.profiles.some((profile) => profile.provider === provider && profile.hasKey);
+  return { ...visible, hasOpenZeroToken: has("openzero"), hasOpenAiKey: has("openai"), hasGroqKey: has("groq"), hasSerperKey: has("serper") };
 }
 
 async function saveSettingsInternal(input) {
@@ -403,28 +413,29 @@ async function saveSettingsInternal(input) {
     lastCopilotOpen: typeof input.lastCopilotOpen === "boolean" ? input.lastCopilotOpen : current.lastCopilotOpen,
   };
 
-  if (input.clearOpenZeroToken) {
-    delete next.openZeroTokenEncrypted;
-  } else if (typeof input.openZeroToken === "string" && input.openZeroToken.trim()) {
-    if (!credentialStorageIsSecure()) {
-      throw new Error("Secure operating-system credential storage is unavailable; the token was not saved.");
-    }
-    next.openZeroTokenEncrypted = safeStorage.encryptString(input.openZeroToken.trim()).toString("base64");
-  }
-  for (const [inputKey, encryptedKey, clearKey] of [
-    ["openAiKey", "openAiKeyEncrypted", "clearOpenAiKey"],
-    ["groqKey", "groqKeyEncrypted", "clearGroqKey"],
-    ["serperKey", "serperKeyEncrypted", "clearSerperKey"],
+  const vault = await readyVault();
+  const vaultSecure = (await vault.snapshot()).secure;
+  for (const [inputKey, provider, clearKey] of [
+    ["openZeroToken", "openzero", "clearOpenZeroToken"],
+    ["openAiKey", "openai", "clearOpenAiKey"],
+    ["groqKey", "groq", "clearGroqKey"],
+    ["serperKey", "serper", "clearSerperKey"],
   ]) {
-    if (input[clearKey]) delete next[encryptedKey];
+    const snapshot = await vault.snapshot();
+    if (input[clearKey]) {
+      for (const profile of snapshot.profiles.filter((entry) => entry.provider === provider)) await vault.saveProfile({ ...profile, clearKey: true });
+    }
     else if (typeof input[inputKey] === "string" && input[inputKey].trim()) {
-      if (!credentialStorageIsSecure()) throw new Error("Secure operating-system credential storage is unavailable; the API key was not saved.");
-      next[encryptedKey] = safeStorage.encryptString(input[inputKey].trim()).toString("base64");
+      const serverEndpoint = provider === "openzero" ? endpointFor("openzero", new URL("/v1/chat/completions", next.openZeroUrl).toString()) : undefined;
+      const existing = snapshot.profiles.find((entry) => entry.provider === provider && (provider !== "openzero" || entry.endpoint === serverEndpoint));
+      await vault.saveProfile({ ...(existing || {}), provider, name: existing?.name || `${provider} from app settings`, model: provider === "openzero" ? next.openZeroServerModel : next.model, ...(provider === "openzero" ? { endpoint: serverEndpoint } : {}), key: input[inputKey].trim() });
     }
   }
+  if (vaultSecure && (next.assistantProvider !== current.assistantProvider || next.openZeroAssistantMode !== current.openZeroAssistantMode || next.model !== current.model || next.openZeroServerModel !== current.openZeroServerModel || next.openZeroUrl !== current.openZeroUrl)) await vault.selectProfile(null);
+  for (const [key, clear] of [["openZeroTokenEncrypted", "clearOpenZeroToken"], ["openAiKeyEncrypted", "clearOpenAiKey"], ["groqKeyEncrypted", "clearGroqKey"], ["serperKeyEncrypted", "clearSerperKey"]]) if (vaultSecure || input[clear] === true) delete next[key];
 
   await fs.mkdir(path.dirname(settingsPath()), { recursive: true });
-  await fs.writeFile(settingsPath(), JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
+  await atomicSettingsWrite(next);
   runtimeSettings = next;
   if (!IS_WINDOWS_STORE) app.setLoginItemSettings(loginItemOptions({ enabled: next.launchAtLogin, executablePath: process.execPath, packaged: app.isPackaged }));
   return publicSettings(next);
@@ -496,6 +507,34 @@ let notesStore;
 function localNotes() { return notesStore ||= createNotesStore({ filePath: path.join(app.getPath("userData"), "znotes.encrypted.json"), storage: safeStorage, secure: credentialStorageIsSecure }); }
 let studioStore;
 function localStudio() { return studioStore ||= createStudioStore({ filePath: path.join(app.getPath("userData"), "zerothink-studio.encrypted.json"), storage: safeStorage, secure: credentialStorageIsSecure }); }
+let vaultStore, templateStore, vaultMigration;
+function localVault() { return vaultStore ||= createVaultStore({ filePath: path.join(app.getPath("userData"), "zerothink-vault.encrypted.json"), safeStorage }); }
+function localTemplates() { return templateStore ||= createTemplateStore({ filePath: path.join(app.getPath("userData"), "zerothink-templates.encrypted.json"), safeStorage }); }
+async function atomicSettingsWrite(value) {
+  await fs.mkdir(path.dirname(settingsPath()), { recursive: true });
+  const temporary = `${settingsPath()}.${randomUUID()}.tmp`;
+  try { await fs.writeFile(temporary, JSON.stringify(value, null, 2), { encoding: "utf8", mode: 0o600, flag: "wx" }); await fs.rename(temporary, settingsPath()); }
+  finally { await fs.unlink(temporary).catch(() => {}); }
+}
+async function readyVault() {
+  const vault = localVault();
+  if (!(await vault.snapshot()).secure) return vault;
+  if (!vaultMigration) vaultMigration = (async () => {
+    const settings = await loadSettingsInternal();
+    const strictLegacySecret = (key) => {
+      if (!settings[key]) return "";
+      try { const secret = safeStorage.decryptString(Buffer.from(settings[key], "base64")); if (typeof secret !== "string" || !secret.trim()) throw new Error(); return secret; }
+      catch { throw new Error("A legacy API credential could not be decrypted. Existing settings were preserved; recover or clear that credential before migration."); }
+    };
+    await vault.migrateLegacy({ ...settings, openAiKey: strictLegacySecret("openAiKeyEncrypted"), groqKey: strictLegacySecret("groqKeyEncrypted"), openZeroToken: strictLegacySecret("openZeroTokenEncrypted"), serperKey: strictLegacySecret("serperKeyEncrypted") });
+    const legacyFields = ["openAiKeyEncrypted", "groqKeyEncrypted", "openZeroTokenEncrypted", "serperKeyEncrypted"];
+    if (legacyFields.some((key) => settings[key])) {
+      const cleaned = { ...settings }; for (const key of legacyFields) delete cleaned[key];
+      await atomicSettingsWrite(cleaned); runtimeSettings = cleaned;
+    }
+  })().catch((error) => { vaultMigration = null; throw error; });
+  await vaultMigration; return vault;
+}
 
 async function probe(name, url) {
   const started = Date.now();
@@ -718,11 +757,17 @@ app.on("web-contents-created", (_event, contents) => {
 app.whenReady().then(async () => {
   configurePermissionPolicy(session.defaultSession);
   await loadSettingsInternal();
+  let startupVaultActive = false, startupServerKey = "", startupVaultHealthy = false;
+  try {
+    const vault = await readyVault(), snapshot = await vault.snapshot();
+    startupVaultHealthy = true;
+    if (snapshot.secure) { startupVaultActive = Boolean(snapshot.activeProfileId); startupServerKey = await vault.getServiceKey("openzero", new URL("/v1/chat/completions", runtimeSettings.openZeroUrl).toString()); }
+  } catch { /* Keep the app available for credential recovery; do not replace damaged vault data. */ }
   // Upgrade the former loopback-server default to the verified on-device
   // model only when that model is already installed. Existing remote/server
   // configurations remain untouched and can still be selected in Advanced.
   const legacySlowLocalModels = new Set(["qwen3:1.7b", "openzerogemma:latest", "hf.co/shafire/Zero-Gemma4-E4B-OpenZero-GGUF:latest", "hf.co/shafire/OpenZero-Ministral3-8B-Runtime-Agent-GGUF:Q5_K_M"]);
-  if (runtimeSettings.assistantProvider === "openzero" && runtimeSettings.openZeroAssistantMode !== "server" && !runtimeSettings.fastLocalModelMigrationCompleted && legacySlowLocalModels.has(runtimeSettings.model)) {
+  if (!startupVaultActive && runtimeSettings.assistantProvider === "openzero" && runtimeSettings.openZeroAssistantMode !== "server" && !runtimeSettings.fastLocalModelMigrationCompleted && legacySlowLocalModels.has(runtimeSettings.model)) {
     const local = await localOllamaStatus();
     if (local.reachable && local.models.some((model) => model.name.toLowerCase() === DEFAULT_LOCAL_MODEL.toLowerCase())) {
       runtimeSettings = { ...runtimeSettings, model: DEFAULT_LOCAL_MODEL, fastLocalModelMigrationCompleted: true };
@@ -732,17 +777,17 @@ app.whenReady().then(async () => {
   }
   // Prefer private local Assistant by default so users need no API keys/tokens.
   // Loopback OpenZero panel tokens are still provisioned when available.
-  if (runtimeSettings.assistantProvider === "openzero") {
+  if (!startupVaultActive && runtimeSettings.assistantProvider === "openzero") {
     const local = await localOllamaStatus();
     const hasLocalDefault = local.reachable && local.models.some((model) => model.name.toLowerCase() === DEFAULT_LOCAL_MODEL.toLowerCase());
     // Only migrate a legacy selection. A user may deliberately select a
     // different installed OpenZero GGUF; do not silently replace that choice.
-    if (hasLocalDefault && (!runtimeSettings.fastLocalModelMigrationCompleted || legacySlowLocalModels.has(runtimeSettings.model)) && !decryptToken(runtimeSettings)) {
+    if (hasLocalDefault && (!runtimeSettings.fastLocalModelMigrationCompleted || legacySlowLocalModels.has(runtimeSettings.model)) && !startupServerKey) {
       runtimeSettings = { ...runtimeSettings, model: DEFAULT_LOCAL_MODEL, assistantProvider: "openzero", fastLocalModelMigrationCompleted: true };
       await fs.mkdir(path.dirname(settingsPath()), { recursive: true });
       await fs.writeFile(settingsPath(), JSON.stringify(runtimeSettings, null, 2), { encoding: "utf8", mode: 0o600 });
     }
-    if (!decryptToken(runtimeSettings)) {
+    if (startupVaultHealthy && !startupServerKey && credentialStorageIsSecure() && !(await localVault().snapshot()).profiles.length) {
       try {
         const endpoint = new URL(runtimeSettings.openZeroUrl);
         if (["127.0.0.1", "localhost", "::1"].includes(endpoint.hostname)) await provisionOpenZeroDesktop(runtimeSettings);
@@ -1016,6 +1061,21 @@ ipcMain.handle("zerothink:library-list", async (event) => { requireTrustedIpcSen
 ipcMain.handle("zerothink:library-save", async (event, documents) => { requireTrustedIpcSender(event); return localStudio().saveLibrary(documents); });
 ipcMain.handle("zerothink:profile-get", async (event) => { requireTrustedIpcSender(event); return localStudio().getProfile(); });
 ipcMain.handle("zerothink:profile-save", async (event, profile) => { requireTrustedIpcSender(event); return localStudio().saveProfile(profile); });
+ipcMain.handle("zerothink:vault-get", async (event) => { requireTrustedIpcSender(event); return (await readyVault()).snapshot(); });
+ipcMain.handle("zerothink:vault-save", async (event, input) => { requireTrustedIpcSender(event); return (await readyVault()).saveProfile(input); });
+ipcMain.handle("zerothink:vault-delete", async (event, id) => { requireTrustedIpcSender(event); return (await readyVault()).deleteProfile(id); });
+ipcMain.handle("zerothink:vault-select", async (event, id) => { requireTrustedIpcSender(event); if (zeroThinkRun) throw new Error("Finish the current task before switching its model."); return (await readyVault()).selectProfile(id); });
+ipcMain.handle("zerothink:quantum", async (event, input) => { requireTrustedIpcSender(event); return runQuantumRequest(input, { apiKey: input?.action === "local" ? "" : await (await readyVault()).getServiceKey("ionq"), fetchImpl: fetch }); });
+ipcMain.handle("zerothink:quantum-ibm", async (event, input) => { requireTrustedIpcSender(event); return runIBMQuantumRequest(input, { apiKey: await (await readyVault()).getServiceKey("ibm"), fetchImpl: fetch }); });
+ipcMain.handle("zerothink:templates-list", async (event) => { requireTrustedIpcSender(event); return localTemplates().list(); });
+ipcMain.handle("zerothink:template-save", async (event, input) => { requireTrustedIpcSender(event); return localTemplates().save(input); });
+ipcMain.handle("zerothink:template-delete", async (event, id) => { requireTrustedIpcSender(event); return localTemplates().delete(id); });
+ipcMain.handle("zerothink:template-render", async (event, input) => {
+  requireTrustedIpcSender(event);
+  const template = input?.templateId ? (await localTemplates().list()).find((item) => item.id === input.templateId) : undefined;
+  if (input?.templateId && !template) throw new Error("Choose a saved research template.");
+  return renderTemplate({ ...input, template });
+});
 ipcMain.handle("zerothink:copy-text", (event, value) => {
   requireTrustedIpcSender(event);
   if (typeof value !== "string" || Buffer.byteLength(value, "utf8") > 1024 * 1024) throw new Error("Choose text up to 1 MB to copy.");
@@ -1024,8 +1084,7 @@ ipcMain.handle("zerothink:copy-text", (event, value) => {
 });
 ipcMain.handle("zerothink:web-search", async (event, query) => {
   requireTrustedIpcSender(event);
-  const settings = await loadSettingsInternal();
-  return searchWeb(query, { key: decryptSecret(settings, "serperKeyEncrypted"), fetcher: fetch });
+  return searchWeb(query, { key: await (await readyVault()).getServiceKey("serper"), fetcher: fetch });
 });
 
 let zeroThinkProject = null;
@@ -1041,11 +1100,14 @@ ipcMain.handle("zerothink:project-select", async (event) => {
 });
 
 async function zeroThinkCompletionAdapters(signal) {
+  const vault = await readyVault();
+  const selected = (await vault.snapshot()).secure ? await vault.getActiveCompletion() : null;
+  if (selected) return buildVaultCompletion(selected, { storeManaged: IS_WINDOWS_STORE, fetchImpl: fetch, signal });
   const settings = await loadSettingsInternal();
   const provider = settings.assistantProvider || "openzero";
   const local = provider === "openzero" && settings.openZeroAssistantMode !== "server";
   const endpoint = local ? OLLAMA_LOCAL_ORIGIN : provider === "openai" ? "https://api.openai.com/v1/chat/completions" : provider === "groq" ? "https://api.groq.com/openai/v1/chat/completions" : new URL("/v1/chat/completions", settings.openZeroUrl).toString();
-  const token = provider === "openai" ? decryptSecret(settings, "openAiKeyEncrypted") : provider === "groq" ? decryptSecret(settings, "groqKeyEncrypted") : local ? "" : decryptToken(settings);
+  const token = local ? "" : await vault.getServiceKey(provider, provider === "openzero" ? endpoint : undefined);
   return buildCompletionAdapter({ provider, mode: local ? "local" : "server", endpoint, token, model: provider === "openzero" && !local ? settings.openZeroServerModel : settings.model, storeManaged: IS_WINDOWS_STORE, fetch, signal });
 }
 
@@ -1092,23 +1154,26 @@ ipcMain.handle("zerothink:import", async (event) => {
   const selected = await dialog.showOpenDialog(mainWindow, {
     title: "Import local sources into ZeroThink",
     properties: ["openFile", "multiSelections"],
-    filters: [{ name: "UTF-8 text sources", extensions: ["txt", "md", "json", "csv"] }],
+    filters: [{ name: "PDF and UTF-8 text sources", extensions: ["pdf", "txt", "md", "json", "csv"] }],
   });
   if (selected.canceled) return [];
-  if (selected.filePaths.length > 8) throw new Error("Choose at most eight text sources.");
+  if (selected.filePaths.length > 8) throw new Error("Choose at most eight sources.");
   const documents = [];
   let totalBytes = 0;
   for (const selectedPath of selected.filePaths) {
     const handle = await fs.open(selectedPath, "r");
     try {
       const stat = await handle.stat();
-      totalBytes += stat.size;
-      if (!stat.isFile() || stat.size > DOCUMENT_BYTES || totalBytes > CORPUS_BYTES) throw new Error("Choose text files up to 1 MB each and 2 MB in total.");
+      const pdf = path.extname(selectedPath).toLowerCase() === ".pdf";
+      if (!stat.isFile() || stat.size > (pdf ? MAX_PDF_BYTES : DOCUMENT_BYTES)) throw new Error("Choose text up to 1 MB per file or PDFs up to 10 MB.");
       // Read through the checked descriptor and enforce the bound again if a file grew.
       const buffer = Buffer.alloc(stat.size + 1);
       const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
       if (bytesRead > stat.size) throw new Error("A source changed while it was being imported. Try again.");
-      const document = cleanImportedDocument(path.basename(selectedPath), buffer.subarray(0, bytesRead));
+      const data = buffer.subarray(0, bytesRead);
+      const document = pdf ? { title: path.basename(selectedPath), text: await extractPdf(data) } : cleanImportedDocument(path.basename(selectedPath), data);
+      totalBytes += Buffer.byteLength(document.text, "utf8");
+      if (totalBytes > CORPUS_BYTES) throw new Error("Selected sources exceed 2 MB of extracted text. Split them into smaller imports.");
       documents.push({ id: randomUUID(), ...document });
     } finally { await handle.close(); }
   }
@@ -1127,13 +1192,8 @@ ipcMain.handle("zerothink:run", async (event, raw) => {
   try {
     let adapters = {};
     if (raw.useModel === true) {
-      const settings = await loadSettingsInternal();
-      const provider = settings.assistantProvider || "openzero";
-      const local = provider === "openzero" && settings.openZeroAssistantMode !== "server";
-      const endpoint = local ? OLLAMA_LOCAL_ORIGIN : provider === "openai" ? "https://api.openai.com/v1/chat/completions" : provider === "groq" ? "https://api.groq.com/openai/v1/chat/completions" : new URL("/v1/chat/completions", settings.openZeroUrl).toString();
-      const token = provider === "openai" ? decryptSecret(settings, "openAiKeyEncrypted") : provider === "groq" ? decryptSecret(settings, "groqKeyEncrypted") : local ? "" : decryptToken(settings);
-      adapters = buildCompletionAdapter({ provider, mode: local ? "local" : "server", endpoint, token, model: provider === "openzero" && !local ? settings.openZeroServerModel : settings.model, storeManaged: IS_WINDOWS_STORE, fetch, signal: controller.signal });
-      if (raw.autoWeb === true) adapters.search = (query) => searchWeb(query, { key: decryptSecret(settings, "serperKeyEncrypted"), fetcher: fetch, signal: controller.signal });
+      adapters = await zeroThinkCompletionAdapters(controller.signal);
+      if (raw.autoWeb === true) { const key = await (await readyVault()).getServiceKey("serper"); adapters = { ...adapters, search: (query) => searchWeb(query, { key, fetcher: fetch, signal: controller.signal }) }; }
     }
     const profile = raw.useModel === true ? await localStudio().getProfile() : { persona: "", facts: [] };
     return await runStudio({ ...input, persona: profile.persona, facts: profile.facts.slice(-5), tokenBudget: Math.min(input.tokenBudget, input.maxPasses * 2048), signal: controller.signal, onProgress: (progress) => {
@@ -1154,13 +1214,19 @@ ipcMain.handle("zerothink:cancel", (event, input) => {
 
 ipcMain.handle("zerothink:export", async (event, input) => {
   requireTrustedIpcSender(event);
-  if (!["markdown", "json"].includes(input?.format) || !input?.result || typeof input.result.markdown !== "string") throw new Error("A completed research report is required.");
+  if (!["markdown", "json", "pdf"].includes(input?.format) || !input?.result || typeof input.result.markdown !== "string") throw new Error("A completed research report is required.");
   const data = input.format === "json" ? JSON.stringify(input.result, null, 2) : input.result.markdown;
   if (Buffer.byteLength(data, "utf8") > 2 * 1024 * 1024) throw new Error("This report exceeds the export size limit.");
-  const extension = input.format === "json" ? "json" : "md";
-  const selected = await dialog.showSaveDialog(mainWindow, { title: "Export ZeroThink report as readable text", defaultPath: `ZeroThink-report-${new Date().toISOString().slice(0, 10)}.${extension}`, filters: [{ name: extension === "json" ? "JSON" : "Markdown", extensions: [extension] }] });
+  const extension = input.format === "json" ? "json" : input.format === "pdf" ? "pdf" : "md";
+  const selected = await dialog.showSaveDialog(mainWindow, { title: "Export ZeroThink report · readable unencrypted file", defaultPath: `ZeroThink-report-${new Date().toISOString().slice(0, 10)}.${extension}`, filters: [{ name: extension.toUpperCase(), extensions: [extension] }] });
   if (selected.canceled || !selected.filePath) return { saved: false };
-  await fs.writeFile(selected.filePath, data, { encoding: "utf8", mode: 0o600 });
+  let output = data;
+  if (input.format === "pdf") {
+    const printWindow = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, javascript: false, partition: `zerothink-export-${randomUUID()}` } });
+    try { await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(reportHtml(input.result.markdown))}`); output = await printWindow.webContents.printToPDF({ printBackground: false, preferCSSPageSize: true }); }
+    finally { printWindow.destroy(); }
+  }
+  await fs.writeFile(selected.filePath, output, { ...(typeof output === "string" ? { encoding: "utf8" } : {}), mode: 0o600 });
   return { saved: true };
 });
 
@@ -1369,7 +1435,7 @@ ipcMain.handle("settings:clear-local-data", async (event) => {
     type: "warning",
     title: "Clear ZERO ONE desktop data?",
     message: "Remove local settings and embedded workspace sessions?",
-    detail: "This clears settings, encrypted tokens, saved workspace logins and OpenZero workspace cookies. Your encrypted ZNotes notebook and ZeroThink conversations/source library are retained; manage these inside ZNotes and ZeroThink. Diagnostics files you saved are retained.",
+    detail: "This clears settings, the encrypted API vault, saved workspace logins and OpenZero workspace cookies. An encrypted credential/settings recovery copy is retained locally before reset, including when old credentials cannot decrypt. Your encrypted ZNotes notebook, ZeroThink conversations/source library and research templates are retained; manage these inside ZNotes and ZeroThink. Diagnostics files you saved are retained.",
     buttons: ["Cancel", "Clear and restart"],
     defaultId: 0,
     cancelId: 0,
@@ -1383,6 +1449,15 @@ ipcMain.handle("settings:clear-local-data", async (event) => {
     await targetSession.clearAuthCache();
   }
   await clearAllLogins({ userDataPath: app.getPath("userData") });
+  // An explicit user-confirmed reset also works when ciphertext cannot decrypt.
+  // Preserve original bytes before removing any recoverable credentials.
+  const suffix = `.recovery-${randomUUID()}`;
+  for (const file of [settingsPath(), path.join(app.getPath("userData"), "zerothink-vault.encrypted.json")]) {
+    try { const stat = await fs.lstat(file); if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("Credential recovery requires ordinary local files."); await fs.copyFile(file, `${file}${suffix}`, 1); }
+    catch (error) { if (error.code !== "ENOENT") throw error; }
+  }
+  await fs.rm(path.join(app.getPath("userData"), "zerothink-vault.encrypted.json"), { force: true });
+  vaultStore = undefined; vaultMigration = null;
   await fs.rm(settingsPath(), { force: true });
   if (IS_WINDOWS_STORE) await fs.rm(path.join(app.getPath("userData"), "zsec-shield-state"), { recursive: true, force: true });
   else app.setLoginItemSettings(loginItemOptions({ enabled: false, executablePath: process.execPath, packaged: app.isPackaged }));
@@ -1603,29 +1678,42 @@ ipcMain.handle("openzero:local-chat", async (event, request) => {
 async function provisionOpenZeroDesktop(settings = null) {
   if (!credentialStorageIsSecure()) throw new Error("Secure operating-system credential storage is unavailable.");
   settings = settings || await loadSettingsInternal();
+  // Validate the credential destination before requesting or transmitting a
+  // token, and retain distinct profiles for distinct user-owned servers.
+  const serverEndpoint = endpointFor("openzero", new URL("/v1/chat/completions", settings.openZeroUrl).toString());
   const pairingEndpoint = new URL("/api/openzero/key", settings.openZeroUrl).toString();
-  const paired = await fetch(pairingEndpoint, {
-    method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/json", "User-Agent": `ZERO-ONE/${app.getVersion()}` },
-    body: JSON.stringify({ action: "rotate" }),
-  });
+  let paired;
+  try {
+    paired = await fetch(pairingEndpoint, {
+      method: "POST",
+      redirect: "error",
+      headers: { Accept: "application/json", "Content-Type": "application/json", "User-Agent": `ZERO-ONE/${app.getVersion()}` },
+      body: JSON.stringify({ action: "rotate" }),
+    });
+  } catch { throw new Error("OpenZero pairing could not be reached. Check its address and connection."); }
   const payload = await paired.json().catch(() => ({}));
-  if (!paired.ok) throw new Error(payload?.error?.message || `OpenZero automatic connection returned HTTP ${paired.status}.`);
+  if (!paired.ok) throw new Error("OpenZero automatic connection was rejected. Check its server settings and try again.");
   const token = String(payload.api_key || "");
   if (!/^oz_[A-Za-z0-9_-]{32,128}$/.test(token)) throw new Error("OpenZero returned an invalid API credential.");
 
   const modelsEndpoint = new URL("/v1/models", settings.openZeroUrl).toString();
-  const verified = await fetch(modelsEndpoint, { headers: { Authorization: `Bearer ${token}`, "User-Agent": `ZERO-ONE/${app.getVersion()}` } });
+  let verified;
+  try { verified = await fetch(modelsEndpoint, { redirect: "error", headers: { Authorization: `Bearer ${token}`, "User-Agent": `ZERO-ONE/${app.getVersion()}` } }); }
+  catch { throw new Error("OpenZero created desktop access, but its verification request failed. Check the server connection and try again."); }
   if (!verified.ok) throw new Error("OpenZero created desktop access, but verification failed. Try again.");
   const modelPayload = await verified.json().catch(() => ({}));
-  const models = Array.isArray(modelPayload?.data) ? modelPayload.data.map((entry) => String(entry?.id || "").trim()).filter(Boolean) : [];
-  const recommended = safeModelName(modelPayload?.recommended_model, DEFAULT_OPENZERO_SERVER_MODEL);
+  const models = Array.isArray(modelPayload?.data) ? modelPayload.data.map((entry) => String(entry?.id || "").trim()).filter((model) => model && !model.includes(token)) : [];
+  const recommended = safeModelName(String(modelPayload?.recommended_model || "").includes(token) ? "" : modelPayload?.recommended_model, DEFAULT_OPENZERO_SERVER_MODEL);
   const browserModel = models.includes(recommended) ? recommended : models.includes(DEFAULT_OPENZERO_SERVER_MODEL) ? DEFAULT_OPENZERO_SERVER_MODEL : safeModelName(models[0], settings.openZeroServerModel || DEFAULT_OPENZERO_SERVER_MODEL);
-  const next = { ...settings, assistantProvider: "openzero", openZeroServerModel: browserModel, openZeroTokenEncrypted: safeStorage.encryptString(token).toString("base64") };
-  await fs.mkdir(path.dirname(settingsPath()), { recursive: true });
-  await fs.writeFile(settingsPath(), JSON.stringify(next, null, 2), { encoding: "utf8", mode: 0o600 });
+  const next = { ...settings, assistantProvider: "openzero", openZeroServerModel: browserModel };
+  const vault = await readyVault();
+  const existing = (await vault.snapshot()).profiles.find((entry) => entry.provider === "openzero" && entry.endpoint === serverEndpoint);
+  await vault.saveProfile({ ...(existing || {}), provider: "openzero", name: existing?.name || "OpenZero desktop connection", endpoint: serverEndpoint, model: browserModel, key: token });
+  await vault.selectProfile(null);
+  delete next.openZeroTokenEncrypted;
+  await atomicSettingsWrite(next);
   runtimeSettings = next;
-  return { settings: publicSettings(next), hint: String(payload.hint || ""), model: browserModel, models };
+  return { settings: await publicSettings(next), hint: String(payload.hint || "").replaceAll(token, "[redacted]").slice(0, 500), model: browserModel, models };
 }
 
 ipcMain.handle("openzero:connect-desktop", async (event) => {
@@ -1635,57 +1723,21 @@ ipcMain.handle("openzero:connect-desktop", async (event) => {
 
 ipcMain.handle("openzero:chat", async (event, request) => {
   requireTrustedIpcSender(event);
+  const vault = await readyVault();
+  const active = (await vault.snapshot()).secure ? await vault.getActiveCompletion() : null;
+  if (active) {
+    const adapter = buildVaultCompletion(active, { storeManaged: IS_WINDOWS_STORE, fetchImpl: fetch });
+    const response = await adapter.complete({ messages: cleanChatMessages(request?.messages), maxTokens: 2048 });
+    return { content: response.content, model: response.model, provider: active.name };
+  }
   const settings = await loadSettingsInternal();
   const provider = settings.assistantProvider || "openzero";
-  const providers = {
-    openzero: { token: decryptToken(settings), endpoint: new URL("/v1/chat/completions", settings.openZeroUrl).toString(), label: "OpenZero" },
-    openai: { token: decryptSecret(settings, "openAiKeyEncrypted"), endpoint: "https://api.openai.com/v1/chat/completions", label: "OpenAI" },
-    groq: { token: decryptSecret(settings, "groqKeyEncrypted"), endpoint: "https://api.groq.com/openai/v1/chat/completions", label: "Groq" },
-  };
-  const selected = providers[provider] || providers.openzero;
-
-  // An explicitly selected model that exists in local Ollama stays local even
-  // when a separate OpenZero panel token is stored for browser workflows.
   const requestedLocalModel = request?.model || settings.model || DEFAULT_LOCAL_MODEL;
-  const useLocalOllama = provider === "openzero" && settings.openZeroAssistantMode !== "server";
-  if (useLocalOllama) {
-    try {
-      return await chatViaLocalOllama(request, requestedLocalModel);
-    } catch (error) {
-      if (error?.name === "AbortError") throw new Error("The local assistant took too long. Install or start Ollama, then try again.");
-      throw new Error(error?.message || "Local Assistant is unavailable. Install Ollama and download the selected model once — no API key required.");
-    }
-  }
+  if (provider === "openzero" && settings.openZeroAssistantMode !== "server") return chatViaLocalOllama(request, requestedLocalModel);
+  const adapter = await zeroThinkCompletionAdapters();
+  const response = await adapter.complete({ messages: cleanChatMessages(request?.messages), maxTokens: 1400 });
+  return { content: response.content, model: response.model, provider };
 
-  if (!selected.token) throw new Error(`Finish ${selected.label} setup in Settings before using Assistant.`);
-  const messages = Array.isArray(request?.messages) ? request.messages.slice(-30) : [];
-  if (!messages.length) throw new Error("A message is required.");
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120000);
-  try {
-    const response = await fetch(selected.endpoint, {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${selected.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: String(provider === "openzero" && settings.openZeroAssistantMode === "server" ? settings.openZeroServerModel : request?.model || settings.model),
-        messages,
-        temperature: 0.55,
-        max_tokens: 1400,
-        stream: false,
-      }),
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload?.error?.message || `${selected.label} returned HTTP ${response.status}.`);
-    const content = payload?.choices?.[0]?.message?.content;
-    if (!content) throw new Error(`${selected.label} returned no assistant message.`);
-    return { content, model: payload.model || settings.model, provider };
-  } finally {
-    clearTimeout(timeout);
-  }
 });
 
 ipcMain.handle("shell:open-external", async (event, url) => {
@@ -1697,7 +1749,7 @@ ipcMain.handle("shell:open-external", async (event, url) => {
 
 ipcMain.handle("diagnostics:export", async (event) => {
   requireTrustedIpcSender(event);
-  const settings = publicSettings(await loadSettingsInternal());
+  const settings = await publicSettings(await loadSettingsInternal());
   const services = await Promise.all([
     probe("openzero", settings.openZeroUrl),
   ]);

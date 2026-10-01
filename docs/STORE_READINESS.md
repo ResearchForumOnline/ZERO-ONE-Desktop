@@ -1,13 +1,25 @@
 # ZERO ONE Store-readiness gate
 
-## ZERO ONE 8.1.0 source and public-preview gate
+## ZERO ONE 8.2.0 source and public-preview gate
 
-ZERO ONE 8.1.0 restores the original ZeroThink chat/persona/memory/library/depth workflows and adds native project actions. ZNotes has real note creation, autosave and dual-key protection. Exact tests, package hash and submission status are recorded in docs/qa/RELEASE_8.1.0.md. The preceding 8.0.0 Store package is published and was verified installed; this source repair is a separate release.
+Updated 1 October 2026. Source version **8.2.0** is the current candidate. Partner Center showed the preceding **Submission 4 available in Microsoft Store** on this date. That 8.1 publication state is separate from 8.2 packaging, upload, certification, delivery and installation. The 8.1 release receipt in `docs/qa/RELEASE_8.1.0.md` remains historical evidence for 8.1; source edits alone do not update installed apps.
 
-The Store edition has functional local ZNotes, offline ZeroThink evidence maps and on-demand ZSEC scanning without a separately downloaded AI model. Optional AI uses a configured existing OpenZero server or user-supplied OpenAI/Groq keys. Store model installation is hidden and rejected in the main process. Updates remain Store managed. Direct builds retain existing Ollama support.
+## Candidate feature scope
 
-ZeroThink imports only selected UTF-8 text files or notes; it does not require a company website, login or database. It supports bounded optional draft/critique/revision, progress, cancellation, source-ID checks and explicit exports. Results do not establish scientific correctness or AGI. The immutable ZSEC vendor manifest and native hashes must verify before packaging.
+The Store edition includes encrypted ZNotes, saved ZeroThink conversations/library/persona/facts, offline evidence maps, approved native project actions, on-demand ZSEC scanning and optional user-configured AI. No company-hosted login or database is required. Local model downloads/installations are hidden and rejected in the Store main process; direct builds retain existing Ollama support. Store updates use Microsoft delivery.
 
-Current source is Apache-2.0. No keys, private profiles, customer records, DNA files, database snapshots or publisher certificates are included. Historical EULA drafts are non-operative and do not change the source licence. Previous certification failures, payout blocks, smoke tests and platform packages are historical; use only current receipts for current release claims.
+8.2 adds:
 
-Windows Store packaging: npm run check; npm run verify:zsec; npm run dist:store:win. Current Store identity is read from build/store-identity.json. Upload the exact AppX through the existing ZERO ONE Desktop product, replace stale reviewer notes, wait for validation and verify the final submission state.
+- A private OS-encrypted Vault: 64 profiles, 11 integrations and eight selectable chat providers. The selected profile supplies Assistant, Studio Chat, Research and Agent. Serper, IonQ and IBM keys supply their respective services. No publisher keys, guaranteed free quota or automatic quota failover are included.
+- Ten built-in research templates and 32 encrypted custom templates, with native Paper Creator/scenario forms that prepare inspectable research requests.
+- Local PDF extraction: ten MiB input, 100 pages, one MiB extracted text per source, two MiB saved library text and eight selected sources per run. Image-only scans need OCR outside the app. Markdown, JSON and PDF exports are readable and unencrypted.
+- Native local ideal circuit simulation and user-owned IonQ cloud operations. Cloud simulator submission requires confirmation. Hardware submission requires a fresh matching estimate and explicit possible-cost acknowledgement; the review ceiling cannot cap actual provider charges. IBM is backend/status discovery only, with instance CRN/region held in form memory.
+- Legacy encrypted-key migration and backup-preserving reset. Clear desktop data creates `.recovery-UUID` copies of existing settings and Vault bytes before removing the current files; it preserves ZNotes, Studio and templates. Recovery copies remain local and are not universally purged.
+
+Hosted ZMail, CallChat, DNA, admin/payment routes, private databases, owner grant credentials and private research artifacts are excluded. No AGI, unrestricted control, model-weight rewriting, scientific validation or quantum advantage is claimed.
+
+## Packaging and submission gate
+
+Run `npm run check`, `npm run verify:zsec` and `npm run dist:store:win`. The immutable pinned ZSEC manifest and native hashes must pass before packaging. Use the identity in `build/store-identity.json` and product **9PMPR7PTW025**. Upload the exact candidate AppX, verify server-side package validation, use `store/REVIEWER_NOTES_8.2.0.md`, reconcile Store descriptions/privacy with the candidate and record the final submission state. Successful local tests or upload do not establish certification or publication.
+
+Public source is Apache-2.0. Historical EULA/source-policy drafts do not impose different unpublished licence terms. The public privacy URL is `https://researchforumonline.github.io/OpenZero/zero-one-privacy.html`; a public legal notice is separate from inference hosting.

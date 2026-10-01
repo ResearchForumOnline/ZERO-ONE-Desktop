@@ -55,11 +55,19 @@ test("Browser Pilot snapshots omit values and planner uses the dedicated route",
     fetchImpl: async (url, options) => { request = { url, options }; return { ok: true, json: async () => ({ action: { action: "finish", message: "Done" } }) }; },
   });
   assert.equal(request.url, "http://127.0.0.1:1024/v1/browser/plan");
+  assert.equal(request.options.redirect, "error");
   assert.match(request.options.headers.Authorization, /^Bearer /);
   assert.equal(result.action, "finish");
 
   await assert.rejects(requestBrowserPlan({
     apiBaseUrl: "http://127.0.0.1:1024", apiKey: "oz_stale", model: "m", task: "inspect", snapshot: compact, step: 1, history: [],
     fetchImpl: async () => ({ ok: false, status: 401, json: async () => ({ message: "Expired" }) }),
-  }), (error) => error.status === 401 && /Expired/.test(error.message));
+  }), (error) => error.status === 401 && /HTTP 401/.test(error.message) && !/Expired/.test(error.message));
+});
+test("Browser Pilot planner errors never reflect provider credentials or transport details", async () => {
+  const marker = "SYNTHETIC_PRIVATE_PLANNER_KEY", request = { apiBaseUrl: "https://synthetic-server.example", apiKey: marker, model: "m", task: "inspect", snapshot: { url: "https://example.com/", interactive: [] }, step: 1, history: [] };
+  for (const status of [301, 401, 403, 429, 500]) {
+    await assert.rejects(requestBrowserPlan({ ...request, fetchImpl: async () => ({ ok: false, status, json: async () => ({ error: { message: `Synthetic provider echoed ${marker}` } }) }) }), (error) => error.status === status && error.message.includes(`HTTP ${status}`) && !error.message.includes(marker));
+  }
+  await assert.rejects(requestBrowserPlan({ ...request, fetchImpl: async () => { throw new Error(`Synthetic transport echoed https://user:${marker}@server.example`); } }), (error) => /could not be reached/.test(error.message) && !error.message.includes(marker) && !error.message.includes("https://user"));
 });
