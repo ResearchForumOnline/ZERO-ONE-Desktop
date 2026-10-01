@@ -15,7 +15,7 @@
 
 ![ZERO ONE command center](store/screenshots/01-command-center.png)
 
-ZERO ONE is an open-source native desktop workspace for private notes, CPU AI, saved research and approved project/browser work. The 8.3 source includes a bundled local engine with verified model setup; own API/server profiles remain optional. Security panels report actual bounded observations, not guarantees inferred from an AI response.
+ZERO ONE is an open-source native desktop workspace for private notes, CPU AI, saved research and approved project/browser work. Version 8.3 includes a bundled local engine with verified model setup; own API/server profiles remain optional. Security panels report actual bounded observations, not guarantees inferred from an AI response.
 
 ## Download and install
 
@@ -30,11 +30,11 @@ Use the authenticated [latest ZERO ONE release](https://github.com/ResearchForum
 | Linux x64 | `ZERO-ONE-*-linux-x86_64.AppImage` | Make executable and open |
 | Debian/Ubuntu x64 | `ZERO-ONE-*-linux-amd64.deb` | Open with the software installer or use `sudo apt install ./ZERO-ONE-*-linux-amd64.deb` |
 
-Current source version is **8.3.0**. This source candidate adds built-in CPU setup, encrypted saved research projects, unified Vault routing and real progress/cancellation. The latest verified public installers are [8.2.0](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v8.2.0). The last recorded Store receipt is Submission 5 for 8.2.0.0 in certification; check its current state before a new submission. No 8.3 publication, certification or installed state is claimed here. See [8.3 changes](store/RELEASE_NOTES_8.3.0.md), [reviewer notes](store/REVIEWER_NOTES_8.3.0.md), [prior release evidence](docs/qa/RELEASE_8.2.0.md) and [readiness gate](docs/STORE_READINESS.md). Direct installers remain unsigned until publisher signing ships; updater verification requires matching GitHub digest and SHA256SUMS.
+Current source version is **8.3.0**. [Windows/macOS/Linux 8.3.0 installers](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v8.3.0) are published, with successful platform CI and independently verified public asset digests. Microsoft Store accepted Submission 6 for 8.3.0.0; it is in certification and will publish automatically after approval. Submission 5 remains available meanwhile. Installed Store state has not been checked or changed. See [8.3 changes](store/RELEASE_NOTES_8.3.0.md), [verification receipt](docs/qa/RELEASE_8.3.0.md), [reviewer notes](store/REVIEWER_NOTES_8.3.0.md) and [Store-readiness gate](docs/STORE_READINESS.md). Direct installers remain unsigned; updater verification requires matching GitHub digest and SHA256SUMS.
 
 ## What is included
 
-- **Built-in CPU AI in the 8.3 candidate:** one setup flow reviews model terms, downloads pinned/hash-verified OpenZero Gemma4 E2B weights and configures authenticated local inference. Download/cancel/retry/load/memory controls are native. No separate Ollama install, GPU or API key is needed; allow at least 8 GB RAM and a 3.42-GB download.
+- **Built-in CPU AI:** one setup flow reviews model terms, downloads pinned/hash-verified OpenZero Gemma4 E2B weights and configures authenticated local inference. Download/cancel/retry/load/memory controls are native. No separate Ollama install, GPU or API key is needed; allow at least 8 GB RAM and a 3.42-GB download.
 - **Named research projects:** up to 32 encrypted projects with debounced autosave, question/process/depth/options, selected evidence snapshots and latest completed result. Reopen interrupted checkpoints for review; bounded portable JSON import never launches actions and exports contain readable selected content.
 
 - On-device ZNotes with saved note creation, autosave, checklists, pins, labels, colours, archive/trash and local imports/exports. Dual-key notebook protection uses independent authenticated encryption keys under OS custody.

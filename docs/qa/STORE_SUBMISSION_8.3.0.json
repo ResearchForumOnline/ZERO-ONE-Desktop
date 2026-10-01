@@ -1,0 +1,22 @@
+{
+  "version": "8.3.0",
+  "productId": "9PMPR7PTW025",
+  "submissionNumber": 6,
+  "submissionId": "1152921505702023480",
+  "verifiedAtUtc": "2026-10-01T19:16:36.864Z",
+  "status": "In certification",
+  "stages": {
+    "submission": "Complete",
+    "preProcessing": "In progress",
+    "certification": "Not started",
+    "publishing": "Not started"
+  },
+  "publishAsSoonAsCertificationPasses": true,
+  "packageValidated": true,
+  "listingUpdated": true,
+  "reviewerTextReopenedAndMatched": true,
+  "reviewerCharacters": 5472,
+  "privacyUrl": "https://researchforumonline.github.io/OpenZero/zero-one-privacy.html",
+  "previousSubmission5Available": true,
+  "installedState": "not checked or modified"
+}

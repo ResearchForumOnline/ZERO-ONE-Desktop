@@ -1,0 +1,179 @@
+{
+  "schema": "zero-one.public-release-verification.v1",
+  "version": "8.3.0",
+  "verifiedAtUtc": "2026-10-01T19:13:16.300Z",
+  "release": {
+    "url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v8.3.0",
+    "tag": "v8.3.0",
+    "publishedAt": "2026-10-01T19:10:31Z",
+    "isDraft": false,
+    "isPrerelease": false
+  },
+  "verification": "All seven published release assets downloaded without executing or installing them. Exact sizes and SHA-256 match GitHub digests. Six installer/blockmap digests also match SHA256SUMS.txt.",
+  "assets": [
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 585,
+      "sha256": "5843c3802da6f2e9e5865416c007d0a61bf76418406adf2156cb646d352a18ea",
+      "downloadUrl": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.3.0/SHA256SUMS.txt",
+      "githubDigestMatches": true,
+      "checksumFileMatches": null
+    },
+    {
+      "name": "ZERO-ONE-8.3.0-linux-amd64.deb",
+      "bytes": 167767480,
+      "sha256": "25506862f9ba3ca44b57a3dd1c969ffcb9a8eb1f3c003fecbdfc3ad69b14eedf",
+      "downloadUrl": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.3.0/ZERO-ONE-8.3.0-linux-amd64.deb",
+      "githubDigestMatches": true,
+      "checksumFileMatches": true
+    },
+    {
+      "name": "ZERO-ONE-8.3.0-linux-x86_64.AppImage",
+      "bytes": 160648317,
+      "sha256": "f8e85f43ef4705746c85371468d68f8bc200aa0acb9ca1db5f4583ad5efd3fdd",
+      "downloadUrl": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.3.0/ZERO-ONE-8.3.0-linux-x86_64.AppImage",
+      "githubDigestMatches": true,
+      "checksumFileMatches": true
+    },
+    {
+      "name": "ZERO-ONE-8.3.0-mac-arm64.dmg",
+      "bytes": 164636468,
+      "sha256": "e89afecd8d9fbde0e2c888553f15808aa851501d8adc51ffd356b5e55478dd52",
+      "downloadUrl": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.3.0/ZERO-ONE-8.3.0-mac-arm64.dmg",
+      "githubDigestMatches": true,
+      "checksumFileMatches": true
+    },
+    {
+      "name": "ZERO-ONE-8.3.0-mac-arm64.zip",
+      "bytes": 179519135,
+      "sha256": "4a2e0816e34a761188e4e4f70e9b8f4a6593ebaf9c339a00393e5fa021a9cdcf",
+      "downloadUrl": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.3.0/ZERO-ONE-8.3.0-mac-arm64.zip",
+      "githubDigestMatches": true,
+      "checksumFileMatches": true
+    },
+    {
+      "name": "ZERO-ONE-8.3.0-win-x64.exe",
+      "bytes": 145858038,
+      "sha256": "ff1904168b6e68ddfb6c397a94a2babb56efbec567bae1811c783ffce3d0a5de",
+      "downloadUrl": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.3.0/ZERO-ONE-8.3.0-win-x64.exe",
+      "githubDigestMatches": true,
+      "checksumFileMatches": true
+    },
+    {
+      "name": "ZERO-ONE-8.3.0-win-x64.exe.blockmap",
+      "bytes": 149319,
+      "sha256": "f64e1649e5f23e423de7762060aae8599d6a2c792e327d94182d32234dc7f38e",
+      "downloadUrl": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.3.0/ZERO-ONE-8.3.0-win-x64.exe.blockmap",
+      "githubDigestMatches": true,
+      "checksumFileMatches": true
+    }
+  ],
+  "totalBytes": 818579342,
+  "checksumEntries": 6,
+  "runs": [
+    {
+      "id": 36911848850,
+      "url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/actions/runs/36911848850",
+      "headSha": "296af80dc4f39d875fb974b91156bd31019f18e3",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "verify-macos",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify-ubuntu",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify-windows",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "linux",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "macos",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "windows",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "publish",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 36911842819,
+      "url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/actions/runs/36911842819",
+      "headSha": "296af80dc4f39d875fb974b91156bd31019f18e3",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "verify-macos",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify-ubuntu",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify-windows",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "package-windows",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 36911849274,
+      "url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/actions/runs/36911849274",
+      "headSha": "296af80dc4f39d875fb974b91156bd31019f18e3",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "verify-windows",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify-ubuntu",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify-macos",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "package-windows",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "executedInstallers": false,
+  "installedApplications": false
+}

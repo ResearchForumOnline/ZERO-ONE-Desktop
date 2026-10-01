@@ -19,4 +19,4 @@ Portable projects and reports include selected readable content. Vault keys and 
 
 No publisher keys, hosted account databases, grant credentials or private datasets are bundled. Media/voice generation, bundled Qiskit/IBM hardware submission and the original ZMath/ZBA engine remain outside this release. No AGI, unrestricted control, scientific validation, guaranteed free API quota or automatic provider quota failover is claimed.
 
-This is the 8.3 source candidate. Final package hashes, packaged native acceptance, GitHub publication, Store submission/certification and installed state must be recorded after each is verified.
+Windows/macOS/Linux 8.3.0 installers are published after successful platform checks and verified public asset digests. Real packaged CPU chat and a small native Agent coding task passed. Microsoft Store Submission 6 (8.3.0.0) is in certification, with automatic publication after approval. See [delivery evidence](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/blob/main/docs/qa/RELEASE_8.3.0.md). Installed Store state is unverified.

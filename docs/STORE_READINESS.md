@@ -2,7 +2,7 @@
 
 ## ZERO ONE 8.3.0 release gate
 
-Updated 1 October 2026. **8.3.0 is a source candidate**, not a published package or Store certification receipt. It adds a bundled managed CPU engine to Store/direct builds, pinned verified model download after terms acceptance, named encrypted research projects, unified selected-model Browser Pilot planning and real Assistant progress/cancellation. Existing 8.2 release receipts below remain historical evidence for that version. Do not reuse 8.2 package hashes for 8.3.
+Updated 1 October 2026. **8.3.0 GitHub installers are published** after successful Windows/macOS/Linux checks, native bundled-engine execution and public digest verification. **Microsoft Store Submission 6 is in certification**, package 8.3.0.0, with automatic publication after approval. Submission 5 remains available meanwhile; installed version is unverified. [8.3 delivery receipt](qa/RELEASE_8.3.0.md), [public assets](qa/PUBLIC_RELEASE_8.3.0.json), [Store status](qa/STORE_SUBMISSION_8.3.0.json). Existing 8.2 receipts below are historical.
 
 ### 8.3 release gates
 

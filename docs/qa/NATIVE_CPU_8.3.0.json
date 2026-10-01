@@ -102,5 +102,59 @@
     "visibleWindows": 0,
     "cloudRequests": 0,
     "modelGenerationRequests": 0
+  },
+  "packagedInference": {
+    "schema": 1,
+    "at": "2026-10-01T19:11:41.686Z",
+    "exeSha256": "20570753d19609d2ba6a51c1b04433e600bec2d32235374e4bf57d0766394af2",
+    "elapsedMs": 58737,
+    "before": {
+      "termsAccepted": true,
+      "phase": "idle",
+      "modelId": "shafire/OpenZero-Gemma4-E2B-Agentic-GGUF",
+      "modelName": "OpenZero Gemma4 E2B Agentic Q4_K_M",
+      "completed": 0,
+      "total": 3416119872,
+      "detail": "Local AI is ready to set up."
+    },
+    "answer": {
+      "content": "2 plus 2 equals 4.",
+      "model": "OpenZero Gemma4 E2B Agentic Q4_K_M"
+    },
+    "progress": [
+      {
+        "stage": "preparing",
+        "message": "I’m on it. Preparing your selected model…"
+      },
+      {
+        "stage": "waiting",
+        "message": "Your model is generating an answer. CPU inference can take time; you can stop it at any point."
+      },
+      {
+        "stage": "complete",
+        "message": "Answer ready."
+      }
+    ],
+    "after": {
+      "termsAccepted": true,
+      "phase": "idle",
+      "modelId": "shafire/OpenZero-Gemma4-E2B-Agentic-GGUF",
+      "modelName": "OpenZero Gemma4 E2B Agentic Q4_K_M",
+      "completed": 0,
+      "total": 3416119872,
+      "detail": "Local AI stopped. Your verified model stays installed."
+    },
+    "packagedTrustedPreloadIPC": true,
+    "actualModelInference": true,
+    "answerAccepted": true,
+    "isolatedProfile": true,
+    "testOnlyTermsAcceptanceFixture": true,
+    "legalAcceptanceUIExercised": false,
+    "modelDownloadPerformed": false,
+    "cachedModelHardlink": true,
+    "appxInstalled": false,
+    "modelId": "shafire/OpenZero-Gemma4-E2B-Agentic-GGUF",
+    "modelRevision": "5e7205c17e2ed3085a45416da01add508be357e7",
+    "ownedAppExited": true
   }
 }
