@@ -13,11 +13,14 @@ async function fixture(fn) { const root = await fs.mkdtemp(path.join(os.tmpdir()
 test("project agent executes real bounded reads, approved writes and a shell check before reporting", async () => fixture(async root => {
   await fs.writeFile(path.join(root, "app.txt"), "old implementation\n");
   const approved = []; const progress = [];
+  // A cold Windows PowerShell on a shared CI runner can exceed five seconds.
+  // This fixture still executes a real bounded shell; production limits stay unchanged.
+  const shellTimeout = process.platform === "win32" ? 30000 : 5000;
   const report = await runAgent({ task: "Update app and check it", root, maxSteps: 6, onProgress: event => progress.push(event) }, {
-    complete: sequence([action("list_files", { path: "." }), action("read_file", { path: "app.txt" }), action("write_file", { path: "app.txt", content: "new implementation\n", explanation: "Repair the fixture" }), action("run_command", { command: "echo verified", cwd: ".", timeoutMs: 5000 }), action("finish", { answer: "Updated the file and ran an echo check." })]),
+    complete: sequence([action("list_files", { path: "." }), action("read_file", { path: "app.txt" }), action("write_file", { path: "app.txt", content: "new implementation\n", explanation: "Repair the fixture" }), action("run_command", { command: "echo verified", cwd: ".", timeoutMs: shellTimeout }), action("finish", { answer: "Updated the file and ran an echo check." })]),
     approve: async input => { approved.push(input); return true; },
   });
-  assert.equal(report.status, "completed"); assert.equal(report.edits, 1); assert.equal(report.commands, 1); assert.equal(report.reads, 2);
+  assert.equal(report.status, "completed", JSON.stringify(report.errors)); assert.equal(report.edits, 1); assert.equal(report.commands, 1); assert.equal(report.reads, 2);
   assert.equal(report.errors.length, 0); assert.deepEqual(report.changedFiles, ["app.txt"]);
   assert.equal(await fs.readFile(path.join(root, "app.txt"), "utf8"), "new implementation\n");
   assert.equal(approved[0].before, "old implementation\n"); assert.equal(approved[0].after, "new implementation\n");
