@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "runtimeVersion": "b11321",
+  "runtimeRepository": "https://github.com/ggml-org/llama.cpp",
+  "model": {
+    "id": "shafire/OpenZero-Gemma4-E2B-Agentic-GGUF",
+    "name": "OpenZero Gemma4 E2B Agentic Q4_K_M",
+    "revision": "5e7205c17e2ed3085a45416da01add508be357e7",
+    "file": "OpenZero-Gemma4-E2B-Agentic-Q4_K_M.gguf",
+    "bytes": 3416119872,
+    "sha256": "9a7e717d13208526782c5fa5074bbcd7f445c6ac720e88d0e0e3ae6d87ebdeef",
+    "minimumRamBytes": 8589934592,
+    "license": "Google Gemma terms and OpenZero Community Source terms",
+    "modelCardSha256": "3df16c5eef5c10928122ebced54fb4697d5ddc3011ef4389d05a6cf88e0da84e",
+    "licenseUrl": "https://huggingface.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF/blob/5e7205c17e2ed3085a45416da01add508be357e7/README.md"
+  },
+  "platforms": {
+    "win32-x64": {"asset":"llama-b11321-bin-win-cpu-x64.zip","bytes":19275154,"sha256":"8f8c0c6501b075f52deff59537c05acd57d8621a0a7935f29b7d7c4812892569","executable":"llama-server.exe"},
+    "darwin-arm64": {"asset":"llama-b11321-bin-macos-arm64.tar.gz","bytes":11827849,"sha256":"5f47ffa4de936853004e7403a09d87616022e5af16651d71fc66a96b261886fb","executable":"llama-server"},
+    "linux-x64": {"asset":"llama-b11321-bin-ubuntu-x64.tar.gz","bytes":17546545,"sha256":"b53d1a8fc0e31752d0309172e711c7bc8c0c11f9f1d6607766a6ac880da6badc","executable":"llama-server"}
+  }
+}

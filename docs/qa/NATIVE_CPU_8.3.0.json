@@ -1,0 +1,106 @@
+{
+  "date": "2026-10-01",
+  "cpu": "Intel(R) Core(TM) i7-2600 CPU @ 3.40GHz",
+  "runtimeVersion": "b11321",
+  "modelId": "shafire/OpenZero-Gemma4-E2B-Agentic-GGUF",
+  "modelRevision": "5e7205c17e2ed3085a45416da01add508be357e7",
+  "modelSha256": "9a7e717d13208526782c5fa5074bbcd7f445c6ac720e88d0e0e3ae6d87ebdeef",
+  "gpuLayers": 0,
+  "externalInferenceRequests": 0,
+  "agent": {
+    "elapsedMs": 243388,
+    "status": "completed",
+    "steps": 6,
+    "reads": 2,
+    "edits": 1,
+    "commands": 0,
+    "rejectedAndRecovered": [
+      {
+        "step": 2,
+        "tool": "protocol",
+        "key": "protocol",
+        "message": "The local action stream ended before a complete JSON object.",
+        "resolved": true
+      },
+      {
+        "step": 4,
+        "tool": "protocol",
+        "key": "protocol",
+        "message": "Choose exactly one supported tool with an arguments object. No action was executed.",
+        "resolved": true
+      }
+    ],
+    "readSpecification": true,
+    "readSavedCode": true,
+    "functionTests": {
+      "ada": "Hello, Ada!",
+      "zero": "Hello, Zero!"
+    },
+    "allAssertionsPassed": true,
+    "modelMocked": false
+  },
+  "browserPlan": {
+    "elapsedMs": 42953,
+    "result": {
+      "action": "click",
+      "reason": "",
+      "element_id": "e1"
+    },
+    "parserAccepted": true,
+    "expectedAction": true,
+    "browserActionsExecuted": 0,
+    "snapshotSynthetic": true
+  },
+  "chat": {
+    "schema": 1,
+    "at": "2026-10-01T19:01:21.526Z",
+    "cpu": "Intel(R) Core(TM) i7-2600 CPU @ 3.40GHz",
+    "runtimeVersion": "b11321",
+    "modelId": "shafire/OpenZero-Gemma4-E2B-Agentic-GGUF",
+    "modelRevision": "5e7205c17e2ed3085a45416da01add508be357e7",
+    "elapsedMs": 25434,
+    "result": {
+      "text": "2 plus 2 equals 4.",
+      "usage": {
+        "prompt_tokens": 26,
+        "completion_tokens": 9,
+        "total_tokens": 35
+      },
+      "timings": {
+        "prompt_ms": 2271.68,
+        "prompt_n": 26,
+        "prompt_per_second": 11.445273982251022,
+        "predicted_ms": 1195.537,
+        "predicted_n": 9,
+        "predicted_per_second": 6.691553670024432
+      },
+      "model": "OpenZero Gemma4 E2B Agentic Q4_K_M"
+    },
+    "answerAccepted": true,
+    "externalInferenceRequests": 0,
+    "modelMocked": false
+  },
+  "research": {
+    "electron": "43.7.7",
+    "engine": "1.0.0",
+    "offlineRetrieval": true,
+    "reportEncryptedOnDisk": true,
+    "encryptionVersion": 2,
+    "independentKeys": 2,
+    "authenticatedLayers": 2,
+    "custody": "os-account",
+    "decryptedReportMatches": true,
+    "reloadedNotebookMatches": true,
+    "syntheticNoteDeletion": true,
+    "researchProjectEncryptedOnDisk": true,
+    "researchProjectReopenedResultMatches": true,
+    "researchProjectPortableDiskRoundTrip": true,
+    "portableImportNewIdentity": true,
+    "portableExportOmitsCredentials": true,
+    "researchProjectEditedAndDeleted": true,
+    "interruptedProjectRecoveredWithoutResult": true,
+    "visibleWindows": 0,
+    "cloudRequests": 0,
+    "modelGenerationRequests": 0
+  }
+}

@@ -26,7 +26,7 @@ function memoryVault(active = null, secure = true) {
 }
 function loadMain({ active, secure = true, settings = {}, migration = false, decrypt = (bytes) => bytes.toString("utf8"), template, agentRunner, dialog = {}, fetcher } = {}) {
   const handlers = new Map(), events = [], writes = [], vault = memoryVault(active || null, secure);
-  const sender = { id: 91, mainFrame: { url: rendererURL }, isDestroyed: () => false, send: (channel, value) => events.push({ channel, value }) };
+  const sender = Object.assign(new (require("node:events").EventEmitter)(), { id: 91, mainFrame: { url: rendererURL }, isDestroyed: () => false, send: (channel, value) => events.push({ channel, value }) });
   const electron = { app: { requestSingleInstanceLock: () => true, on: () => {}, whenReady: () => ({ then: () => {} }), getVersion: () => "8.2.0", getPath: () => os.tmpdir(), isPackaged: true, commandLine: { appendSwitch: () => {} }, setLoginItemSettings: () => {} }, ipcMain: { handle: (channel, callback) => handlers.set(channel, callback), on: () => {} }, safeStorage: { isEncryptionAvailable: () => secure, decryptString: decrypt }, dialog, session: { fromPartition: () => ({}) } };
   const templateStore = { list: async () => template ? [template] : [], save: async (value) => normalizeTemplate(value), delete: async () => true };
   const context = vm.createContext({ require: (name) => name === "electron" ? electron : name === "./zerothink-agent.cjs" && agentRunner ? { runAgent: agentRunner } : name.startsWith("./") ? require(path.join(__dirname, name)) : require(name), __dirname, console, URL, Buffer, AbortController, AbortSignal, setTimeout, clearTimeout,
@@ -155,4 +155,46 @@ test("pairing provider bodies and transport failures never expose server secrets
   await assert.rejects(failed.evaluate("provisionOpenZeroDesktop()"), (error) => /could not be reached/.test(error.message) && !error.message.includes(marker));
   let count = 0; const verifyFailed = loadMain({ fetcher: async () => { if (++count === 1) return new Response(JSON.stringify({ api_key: `oz_${"S".repeat(40)}` })); throw new Error(marker); } });
   await assert.rejects(verifyFailed.evaluate("provisionOpenZeroDesktop()"), (error) => /verification request failed/.test(error.message) && !error.message.includes(marker));
+});
+
+test("managed CPU IPC requires the trusted renderer and explicit model terms before setup", async () => {
+  const main = loadMain();
+  main.evaluate(`globalThis.__cpuCalls = []; localRuntime = () => ({ status: () => ({phase:'idle',modelId:'synthetic',downloadedBytes:0,totalBytes:3416119872}), ensureReady: async () => { __cpuCalls.push('ensure'); return {phase:'ready'}; }, stop: () => __cpuCalls.push('stop'), cancelSetup: () => __cpuCalls.push('cancel') });`);
+  for (const channel of ['openzero:managed-status','openzero:managed-setup','openzero:managed-cancel','openzero:managed-stop','openzero:chat-cancel']) {
+    const outsider={sender:{id:999,mainFrame:{url:rendererURL}},senderFrame:{url:rendererURL}};
+    await assert.rejects(Promise.resolve().then(()=>main.call(channel,{acceptTerms:true},outsider)),/trusted|main|renderer/i);
+  }
+  await assert.rejects(main.call('openzero:managed-setup'),/terms before downloading/i);
+  assert.deepEqual(Array.from(main.evaluate('__cpuCalls')),[]);
+  main.evaluate('saveSettingsInternal = async (input) => { __writes.push(input); return input; };');
+  const ready=await main.call('openzero:managed-setup',{acceptTerms:true});
+  assert.equal(ready.phase,'ready');assert.equal(ready.termsAccepted,true);
+  assert.equal(main.writes[0].localModelTermsAcceptedRevision,require('./managed-local-runtime-manifest.json').model.revision);
+  assert.equal(main.writes[1].managedLocalConfigured,true);
+  assert.ok(main.vault.calls.includes('select:null'));
+  assert.deepEqual(Array.from(main.evaluate('__cpuCalls')),['ensure']);
+});
+test("managed completion refuses a silent model download before CPU setup acceptance", async () => {
+  const main=loadMain();
+  main.evaluate("localRuntime = () => { throw new Error('Unexpected CPU startup'); }; globalThis.__managed = managedCompletion();");
+  await assert.rejects(main.evaluate("__managed.complete({messages:[{role:'user',content:'hello'}]})"),/complete CPU setup/);
+});
+test("Assistant announces preparation and its actual selected model request", async () => {
+  const main=loadMain({active:activeProfile(),fetcher:async()=>new Response(JSON.stringify(modelResponse('gemini')),{status:200})});
+  await main.call('openzero:chat',{messages:[{role:'user',content:'Synthetic query'}]});
+  assert.deepEqual(main.events.filter(e=>e.channel==='openzero:chat-progress').map(e=>e.value.stage),['preparing','waiting','complete']);
+  assert.equal(main.event.sender.listenerCount('destroyed'),0);
+});
+
+test("a newer explicit Vault choice wins while CPU setup is still downloading", async () => {
+  const profile=activeProfile();const main=loadMain({active:profile});
+  main.evaluate("localRuntime = () => ({ ensureReady: () => new Promise(resolve => { globalThis.__finishCpu = resolve; }) }); saveSettingsInternal = async (input) => { __writes.push(input); return input; };");
+  const pending=main.call('openzero:managed-setup',{acceptTerms:true});
+  for(let i=0;i<50&&!main.evaluate('typeof __finishCpu !== "undefined"');i++) await new Promise(resolve=>setTimeout(resolve,5));
+  assert.equal(main.evaluate('typeof __finishCpu'),'function');
+  await main.call('zerothink:vault-select',profile.id);
+  main.evaluate("__finishCpu({phase:'ready'});");await pending;
+  assert.ok(!main.vault.calls.includes('select:null'));
+  assert.equal(main.writes.at(-1).managedLocalConfigured,true);
+  assert.equal(main.writes.at(-1).assistantProvider,undefined);
 });

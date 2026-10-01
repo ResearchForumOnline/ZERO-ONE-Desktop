@@ -1,0 +1,18 @@
+{
+  "version": "8.3.0",
+  "file": "ZERO-ONE-8.3.0-win-x64.appx",
+  "size": 217157475,
+  "sha256": "4af1eaa0bbf7acef5cbc0b816f300e759314f7e0df5e4ff8cc8cc9b9bfd5e819",
+  "identity": "talktoai.ZEROONEDesktop",
+  "manifestVersion": "8.3.0.0",
+  "architecture": "x64",
+  "publisher": "CN=9B704446-6F62-4D52-954E-775436315422",
+  "zipEntries": 213,
+  "zipIntegrity": "passed",
+  "signature": "NotSigned",
+  "storeSubmission": "not submitted: Brave requires sign-in",
+  "asarMatchesStaged": true,
+  "productionSourceRendererFilesMatched": 32,
+  "packagedVersion": "8.3.0",
+  "packagedSmoke": "passed: GUI, CPU idle/no download, Browser isolated tab, ZSEC clean/incomplete"
+}

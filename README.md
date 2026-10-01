@@ -15,7 +15,7 @@
 
 ![ZERO ONE command center](store/screenshots/01-command-center.png)
 
-ZERO ONE is an open-source Electron desktop shell for the TalkToAI ecosystem. It keeps connected products in isolated workspace sessions, talks to a user-configured OpenZero endpoint, and surfaces explicit local security controls without pretending an AI response or a UI badge is proof of protection.
+ZERO ONE is an open-source native desktop workspace for private notes, CPU AI, saved research and approved project/browser work. The 8.3 source includes a bundled local engine with verified model setup; own API/server profiles remain optional. Security panels report actual bounded observations, not guarantees inferred from an AI response.
 
 ## Download and install
 
@@ -30,9 +30,12 @@ Use the authenticated [latest ZERO ONE release](https://github.com/ResearchForum
 | Linux x64 | `ZERO-ONE-*-linux-x86_64.AppImage` | Make executable and open |
 | Debian/Ubuntu x64 | `ZERO-ONE-*-linux-amd64.deb` | Open with the software installer or use `sudo apt install ./ZERO-ONE-*-linux-amd64.deb` |
 
-Current source version is **8.2.0**. [Windows x64, macOS Apple silicon and Linux x64 installers](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v8.2.0) are published with verified GitHub asset digests and SHA256SUMS. Microsoft Partner Center confirmed **Submission 5 in certification** for package **8.2.0.0** on 1 October 2026, with automatic publication after approval. The preceding 8.1 update's Submission 4 remains available in Microsoft Store until the new submission publishes. This release adds the private API Vault, native Quantum workspace, Research Workbench, PDF imports/exports and credential-migration repairs. See the [source restoration audit](docs/ZEROTHINK_PARITY_8.2.0.md), [release receipt](docs/qa/RELEASE_8.2.0.md), [Store readiness gate](docs/STORE_READINESS.md) and [reviewer notes](store/REVIEWER_NOTES_8.2.0.md). These receipts do not establish that 8.2 is installed on this device. Direct installers are unsigned until publisher signing ships; the direct updater requires matching GitHub digest and SHA256SUMS.
+Current source version is **8.3.0**. This source candidate adds built-in CPU setup, encrypted saved research projects, unified Vault routing and real progress/cancellation. The latest verified public installers are [8.2.0](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v8.2.0). The last recorded Store receipt is Submission 5 for 8.2.0.0 in certification; check its current state before a new submission. No 8.3 publication, certification or installed state is claimed here. See [8.3 changes](store/RELEASE_NOTES_8.3.0.md), [reviewer notes](store/REVIEWER_NOTES_8.3.0.md), [prior release evidence](docs/qa/RELEASE_8.2.0.md) and [readiness gate](docs/STORE_READINESS.md). Direct installers remain unsigned until publisher signing ships; updater verification requires matching GitHub digest and SHA256SUMS.
 
 ## What is included
+
+- **Built-in CPU AI in the 8.3 candidate:** one setup flow reviews model terms, downloads pinned/hash-verified OpenZero Gemma4 E2B weights and configures authenticated local inference. Download/cancel/retry/load/memory controls are native. No separate Ollama install, GPU or API key is needed; allow at least 8 GB RAM and a 3.42-GB download.
+- **Named research projects:** up to 32 encrypted projects with debounced autosave, question/process/depth/options, selected evidence snapshots and latest completed result. Reopen interrupted checkpoints for review; bounded portable JSON import never launches actions and exports contain readable selected content.
 
 - On-device ZNotes with saved note creation, autosave, checklists, pins, labels, colours, archive/trash and local imports/exports. Dual-key notebook protection uses independent authenticated encryption keys under OS custody.
 - Built-in **ZeroThink Studio**: persistent conversations, follow-up context, a local source library, persona and memory, original Zero mode public briefs, research/review passes, optional web search and exports.
@@ -56,7 +59,7 @@ Current source version is **8.2.0**. [Windows x64, macOS Apple silicon and Linux
 
 1. Open ZNotes and write a note; it is encrypted on this device.
 2. Open ZeroThink, import selected UTF-8 files or add selected ZNotes, and build an offline evidence map. Research model mode is optional. Model runs send bounded selected sources, conversation and your saved persona/latest explicit facts to the configured provider.
-3. Open ZeroThink → API Vault, save your own provider key and model ID, then select that chat profile. Add a separate Serper key for labelled snippets and opt-in automatic research. Browser Pilot uses a configured OpenZero planner endpoint; a chat API alone does not supply that planner.
+3. Choose Set up my CPU AI to review the model terms and let ZERO ONE download/verify/configure the CPU engine. Or open ZeroThink → API Vault and select your own provider/key/model. Browser Pilot uses the same chosen completion adapter; it still requires a granted isolated tab. Serper is separate and optional.
 4. Open ZSEC Shield, choose one folder and review the local result. No background scan, deletion, upload or quarantine starts automatically.
 
 ## ZeroThink local research
@@ -65,9 +68,9 @@ The workspace uses the open-source [ZeroThink engine and cross-platform CLI](htt
 
 The encrypted Studio library holds up to 32 selected documents and two MiB of text; up to eight sources enter a run. Selected TXT, Markdown, JSON and CSV files are limited to one MiB each. PDF input is limited to ten MiB, 100 pages and one MiB of extracted text per document. Extraction runs locally with time and memory bounds; encrypted/corrupt or image-only PDFs are rejected. Conversations, source copies, persona and explicit facts persist locally. Markdown, JSON and PDF exports are readable and unencrypted. The app never automatically scans folders or publishes private research.
 
-Offline research needs no model, API key, hosted account, website or database. The Store edition supports an existing user-owned server or the seven named cloud chat providers in the Vault. Direct builds also support existing local Ollama. There is no automatic switch to a different provider on quota errors. Research does not execute commands or edit model weights; the separate native Agent requires approval for writes and commands, and Browser Pilot requires a granted tab.
+Offline research needs no model, API key, hosted account, website or database. Store and direct builds support the bundled managed CPU engine, an existing server or the seven named cloud chat providers in the Vault. Existing Ollama remains an explicit advanced option in direct builds. There is no automatic quota failover. Research does not execute commands or edit model weights; native Agent writes/commands require approval and Browser Pilot requires a granted tab.
 
-Research Workbench custom templates are encrypted in a separate local file. The paper/scenario form is not whole-project autosave: prepare and send the question, save your result or export it explicitly. Quantum reports can be explicitly copied into the local source library for model research. IBM instance CRN and region remain in the current form's memory and must be re-entered after restart. See [privacy and reset behavior](docs/PRIVACY.md), including retained encrypted recovery backups.
+Research Workbench templates are encrypted locally. Named Research projects now autosave question, process, depth, options, selected evidence snapshots and the latest completed report. Up to 32 projects can be reopened/exported/imported; interrupted runs reopen for review and never automatically restart. Unsaved Workbench form fields still need Use in Research and a named project. Quantum reports can be explicitly added to Library. IBM instance CRN/region must be re-entered after restart. See [privacy and reset behavior](docs/PRIVACY.md).
 
 ZERO ONE 8.0.0 package and submission evidence is recorded in `docs/qa/RELEASE_8.0.0.md`. Previous releases do not establish certification of this version.
 
@@ -83,15 +86,21 @@ ZERO ONE checks the official stable GitHub release shortly after launch, every s
 
 ## OpenZero: Local or Server
 
-For most people, **Local** is the recommended mode. ZERO ONE connects to [Ollama](https://ollama.com/download) on this computer at its loopback API and recommends the behavior-tested `OpenZero-Gemma4-E2B-Agentic-Q4_K_M` model for lightweight everyday chat (`hf.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF:Q4_K_M`). The GGUF is approximately 3.4 GB and is run with thinking disabled for responsive chat. Prompts and responses stay between ZERO ONE and the local Ollama process unless the user deliberately opens or connects another service. Ollama is a separate runtime and model readiness must complete before local chat can work. See the official [Ollama quickstart](https://docs.ollama.com/quickstart), [chat API documentation](https://docs.ollama.com/api/chat), and the [verified OpenZero Gemma E2B model card](https://huggingface.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF).
+For most people, **Local** is the recommended mode. In 8.3, choose **Set up my CPU AI**, review the model terms, and let ZERO ONE download and configure its bundled CPU engine. No API key, GPU or separate runtime installation is needed. The pinned `OpenZero-Gemma4-E2B-Agentic-Q4_K_M` weights are 3,416,119,872 bytes (about 3.42 GB), verified by SHA-256 before use. Model identifier: `hf.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF:Q4_K_M`. Setup needs internet for retrieval, at least 8 GB RAM and enough disk space. Prompts stay in the authenticated loopback process in local mode; enabled web/cloud services receive their selected inputs.
 
-The model selector also offers the OpenZero Ministral 8B runtime edition for capable computers and legacy Gemma E4B compatibility. The rejected Fusion and Qwen3 1.7B releases are deliberately excluded from ZERO ONE local chat after response-quality testing. These are explicit choices: ZERO ONE does not silently replace a user-selected custom model.
+The [OpenZero Gemma4 E2B model card](https://huggingface.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF) provides upstream provenance and terms. App-source licensing does not replace weight or engine licences. Cancellation, retries, verification/loading status and memory release are visible. Skipping onboarding downloads no model. Already configured local models may be restarted on app launch.
+
+One native CPU-only check on an Intel Core i7-2600 at 3.40 GHz with 32 GB RAM produced an 86-token answer at about **6.23 generation tokens/second**. Loading took 19.3 seconds and the measured request 28.2 seconds. This single short sample is not a performance promise or an hours-long coding assessment.
+
+The rejected Fusion and Qwen3 1.7B releases remain excluded from the recommended setup after earlier quality checks.
+
+Advanced Ollama users can preserve their selected compatible model in direct builds. See the official [Ollama download](https://ollama.com/download), [quickstart](https://docs.ollama.com/quickstart) and [chat API](https://docs.ollama.com/api/chat). The managed engine is the default; ZERO ONE does not silently install an external runtime.
 
 **Server** is the advanced mode for someone who already operates an OpenZero server. It requires that server's HTTPS address and desktop credential. Server mode uses the runtime model reported by that server—currently the OpenZero Ministral 8B runtime edition in the standard deployment—and can expose the orchestration, tools, skills and governed automation implemented by that OpenZero deployment. The server model setting is separate from the lightweight local Assistant selection.
 
-OpenZero is the agent runtime; ZERO ONE is the desktop command centre. A current OpenZero server can expose its **Recursive Lab** through ZERO ONE: Agent Zero stages source changes in a persistent isolated workspace, shows exact diffs, runs only operator-approved test profiles, and requires a fresh confirmation before atomic promotion or rollback. Direct local Ollama chat does not gain filesystem or self-modification authority.
+An existing OpenZero server can expose its **Recursive Lab** if that deployment implements it. Native ZERO ONE Agent actions use a selected project, actual file/tool observations and explicit write/command approvals. Model chat alone does not gain unrestricted filesystem or self-modification authority.
 
-The distinction matters: direct local Ollama mode provides private **model chat**. It does not by itself reproduce OpenZero's full server orchestration, browser control, tools, multi-step agents or remote skills. ZERO ONE labels the active mode and does not claim those capabilities when only the local model API is connected.
+Private **model chat** and native desktop tools are separate capabilities. The selected completion adapter powers Chat, Research, Agent planning and Browser Pilot planning. Full server orchestration and remote skills still depend on the actual server deployment. Filesystem writes and project commands require approval; browser control requires a granted isolated tab and pauses for consequential actions.
 
 ## Build from source
 

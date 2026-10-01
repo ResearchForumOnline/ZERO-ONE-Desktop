@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { Arch } = require("builder-util");
 const { verifyZsecVendor } = require("./zsec-vendor-verifier.cjs");
+const { verifyLocalRuntime } = require("./local-runtime-verifier.cjs");
 const { verifyNativeZsec } = require("./zsec-native-verifier.cjs");
 
 /**
@@ -32,11 +33,20 @@ module.exports = async function beforePack(context) {
     );
   }
 
+  const runtime = verifyLocalRuntime(path.join(projectRoot, "vendor", "local-runtime"), `${context.electronPlatformName}-${Arch[context.arch]}`);
+  process.stdout.write(`Verified bundled CPU runtime source: ${runtime.platform} ${runtime.runtimeVersion}\n`);
+
   let verification;
   if (context.electronPlatformName === "win32" && context.arch === Arch.x64) {
     verification = verifyZsecVendor(
       path.join(projectRoot, "vendor", "zsec-shield"),
       lockPath,
+    );
+    // Validate the exact provenance resource that will ship, as well as the
+    // source lock. A stale staged consumer version must fail before packaging.
+    verifyZsecVendor(
+      path.join(projectRoot, "vendor", "zsec-shield"),
+      path.join(projectRoot, "vendor", "zsec-shield-provenance.json"),
     );
   } else if (context.electronPlatformName === "darwin" && context.arch === Arch.arm64) {
     verification = verifyNativeZsec(

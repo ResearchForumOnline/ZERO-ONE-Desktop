@@ -34,8 +34,12 @@ $zsecExecutable = Join-Path $zsecRoot "zsec-shield.exe"
 $zsecProvenance = Join-Path $resourcesPath "zsec-shield-provenance.json"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $vendorVerifier = Join-Path $projectRoot "build\zsec-vendor-verifier.cjs"
+$runtimeVerifier = Join-Path $projectRoot "build\local-runtime-verifier.cjs"
+$runtimeRoot = Join-Path $resourcesPath "local-runtime"
+$runtimeManifest = Get-Content -LiteralPath (Join-Path $projectRoot "electron\managed-local-runtime-manifest.json") -Raw | ConvertFrom-Json
+$expectedManagedModel = $runtimeManifest.model.id
 
-foreach ($requiredPath in @($zsecExecutable, $zsecProvenance, $vendorVerifier)) {
+foreach ($requiredPath in @($zsecExecutable, $zsecProvenance, $vendorVerifier, $runtimeVerifier, (Join-Path $runtimeRoot "provenance.json"))) {
   if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
     throw "Required packaged verification input is missing: $requiredPath"
   }
@@ -46,6 +50,9 @@ if ($LASTEXITCODE -ne 0) {
   throw "Packaged ZSEC payload verification failed."
 }
 
+& node $runtimeVerifier $runtimeRoot "win32-x64"
+if ($LASTEXITCODE -ne 0) { throw "Packaged CPU runtime verification failed." }
+
 $tempBasePath = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $smokeRoot = [IO.Path]::GetFullPath((Join-Path $tempBasePath ("zero-one-smoke-" + [guid]::NewGuid().ToString("N"))))
 if (-not $smokeRoot.StartsWith($tempBasePath, [StringComparison]::OrdinalIgnoreCase)) {
@@ -53,7 +60,9 @@ if (-not $smokeRoot.StartsWith($tempBasePath, [StringComparison]::OrdinalIgnoreC
 }
 
 $profilePath = Join-Path $smokeRoot "profile"
-$zsecStatePath = Join-Path $smokeRoot "zsec-state"
+$storeEdition = Test-Path -LiteralPath (Join-Path $resourcesPath "zero-one-store-edition.json")
+$zsecStatePath = if ($storeEdition) { Join-Path $profilePath "zsec-shield-state" } else { Join-Path $smokeRoot "zsec-state" }
+$zsecStateArgs = if ($storeEdition) { @("--state-dir", $zsecStatePath) } else { @() }
 $fixturePath = Join-Path $smokeRoot "fixture"
 $stdoutPath = Join-Path $smokeRoot "stdout.log"
 $stderrPath = Join-Path $smokeRoot "stderr.log"
@@ -68,11 +77,11 @@ try {
   New-Item -ItemType Directory -Path $profilePath, $fixturePath -Force | Out-Null
   [IO.File]::WriteAllText((Join-Path $fixturePath "clean.txt"), "ordinary deterministic packaged smoke content", (New-Object Text.UTF8Encoding($false)))
 
-  $zsecVersion = (& $zsecExecutable --version | Out-String).Trim()
+  $zsecVersion = (& $zsecExecutable @zsecStateArgs --version | Out-String).Trim()
   if ($LASTEXITCODE -ne 0 -or $zsecVersion -ne "zsec-shield 0.1.2") {
     throw "Packaged ZSEC version smoke failed: $zsecVersion"
   }
-  $freshStatus = ((& $zsecExecutable status --json | Out-String) | ConvertFrom-Json)
+  $freshStatus = ((& $zsecExecutable @zsecStateArgs status --json | Out-String) | ConvertFrom-Json)
   if ($LASTEXITCODE -ne 0 -or $freshStatus.schema -ne "zsec.shield.status.v2" -or $freshStatus.contract_version -ne 2 -or $null -ne $freshStatus.last_scan) {
     throw "Packaged ZSEC fresh status is not contract-v2 idle."
   }
@@ -113,6 +122,12 @@ try {
     throw "Packaged app rendered an unexpected DOM: $($dom | ConvertTo-Json -Compress)"
   }
 
+  # Inspect readiness only: ordinary CI must not download multi-GB model data.
+  $managedStatus = Invoke-CdpExpression -WebSocketUrl $page.webSocketDebuggerUrl -Expression 'window.zeroOne.getManagedLocalStatus().then(value=>JSON.stringify(value))'
+  if ($managedStatus.modelId -ne $expectedManagedModel -or $managedStatus.phase -ne "idle" -or $managedStatus.termsAccepted -ne $false -or [long]$managedStatus.completed -ne 0 -or [long]$managedStatus.total -ne [long]$runtimeManifest.model.bytes) {
+    throw "Packaged managed CPU setup did not expose the expected fresh idle state: $($managedStatus | ConvertTo-Json -Compress)"
+  }
+
   $pilotUi = Invoke-CdpExpression -WebSocketUrl $page.webSocketDebuggerUrl -Expression 'new Promise(resolve=>{const button=[...document.querySelectorAll("button")].find(entry=>entry.textContent?.includes("Browser Pilot"));button?.click();setTimeout(()=>{const view=document.querySelector("webview[partition=\"persist:zero-one-browser-pilot\"]");resolve(JSON.stringify({heading:document.querySelector("h1")?.textContent,task:document.body.innerText.includes("Grant this tab & start"),guard:document.body.innerText.includes("12-step hard limit"),targetId:view?.getWebContentsId?.()||0}))},2500)})'
   if ($pilotUi.heading -ne "Browser Pilot" -or -not $pilotUi.task -or -not $pilotUi.guard -or [int]$pilotUi.targetId -lt 1) {
     throw "Packaged Browser Pilot workspace did not mount its isolated target: $($pilotUi | ConvertTo-Json -Compress)"
@@ -136,7 +151,7 @@ try {
     throw "Packaged IPC did not identify the bundled ZSEC 0.1.2 idle runtime: $($idleSnapshot | ConvertTo-Json -Compress)"
   }
 
-  $cleanReport = ((& $zsecExecutable check $fixturePath --json | Out-String) | ConvertFrom-Json)
+  $cleanReport = ((& $zsecExecutable @zsecStateArgs check $fixturePath --json | Out-String) | ConvertFrom-Json)
   if ($LASTEXITCODE -ne 0 -or $cleanReport.outcome -ne "no_configured_rule_matches" -or [int]$cleanReport.scan.stats.errors -ne 0) {
     throw "Packaged ZSEC clean scan failed."
   }
@@ -150,7 +165,7 @@ try {
   }
 
   $missingPath = Join-Path $smokeRoot "definitely-missing"
-  $missingOutput = & $zsecExecutable check $missingPath --json | Out-String
+  $missingOutput = & $zsecExecutable @zsecStateArgs check $missingPath --json | Out-String
   $missingExit = $LASTEXITCODE
   $missingReport = $missingOutput | ConvertFrom-Json
   if ($missingExit -ne 2 -or $missingReport.outcome -ne "incomplete") {
@@ -165,7 +180,7 @@ try {
     throw "Packaged UI did not remove the clean label after incomplete evidence."
   }
 
-  Write-Output "Packaged launch, DOM, isolated Browser Pilot, ZSEC identity, clean-scan, fail-closed incomplete-scan$(if ($TestLocalChat) { ', and local Assistant chat' }) smoke passed for PID $($process.Id)."
+  Write-Output "Packaged launch, DOM, verified bundled CPU runtime/fresh setup status, isolated Browser Pilot, ZSEC identity, clean-scan, fail-closed incomplete-scan$(if ($TestLocalChat) { ', and local Assistant chat' }) smoke passed for PID $($process.Id)."
 } finally {
   Remove-Item Env:ZERO_ONE_SMOKE_WS -ErrorAction SilentlyContinue
   Remove-Item Env:ZERO_ONE_SMOKE_EXPR -ErrorAction SilentlyContinue

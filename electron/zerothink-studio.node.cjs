@@ -162,3 +162,32 @@ test("Studio UI uses native clipboard and guards asynchronous search navigation"
   assert.match(source, /const workspaceBusy = busy \|\| searching/); assert.match(source, /zt-new-chat" disabled=\{workspaceBusy\}/);
   assert.match(source, /else merged\[index\] = doc/); assert.match(source, /maxLength=\{8000\} disabled=\{workspaceBusy\}/);
 });
+
+test("only verified adapter metadata extends CPU stage deadlines and invalid values retain hosted defaults", () => {
+  const { completionStageTimeout } = require("./zerothink-studio.cjs");
+  assert.equal(completionStageTimeout({}), 120000);
+  assert.equal(completionStageTimeout({ localStageTimeoutMs: 600000 }), 600000);
+  for (const value of [119999, 600001, "600000", Infinity, 120000.5, null]) assert.equal(completionStageTimeout({ localStageTimeoutMs: value }), 120000);
+});
+
+test("bundled CPU chat and research survive more than two minutes while hosted chat still times out", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const slow = () => new Promise(resolve => setTimeout(() => resolve("A useful synthetic answer."), 120500));
+  const cpuChat = runStudio({ ...input(), timeoutMs: 1 }, { complete: slow, localStageTimeoutMs: 600000 });
+  await Promise.resolve(); t.mock.timers.tick(120500);
+  assert.equal((await cpuChat).answer, "A useful synthetic answer.");
+  const cpuResearch = runStudio({ ...input(), mode: "research", processId: "evidence-map", timeoutMs: 1 }, { complete: slow, localStageTimeoutMs: 600000 });
+  await Promise.resolve(); t.mock.timers.tick(120500);
+  assert.equal((await cpuResearch).status, "completed");
+  const hosted = runStudio({ ...input(), localStageTimeoutMs: 600000 }, { complete: slow });
+  const rejected = assert.rejects(hosted, { name: "TimeoutError" });
+  await Promise.resolve(); t.mock.timers.tick(120001); await rejected;
+});
+
+test("long CPU stage remains immediately cancellable", async () => {
+  const controller = new AbortController(); let completionSignal;
+  const pending = runStudio({ ...input(), signal: controller.signal }, { localStageTimeoutMs: 600000, complete: async request => { completionSignal = request.signal; return new Promise(() => {}); } });
+  const rejected = assert.rejects(pending, { name: "AbortError" });
+  await Promise.resolve(); controller.abort(); await rejected;
+  assert.equal(completionSignal.aborted, true);
+});

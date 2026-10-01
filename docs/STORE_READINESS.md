@@ -1,12 +1,24 @@
 # ZERO ONE Store-readiness gate
 
-## ZERO ONE 8.2.0 source and public-preview gate
+## ZERO ONE 8.3.0 release gate
+
+Updated 1 October 2026. **8.3.0 is a source candidate**, not a published package or Store certification receipt. It adds a bundled managed CPU engine to Store/direct builds, pinned verified model download after terms acceptance, named encrypted research projects, unified selected-model Browser Pilot planning and real Assistant progress/cancellation. Existing 8.2 release receipts below remain historical evidence for that version. Do not reuse 8.2 package hashes for 8.3.
+
+### 8.3 release gates
+
+- Run full tests, TypeScript/build and pinned ZSEC/runtime verification, then packaged native acceptance before release.
+- Verify bundled CPU engine provenance/licence and native dependencies for each packaged platform. Model weights are separately downloaded: 3,416,119,872 bytes, pinned revision and SHA-256, terms acknowledgement, at least 8 GB RAM, download/cancel/retry/loading status and no API key needed.
+- Verify onboarding skip starts no download, native OpenZero opens without a default unreachable server webview, and an active Vault profile controls Assistant/Research/Agent/Pilot.
+- Review encrypted project save/reopen/import/export and interrupted checkpoints. Imports never execute requests; exports contain selected readable source/report content.
+- Reconcile Store listing/reviewer instructions and the public privacy page with 8.3. Use [8.3 reviewer notes](../store/REVIEWER_NOTES_8.3.0.md). Record AppX identity/hash, portal validation, submission, certification, public delivery and installed version separately.
+
+## Preserved 8.2 delivery record
 
 Updated 1 October 2026. Source version **8.2.0** and its Windows/macOS/Linux GitHub installers are published. Partner Center confirmed **Submission 5 in certification**, package **8.2.0.0**, with publication scheduled as soon as certification passes. The preceding **Submission 4 remains available in Microsoft Store** until the update publishes. The current [release receipt](qa/RELEASE_8.2.0.md) records package hashes, corrected cross-platform CI, public assets, saved listing and exact privacy URL. Store certification, public Store delivery and installed state remain separate; no installed-version claim is made.
 
 ## Candidate feature scope
 
-The Store edition includes encrypted ZNotes, saved ZeroThink conversations/library/persona/facts, offline evidence maps, approved native project actions, on-demand ZSEC scanning and optional user-configured AI. No company-hosted login or database is required. Local model downloads/installations are hidden and rejected in the Store main process; direct builds retain existing Ollama support. Store updates use Microsoft delivery.
+The 8.3 Store edition adds managed CPU model setup alongside encrypted ZNotes, saved ZeroThink conversations/library/persona/facts, offline evidence maps, approved project actions, on-demand ZSEC scanning and optional user-configured AI. No company-hosted login/database is required. External Ollama installation remains a direct-build advanced option. Store app updates use Microsoft delivery; separately retrieved model weights are data, not a replacement app installer.
 
 8.2 adds:
 
@@ -20,7 +32,7 @@ Hosted ZMail, CallChat, DNA, admin/payment routes, private databases, owner gran
 
 ## Packaging and submission gate
 
-Run `npm run check`, `npm run verify:zsec` and `npm run dist:store:win`. The immutable pinned ZSEC manifest and native hashes must pass before packaging. Use the identity in `build/store-identity.json` and product **9PMPR7PTW025**. Upload the exact candidate AppX, verify server-side package validation, use `store/REVIEWER_NOTES_8.2.0.md`, reconcile Store descriptions/privacy with the candidate and record the final submission state. Successful local tests or upload do not establish certification or publication.
+Run `npm run check`, `npm run verify:zsec` and `npm run dist:store:win`. The immutable pinned ZSEC manifest and native hashes must pass before packaging. Use the identity in `build/store-identity.json` and product **9PMPR7PTW025**. Upload the exact candidate AppX, verify server-side package validation, use `store/REVIEWER_NOTES_8.3.0.md`, reconcile Store descriptions/privacy with the candidate and record the final submission state. Successful local tests or upload do not establish certification or publication.
 
 Public source is Apache-2.0. Historical EULA/source-policy drafts do not impose different unpublished licence terms. The public privacy URL is `https://researchforumonline.github.io/OpenZero/zero-one-privacy.html`; a public legal notice is separate from inference hosting.
 

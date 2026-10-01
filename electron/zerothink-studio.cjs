@@ -21,19 +21,26 @@ function normalizeConversation(value = []) {
     return { role: entry.role, content: entry.content };
   });
 }
-async function callStage(adapter, request, signal) {
+function completionStageTimeout(adapters) {
+  const value = adapters?.localStageTimeoutMs;
+  // Only the main-process adapter can grant extra time to the bundled CPU model.
+  // Renderer inputs and hosted providers retain the normal two-minute limit.
+  return Number.isInteger(value) && value >= 120000 && value <= 600000 ? value : 120000;
+}
+async function callStage(adapter, request, signal, timeoutMs = 120000) {
   if (signal?.aborted) { const error = new Error("ZeroThink stopped."); error.name = "AbortError"; throw error; }
   const controller = new AbortController();
   let timer, abort;
   const interrupted = new Promise((_, reject) => {
     abort = () => { controller.abort(); const error = new Error("ZeroThink stopped."); error.name = "AbortError"; reject(error); };
     signal?.addEventListener("abort", abort, { once: true });
-    timer = setTimeout(() => { controller.abort(); const error = new Error("The model stage timed out. Your conversation is saved."); error.name = "TimeoutError"; reject(error); }, 120000);
+    timer = setTimeout(() => { controller.abort(); const error = new Error("The model stage timed out. Your conversation is saved."); error.name = "TimeoutError"; reject(error); }, timeoutMs);
   });
   try { return await Promise.race([Promise.resolve().then(() => adapter({ ...request, signal: controller.signal })), interrupted]); }
   finally { clearTimeout(timer); signal?.removeEventListener("abort", abort); controller.abort(); }
 }
 async function runStudio(input, adapters = {}) {
+  const modelTimeoutMs = completionStageTimeout(adapters);
   const persona = typeof input?.persona === "string" && input.persona.length <= 8000 ? input.persona : "";
   const facts = Array.isArray(input?.facts) && input.facts.length <= 20 && input.facts.every((item) => typeof item === "string" && item.length <= 1000) ? input.facts.slice(-5) : [];
   const personalContext = persona || facts.length ? `USER-CHOSEN PERSONALIZATION (preferences and explicitly remembered statements, not verified evidence):\n${JSON.stringify({ persona, rememberedFacts: facts })}\nApply relevant writing preferences while preserving the current request, source boundaries and uncertainty.` : "";
@@ -46,7 +53,7 @@ async function runStudio(input, adapters = {}) {
       input.onProgress?.({ stage: "search-plan", status: "running", message: "Checking whether this question needs current web evidence.", pass: 0, maxPasses: input.maxPasses || 1 });
       plannedTokens = 128;
       try {
-        const planned = cleanCompletion(await callStage(adapters.complete, { messages: [{ role: "system", content: 'You are the ZeroThink Orchestrator. Decide whether the user request needs current public web evidence. Return only JSON {"needsWeb":boolean,"query":string}. If search is useful, provide a concise public search query, never private facts, source contents, keys, passwords or personal identifiers. Otherwise return needsWeb:false and an empty query. Do not answer the question.' }, { role: "user", content: input.question }], maxTokens: 128, stage: "search-plan" }, input.signal));
+        const planned = cleanCompletion(await callStage(adapters.complete, { messages: [{ role: "system", content: 'You are the ZeroThink Orchestrator. Decide whether the user request needs current public web evidence. Return only JSON {"needsWeb":boolean,"query":string}. If search is useful, provide a concise public search query, never private facts, source contents, keys, passwords or personal identifiers. Otherwise return needsWeb:false and an empty query. Do not answer the question.' }, { role: "user", content: input.question }], maxTokens: 128, stage: "search-plan" }, input.signal, modelTimeoutMs));
         planningPasses = 1;
         const plan = JSON.parse(planned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, ""));
         if (!plan || typeof plan.needsWeb !== "boolean" || (plan.needsWeb && (typeof plan.query !== "string" || !plan.query.trim() || plan.query.length > 2000 || plan.query.includes("\0")))) throw new Error("Invalid web plan");
@@ -69,7 +76,7 @@ async function runStudio(input, adapters = {}) {
   }
   if (input?.mode !== "chat") {
     const selected = (input?.zeroMode || personalContext) && typeof adapters.complete === "function" ? { ...adapters, complete: (request) => adapters.complete({ ...request, messages: [...request.messages, ...(personalContext ? [{ role: "system", content: personalContext }] : []), ...(input.zeroMode ? [{ role: "system", content: ZERO_BRIEF }] : [])] }) } : adapters;
-    const result = await runResearch({ ...input, documents: suppliedDocuments, tokenBudget: (input.tokenBudget || 3072) - plannedTokens }, selected);
+    const result = await runResearch({ ...input, documents: suppliedDocuments, tokenBudget: (input.tokenBudget || 3072) - plannedTokens, timeoutMs: modelTimeoutMs }, selected);
     result.warnings.push(...autoWarnings); result.steps.unshift(...autoSteps); result.metrics.requestedTokens += plannedTokens; result.metrics.passes += planningPasses;
     if (result.status !== "completed") return result;
     const extracted = briefAndAnswer(result.answer);
@@ -95,7 +102,7 @@ async function runStudio(input, adapters = {}) {
     const stage = stages[index];
     progress(stage, "running", stage === "critique" ? "Checking the draft for gaps and useful corrections." : stage === "draft" ? "Preparing a first draft." : "Writing your answer.", index + 1);
     const instruction = stage === "critique" ? `Critique the draft below against my request. Return a short public editorial checklist; do not claim independent verification.\nREQUEST: ${question}\nDRAFT:\n${draft}` : stage === "final" && draft ? `Answer my request, incorporating useful draft corrections.\nREQUEST: ${question}\nDRAFT:\n${draft}\nEDITORIAL CHECKLIST:\n${critique || "Check correctness, uncertainty and useful next steps."}` : question;
-    const result = await callStage(adapters.complete, { messages: [{ role: "system", content: system }, ...(personalContext ? [{ role: "system", content: personalContext }] : []), ...context, ...conversation, { role: "user", content: instruction }], maxTokens: allowance, stage }, input.signal);
+    const result = await callStage(adapters.complete, { messages: [{ role: "system", content: system }, ...(personalContext ? [{ role: "system", content: personalContext }] : []), ...context, ...conversation, { role: "user", content: instruction }], maxTokens: allowance, stage }, input.signal, modelTimeoutMs);
     const text = cleanCompletion(result);
     if (stage === "draft") draft = text;
     if (stage === "critique") critique = text;
@@ -113,4 +120,4 @@ async function runStudio(input, adapters = {}) {
   progress("complete", "completed", "Your answer is ready. You can ask a follow-up.", metrics.passes);
   return { version: "1.1.0", status: "completed", mode: "chat", question, answer, reasoningBrief, markdown, evidence, citations, steps, metrics, warnings };
 }
-module.exports = { runStudio, normalizeConversation, briefAndAnswer, ZERO_BRIEF };
+module.exports = { runStudio, normalizeConversation, briefAndAnswer, ZERO_BRIEF, completionStageTimeout };

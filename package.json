@@ -1,7 +1,7 @@
 {
   "name": "zero-one-desktop",
   "desktopName": "zero-one.desktop",
-  "version": "8.2.0",
+  "version": "8.3.0",
   "private": true,
   "description": "ZERO ONE with local ZeroThink research, encrypted ZNotes, user-controlled AI, Browser Pilot and ZSEC Shield.",
   "author": "QUANTUMENCRYPTION1 LTD",
@@ -10,20 +10,22 @@
   "scripts": {
     "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",
     "build": "tsc --noEmit && vite build",
-    "test": "vitest run && node --test electron/tray-lifecycle.node.cjs electron/ollama-local.node.cjs electron/workspace-logins.node.cjs electron/update-check.node.cjs electron/update-installer.node.cjs electron/browser-pilot.node.cjs electron/store-distribution.node.cjs electron/notes-store.node.cjs electron/notes-crypto.node.cjs electron/zerothink-desktop.node.cjs electron/zerothink-ipc.node.cjs electron/zerothink-studio.node.cjs electron/zerothink-web.node.cjs electron/zerothink-agent.node.cjs electron/zerothink-vault.node.cjs electron/zerothink-quantum.node.cjs electron/zerothink-ibm.node.cjs electron/zerothink-templates.node.cjs electron/zerothink-pdf.node.cjs electron/zerothink-restoration.node.cjs",
+    "test": "vitest run && node --test electron/tray-lifecycle.node.cjs electron/ollama-local.node.cjs electron/workspace-logins.node.cjs electron/update-check.node.cjs electron/update-installer.node.cjs electron/browser-pilot.node.cjs electron/store-distribution.node.cjs electron/notes-store.node.cjs electron/notes-crypto.node.cjs electron/zerothink-desktop.node.cjs electron/zerothink-ipc.node.cjs electron/zerothink-studio.node.cjs electron/zerothink-web.node.cjs electron/zerothink-agent.node.cjs electron/zerothink-vault.node.cjs electron/zerothink-quantum.node.cjs electron/zerothink-ibm.node.cjs electron/zerothink-templates.node.cjs electron/zerothink-pdf.node.cjs electron/zerothink-restoration.node.cjs electron/managed-local-runtime.node.cjs electron/zerothink-projects.node.cjs",
     "check": "npm run test && npm run build && npm run check:site",
     "check:site": "node scripts/validate-zeroone-site-release.mjs",
-    "pack:win": "npm run check && npm run verify:zsec && electron-builder --win dir --x64 --publish never",
-    "dist:win": "npm run check && npm run verify:zsec && electron-builder --win nsis --x64 --publish never",
+    "pack:win": "npm run check && npm run verify:zsec && npm run stage:runtime && npm run verify:runtime && electron-builder --win dir --x64 --publish never",
+    "dist:win": "npm run check && npm run verify:zsec && npm run stage:runtime && npm run verify:runtime && electron-builder --win nsis --x64 --publish never",
     "dist:store:win": "pwsh -NoProfile -File scripts/package-store-appx.ps1",
-    "pack:mac": "npm run check && npm run verify:zsec:native && electron-builder --mac dir --arm64 --publish never",
-    "dist:mac": "npm run check && npm run verify:zsec:native && electron-builder --mac dmg zip --arm64 --publish never",
-    "pack:linux": "npm run check && npm run verify:zsec:native && electron-builder --linux dir --x64 --publish never",
-    "dist:linux": "npm run check && npm run verify:zsec:native && electron-builder --linux AppImage deb --x64 --publish never",
+    "pack:mac": "npm run check && npm run verify:zsec:native && npm run stage:runtime && npm run verify:runtime && electron-builder --mac dir --arm64 --publish never",
+    "dist:mac": "npm run check && npm run verify:zsec:native && npm run stage:runtime && npm run verify:runtime && electron-builder --mac dmg zip --arm64 --publish never",
+    "pack:linux": "npm run check && npm run verify:zsec:native && npm run stage:runtime && npm run verify:runtime && electron-builder --linux dir --x64 --publish never",
+    "dist:linux": "npm run check && npm run verify:zsec:native && npm run stage:runtime && npm run verify:runtime && electron-builder --linux AppImage deb --x64 --publish never",
     "stage:zsec": "pwsh -NoProfile -File scripts/stage-zsec-vendor.ps1",
     "stage:zsec:native": "node scripts/stage-native-zsec.mjs",
     "verify:zsec": "node build/zsec-vendor-verifier.cjs vendor/zsec-shield vendor/zsec-shield.lock.json",
-    "verify:zsec:native": "node build/zsec-native-verifier.cjs vendor/zsec-shield vendor/zsec-shield-provenance.json"
+    "verify:zsec:native": "node build/zsec-native-verifier.cjs vendor/zsec-shield vendor/zsec-shield-provenance.json",
+    "stage:runtime": "node scripts/stage-local-runtime.mjs",
+    "verify:runtime": "node build/local-runtime-verifier.cjs vendor/local-runtime"
   },
   "dependencies": {
     "pdfjs-dist": "6.3.289",
@@ -72,6 +74,13 @@
       {
         "from": "vendor/zsec-shield-provenance.json",
         "to": "zsec-shield-provenance.json"
+      },
+      {
+        "from": "vendor/local-runtime",
+        "to": "local-runtime",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "asar": true,

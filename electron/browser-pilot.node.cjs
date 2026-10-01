@@ -8,6 +8,7 @@ const {
   normalizeHttpUrl,
   redactSnapshotUrl,
   requestBrowserPlan,
+  requestCompletionBrowserPlan,
 } = require("./browser-pilot.cjs");
 
 test("Browser Pilot accepts only credential-free HTTP(S) pages and secure OpenZero origins", () => {
@@ -70,4 +71,36 @@ test("Browser Pilot planner errors never reflect provider credentials or transpo
     await assert.rejects(requestBrowserPlan({ ...request, fetchImpl: async () => ({ ok: false, status, json: async () => ({ error: { message: `Synthetic provider echoed ${marker}` } }) }) }), (error) => error.status === status && error.message.includes(`HTTP ${status}`) && !error.message.includes(marker));
   }
   await assert.rejects(requestBrowserPlan({ ...request, fetchImpl: async () => { throw new Error(`Synthetic transport echoed https://user:${marker}@server.example`); } }), (error) => /could not be reached/.test(error.message) && !error.message.includes(marker) && !error.message.includes("https://user"));
+});
+
+
+test("completion planner uses configured chat directly and sends only bounded redacted snapshot fields", async () => {
+  let request;
+  const marker = "PRIVATE_UNRENDERED_FORM_VALUE";
+  const result = await requestCompletionBrowserPlan({ task: "Inspect documentation", step: 2, history: [], snapshot: { url: "https://example.com/a?token=" + marker + "#private", title: "Doc", text: "x".repeat(10000), cookies: marker, viewport: { width: 1200, height: 800, credentials: marker }, interactive: Array.from({ length: 65 }, (_, i) => ({ id: "e" + (i + 1), label: "Read docs", tag: "button", value: marker, password: marker, rawHtml: marker, href: "https://example.com/docs?session=" + marker })) }, complete: async input => { request = input; return { content: '{"action":"click","element_id":"e1","reason":"Read documentation"}' }; } });
+  assert.equal(result.action, "click"); assert.equal(request.maxTokens, 1024); assert.equal(request.stage, "browser-plan");
+  assert.doesNotMatch(JSON.stringify(request), /PRIVATE_UNRENDERED_FORM_VALUE/);
+  const context = JSON.parse(request.messages[1].content); assert.equal(context.snapshot.text.length, 4000); assert.equal(context.snapshot.interactive.length, 40); assert.deepEqual(context.snapshot.viewport, { width: 1200, height: 800 });
+  assert.match(request.messages[0].content, /untrusted data/); assert.equal(classifyBrowserAction(result, context.snapshot).allowed, true);
+});
+
+test("completion planner rejects tool markup prose fences arrays and unsupported JSON without executing anything", async () => {
+  const input = { task: "Read docs", snapshot: { url: "https://example.com", interactive: [] }, step: 1, history: [] };
+  for (const content of ['<function=click>', 'Here is the plan: {"action":"finish"}', '```json\n{"action":"finish"}\n```', '[{"action":"finish"}]', '{"action":"javascript","code":"alert(1)"}', '{"action":"click","selector":"#send"}', '{"action":"navigate","url":"file:///private"}', '{"action":"finish"} trailing']) {
+    await assert.rejects(requestCompletionBrowserPlan({ ...input, complete: async () => ({ content }) }), /No action was executed/);
+  }
+});
+
+test("completion planner keeps secret field blocking and consequential approval in existing classifier", async () => {
+  const snapshot = { url: "https://example.com", interactive: [{ id: "e1", label: "Token", sensitive_kind: "secret" }, { id: "e2", label: "Publish", risk: "consequential" }] };
+  const secret = await requestCompletionBrowserPlan({ snapshot, task: "Inspect", complete: async () => '{"action":"type","element_id":"e1","text":"x"}' });
+  assert.equal(classifyBrowserAction(secret, snapshot).allowed, false);
+  const publish = await requestCompletionBrowserPlan({ snapshot, task: "Inspect", complete: async () => '{"action":"click","element_id":"e2"}' });
+  assert.equal(classifyBrowserAction(publish, snapshot).needsApproval, true);
+});
+
+test("completion planner cancellation is immediate even when its adapter hangs", async () => {
+  const controller = new AbortController();
+  const pending = requestCompletionBrowserPlan({ task: "Inspect", snapshot: { url: "https://example.com" }, signal: controller.signal, complete: async () => new Promise(() => {}) });
+  const stopped = assert.rejects(pending, { name: "AbortError" }); controller.abort(); await stopped;
 });

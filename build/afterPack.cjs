@@ -1,4 +1,6 @@
 const path = require("node:path");
+const { Arch } = require("builder-util");
+const { verifyLocalRuntime } = require("./local-runtime-verifier.cjs");
 const { flipFuses, FuseVersion, FuseV1Options } = require("@electron/fuses");
 
 module.exports = async function afterPack(context) {
@@ -9,6 +11,12 @@ module.exports = async function afterPack(context) {
     : context.electronPlatformName === "darwin"
       ? path.join(context.appOutDir, `${product}.app`, "Contents", "MacOS", product)
       : path.join(context.appOutDir, linuxExecutable);
+
+  const resources = context.electronPlatformName === "darwin"
+    ? path.join(context.appOutDir, `${product}.app`, "Contents", "Resources")
+    : path.join(context.appOutDir, "resources");
+  const runtime = verifyLocalRuntime(path.join(resources, "local-runtime"), `${context.electronPlatformName}-${Arch[context.arch]}`);
+  process.stdout.write(`Verified packaged CPU runtime: ${runtime.platform} ${runtime.runtimeVersion}\n`);
 
   await flipFuses(executable, {
     version: FuseVersion.V1,

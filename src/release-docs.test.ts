@@ -11,8 +11,10 @@ describe(`${packageMetadata.version} current release documentation contract`, ()
   const readme = read("README.md");
   const storeReadiness = read("docs/STORE_READINESS.md");
   const storeIndex = read("store/README.md");
-  const packagedLocalChatSmoke = read("scripts/smoke-packaged-local-chat.ps1");
-  const packagedWindowsSmoke = read("scripts/smoke-packaged-windows.ps1");
+  const managedSmoke = read("scripts/smoke-managed-local-runtime.cjs");
+  const managedAgentSmoke = read("scripts/smoke-managed-agent.cjs");
+  const managedManifest = JSON.parse(read("electron/managed-local-runtime-manifest.json"));
+  const managedSetup = read("src/ManagedLocalSetup.tsx");
   const credentialVerifier = read("scripts/verify-openzero-credential.cjs");
   const installedVerifier = read("scripts/verify-installed-openzero.cjs");
   const recommendedModel = "hf.co/shafire/OpenZero-Gemma4-E2B-Agentic-GGUF:Q4_K_M";
@@ -21,7 +23,7 @@ describe(`${packageMetadata.version} current release documentation contract`, ()
   it("derives the current documentation contract from package.json", () => {
     expect(readme).toContain(`Current source version is **${packageMetadata.version}**`);
     expect(currentNotes).toContain(`# ZERO ONE ${packageMetadata.version}`);
-    expect(storeReadiness).toContain(`## ZERO ONE ${packageMetadata.version} source and public-preview gate`);
+    expect(storeReadiness).toContain(`## ZERO ONE ${packageMetadata.version} release gate`);
     expect(storeIndex).toContain(`Working-tree product version: \`${packageMetadata.version}\``);
   });
 
@@ -34,13 +36,22 @@ describe(`${packageMetadata.version} current release documentation contract`, ()
     expect(currentNotes).toMatch(/(?:blocks?|excluded)[^\n]*Fusion model|Fusion model[^\n]*(?:blocked|excluded)/i);
   });
 
-  it("smokes the packaged default rather than a historical model", () => {
-    for (const script of [packagedLocalChatSmoke, packagedWindowsSmoke]) {
-      expect(script).toContain(recommendedModel);
-      expect(script).toContain("getLocalOpenZeroStatus");
-      expect(script).toContain("status.defaultModel");
-      expect(script).not.toContain("OpenZero-Qwen3-1.7B-Agentic-GGUF");
-    }
+  it("pins and actually smokes the managed CPU model rather than requiring external Ollama", () => {
+    expect(managedManifest.model.id).toBe("shafire/OpenZero-Gemma4-E2B-Agentic-GGUF");
+    expect(managedManifest.model.file).toBe("OpenZero-Gemma4-E2B-Agentic-Q4_K_M.gguf");
+    expect(managedManifest.model.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(managedManifest.model.revision).toMatch(/^[a-f0-9]{40}$/);
+    expect(managedManifest.model.bytes).toBe(3416119872);
+    expect(managedSmoke).toContain("await manager.ensureReady()");
+    expect(managedSmoke).toContain("await manager.complete(");
+    expect(managedSmoke).toContain("unauthenticatedStatus !== 401");
+    expect(managedSmoke).toContain("modelSha256: await hashFile(manager.modelPath)");
+    expect(managedSmoke).toContain("gpuLayers: 0");
+    expect(managedAgentSmoke).toContain("runAgent");
+    expect(managedSetup).toContain("window.zeroOne.setupManagedLocal({ acceptTerms: termsAccepted })");
+    expect(managedSetup).toContain("termsAccepted");
+    expect(managedSetup).toContain("window.zeroOne.cancelManagedLocalSetup()");
+    expect(managedSmoke).not.toContain("OpenZero-Qwen3-1.7B-Agentic-GGUF");
   });
 
   it("verifies the separate current OpenZero server route and model", () => {
@@ -53,13 +64,15 @@ describe(`${packageMetadata.version} current release documentation contract`, ()
     }
   });
 
-  it("keeps local model chat separate from full OpenZero orchestration", () => {
+  it("documents native local tools and separates full remote server orchestration", () => {
     expect(readme).toMatch(/Local[^\n]*recommended/i);
     expect(readme).toMatch(/Server[^\n]*advanced/i);
     expect(readme).toMatch(/model chat/i);
     expect(readme).toMatch(/full[^\n]*orchestration/i);
     expect(readme).toMatch(/browser control/i);
     expect(readme).toMatch(/server model setting is separate/i);
+    expect(readme).toContain("Agent planning and Browser Pilot planning");
+    expect(readme).toContain("Filesystem writes and project commands require approval");
   });
 
   it("links to official Ollama setup and API references", () => {

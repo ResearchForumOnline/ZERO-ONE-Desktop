@@ -2,6 +2,7 @@ import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useS
 import { SERVICES, ServiceDefinition, ServiceId, retainMountedServiceTab, serviceById, serviceIdFromView, serviceUrl } from "./lib/services";
 import ZeroThinkWorkspace from "./ZeroThinkWorkspace";
 import NotesWorkspace from "./NotesWorkspace";
+import ManagedLocalSetup, { useManagedLocalStatus } from "./ManagedLocalSetup";
 
 type View = "home" | "notes" | "zerothink" | "shield" | "agents" | "pilot" | "settings" | `service:${ServiceId}`;
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -125,8 +126,11 @@ function NavButton({ active, label, onClick, icon, compact = false }: { active: 
   );
 }
 
-function Topbar({ view, probes, system, zoom, copilotOpen, onZoom, onToggleCopilot, onRefresh, onSearch, searchRef }: { view: View; probes: ServiceProbe[]; system: SystemSnapshot | null; zoom: number; copilotOpen: boolean; onZoom: (factor: number) => void; onToggleCopilot: () => void; onRefresh: () => void; onSearch: () => void; searchRef: React.RefObject<HTMLButtonElement | null> }) {
+function Topbar({ view, settings, probes, system, zoom, copilotOpen, onZoom, onToggleCopilot, onRefresh, onSearch, searchRef }: { view: View; settings: ZeroOneSettings; probes: ServiceProbe[]; system: SystemSnapshot | null; zoom: number; copilotOpen: boolean; onZoom: (factor: number) => void; onToggleCopilot: () => void; onRefresh: () => void; onSearch: () => void; searchRef: React.RefObject<HTMLButtonElement | null> }) {
   const online = probes.filter((probe) => probe.state === "online").length;
+  const { status: cpuStatus } = useManagedLocalStatus();
+  const managed = !settings.activeChatProfile && settings.assistantProvider === "openzero" && settings.openZeroAssistantMode !== "server" && settings.localRuntimeMode !== "ollama";
+  const routeStatus = settings.activeChatProfile ? "API profile selected" : managed ? `CPU ${cpuStatus.phase}` : `${online}/${SERVICES.length} servers online`;
   const title = view === "home" ? "Command center" : view === "notes" ? "ZNotes" : view === "zerothink" ? "ZeroThink" : view === "shield" ? "ZSEC Shield" : view === "agents" ? "Automation" : view === "pilot" ? "Browser Pilot" : view === "settings" ? "Settings" : serviceById(view.split(":")[1] as ServiceId).name;
   return (
     <header className="topbar">
@@ -140,9 +144,9 @@ function Topbar({ view, probes, system, zoom, copilotOpen, onZoom, onToggleCopil
           <span>Search or command</span>
           <kbd>Ctrl K</kbd>
         </button>
-        <div className="telemetry-pill" aria-live="polite" aria-label={`${online} of ${SERVICES.length} connected services are online`}>
+        <div className="telemetry-pill" aria-live="polite" aria-label={routeStatus}>
           <span className="live-pulse" />
-          <span>{online}/{SERVICES.length} online</span>
+          <span>{routeStatus}</span>
           {system && <strong>{system.memoryPercent}% RAM</strong>}        </div>
         <div className="zoom-controls" role="group" aria-label="Interface zoom">
           <button type="button" onClick={() => onZoom(nearestZoom(zoom - 0.1))} aria-label="Zoom out" title="Zoom out (Ctrl -)">−</button>
@@ -188,8 +192,10 @@ function UpdateBanner({ update, onDismiss }: { update: AppUpdateInfo; onDismiss:
 }
 
 function Dashboard({ settings, probes, system, zsec, onOpen, onOpenShield, onOpenNotes, onOpenZeroThink }: { settings: ZeroOneSettings; probes: ServiceProbe[]; system: SystemSnapshot | null; zsec: ZsecSnapshot | null; onOpen: (id: ServiceId) => void; onOpenShield: () => void; onOpenNotes: () => void; onOpenZeroThink: () => void }) {
+  const { status: cpuStatus } = useManagedLocalStatus();
   const openZero = probes.find((probe) => probe.name === "openzero");
-  const openZeroReady = openZero?.state === "online";
+  const managedCPU = settings.openZeroAssistantMode !== "server" && settings.localRuntimeMode !== "ollama";
+  const openZeroReady = managedCPU ? cpuStatus.phase === "ready" : openZero?.state === "online";
   const endpointValue = zsec?.state === "ready" ? "LAST SCAN CLEAR" : zsec?.state === "attention" ? "REVIEW" : zsec?.state === "idle" ? "INSTALLED" : zsec?.state === "not-installed" ? "NOT INSTALLED" : "UNAVAILABLE";
   return (
     <div className="view-scroll dashboard">
@@ -212,7 +218,7 @@ function Dashboard({ settings, probes, system, zsec, onOpen, onOpenShield, onOpe
           {[0, 1, 2, 3, 4, 5].map((index) => <i key={index} style={{ "--i": index } as React.CSSProperties} />)}
         </div>
         <div className="hero-metrics">
-          <Metric label="OpenZero panel" value={openZeroReady ? "ONLINE" : "OFFLINE"} tone={openZeroReady ? "green" : "amber"} />
+          <Metric label={managedCPU ? "OpenZero CPU" : "OpenZero server"} value={openZeroReady ? "READY" : managedCPU ? cpuStatus.phase.toUpperCase() : "OFFLINE"} tone={openZeroReady ? "green" : "amber"} />
           <Metric label="Memory" value={system ? `${system.memoryPercent}%` : "—"} />
           <Metric label="Sessions" value="SEPARATE" tone="cyan" />
           <Metric label="ZSEC evidence" value={endpointValue} tone={zsec?.state === "ready" ? "green" : "amber"} />
@@ -226,18 +232,17 @@ function Dashboard({ settings, probes, system, zsec, onOpen, onOpenShield, onOpe
         <article className="glass-card native-workspace-card"><p>BUILT INTO THIS APP</p><h3>ZeroThink</h3><p>Conversations, remembered context, Zero mode, research passes and a native project agent.</p><button className="primary-action" onClick={onOpenZeroThink}>Open ZeroThink →</button></article>
         <article className="glass-card native-workspace-card"><p>ON THIS DEVICE</p><h3>ZNotes</h3><p>Autosaved encrypted notes, pins, checklists, labels, archive and recoverable trash.</p><button className="primary-action" onClick={onOpenNotes}>Open ZNotes →</button></article>
         <article className="glass-card native-workspace-card"><p>LOCAL SECURITY CHECKS</p><h3>ZSEC Shield</h3><p>Choose a folder and inspect the scanner's actual findings and incomplete results.</p><button className="secondary-action" onClick={onOpenShield}>Open ZSEC Shield →</button></article>
-        {SERVICES.map((service) => (
+        {!managedCPU && SERVICES.map((service) => (
           <ServiceCard key={service.id} service={service} probe={probes.find((item) => item.name === service.id)} onOpen={() => onOpen(service.id)} />
         ))}
+        {managedCPU && <article className="glass-card native-workspace-card"><p>BUILT-IN CPU AI</p><h3>OpenZero</h3><p>{cpuStatus.detail || "One setup downloads and configures your verified model. No server address or API key required."}</p><button className="primary-action" onClick={() => onOpen("openzero")}>{openZeroReady ? "Open local AI →" : "Set up my CPU AI →"}</button></article>}
       </section>
 
       <section className="lower-grid">
         <div className="glass-card lattice-card">
-          <div className="card-title-row"><div><p>AUTONOMY</p><h3>Agent slots</h3></div><span className="mode-badge">{openZeroReady ? "ENDPOINT ONLINE" : "ENDPOINT OFFLINE"}</span></div>
-          <div className="mini-agent-grid">
-            {Array.from({ length: 16 }, (_, index) => <span key={index} className={openZeroReady && index === 0 ? "active" : ""}><i />{String(index + 1).padStart(2, "0")}</span>)}
-          </div>
-          <div className="lattice-footer"><span><i className={openZeroReady ? "green" : ""} />{openZeroReady ? "Endpoint reachable" : "Endpoint unavailable"}</span><span><i />Slots are UI capacity, not worker telemetry</span><button onClick={() => onOpen("openzero")}>Open runtime →</button></div>
+          <div className="card-title-row"><div><p>BUILD AND RESEARCH</p><h3>Give Zero a project</h3></div><span className="mode-badge">NATIVE WORKSPACE</span></div>
+          <p>Choose your project folder in ZeroThink Agent, describe the change, and review proposed file edits and commands. Research projects preserve your question, selected evidence and results for the next session.</p>
+          <div className="lattice-footer"><button onClick={onOpenZeroThink}>Open ZeroThink →</button><button onClick={() => onOpen("openzero")}>CPU model setup →</button></div>
         </div>
         <div className="glass-card activity-card">
           <div className="card-title-row"><div><p>SYSTEM</p><h3>Machine intelligence</h3></div><Icon name="pulse" /></div>
@@ -377,30 +382,30 @@ function ServiceCard({ service, probe, onOpen }: { service: ServiceDefinition; p
   );
 }
 
-function ServiceWorkspace({ service, settings, probe, active }: { service: ServiceDefinition; settings: ZeroOneSettings; probe?: ServiceProbe; active: boolean }) {
-  const url = serviceUrl(service, settings);
-  const [reload, setReload] = useState(0);
+function ServiceWorkspace({ service, settings, probe, active, autoSetupRequested, onReady, onZeroThink, onPilot }: { service: ServiceDefinition; settings: ZeroOneSettings; probe?: ServiceProbe; active: boolean; autoSetupRequested: boolean; onReady: () => void; onZeroThink: (tab: "chat" | "research" | "agent") => void; onPilot: () => void }) {
+  const url = serviceUrl(service, settings), [reload, setReload] = useState(0);
+  const serverMode = settings.openZeroAssistantMode === "server";
   return <section className={`workspace-view workspace-tab-panel ${active ? "active" : "inactive"}`} data-service-tab={service.id} aria-hidden={!active} inert={!active}>
-    <div className="workspace-toolbar"><div className="workspace-identity"><span>Ø</span><div><p>YOUR RUNTIME</p><h2>OpenZero</h2></div></div><div className="workspace-address"><span>{url}</span></div><div className="workspace-actions"><StatusDot state={probe?.state}/><button onClick={() => setReload(reload + 1)}>Reload</button><button onClick={() => window.zeroOne.openExternal(url)}>Open in browser</button></div></div>
-    <div className="workspace-surface"><webview key={`${url}-${reload}`} className="product-webview" src={url} partition="persist:zero-one-openzero" /></div>
+    <div className="workspace-toolbar"><div className="workspace-identity"><span>Ø</span><div><p>{serverMode ? "YOUR SERVER" : "NATIVE CPU AI"}</p><h2>OpenZero</h2></div></div>{serverMode && <><div className="workspace-address"><span>{url}</span></div><div className="workspace-actions"><StatusDot state={probe?.state}/><button onClick={() => setReload(reload + 1)}>Reload</button><button onClick={() => window.zeroOne.openExternal(url)}>Open in browser</button></div></>}</div>
+    {serverMode ? <div className="workspace-surface"><webview key={`${url}-${reload}`} className="product-webview" src={url} partition="persist:zero-one-openzero" /></div> : <div className="view-scroll"><ManagedLocalSetup autoStart={active && autoSetupRequested} onReady={onReady} /><article className="glass-card native-workspace-card"><p>YOUR LOCAL WORKSPACE</p><h3>Ask. Research. Build.</h3><p>The built-in engine powers the native Assistant, ZeroThink research, project Agent and approved Browser Pilot tasks. Local model generation can take minutes on older CPUs; API profiles and your own server remain optional alternatives.</p><div className="setup-actions"><button className="primary-action" onClick={() => onZeroThink("chat")}>Chat with Zero</button><button className="secondary-action" onClick={() => onZeroThink("research")}>Research and saved projects</button><button className="secondary-action" onClick={() => onZeroThink("agent")}>Build or edit a project</button><button className="secondary-action" onClick={onPilot}>Open Browser Pilot</button></div></article></div>}
   </section>;
 }
-
 function AgentLattice({ settings, openZeroProbe, onOpenZero }: { settings: ZeroOneSettings; openZeroProbe?: ServiceProbe; onOpenZero: () => void }) {
-  const runtimeModel = settings.openZeroServerModel || OPENZERO_MINISTRAL_RUNTIME_MODEL;
+  const { status: cpuStatus } = useManagedLocalStatus();
+  const runtimeModel = settings.activeChatProfile?.model || (settings.openZeroAssistantMode === "server" ? settings.openZeroServerModel || OPENZERO_MINISTRAL_RUNTIME_MODEL : settings.localRuntimeMode === "ollama" ? settings.model || LOCAL_OPENZERO_MODEL : cpuStatus.modelName || "OpenZero Gemma4 E2B Agentic Q4_K_M");
   return (
     <div className="view-scroll agent-view">
       <section className="agent-hero glass-card">
         <div><p className="section-kicker">BOUNDED AUTOMATION</p><h2>Automate work.<br /><em>Stay in control.</em></h2><p>OpenZero handles multi-step work through the permissions and confirmations configured in your local runtime. ZERO ONE never invents background workers or claims jobs that are not actually running.</p></div>
-        <div className="agent-runtime"><StatusDot state={openZeroProbe?.state} /><span>OPENZERO ENDPOINT</span><strong>{openZeroProbe?.state || "CHECKING"}</strong><small>{runtimeModel}</small></div>
+        <div className="agent-runtime">{settings.openZeroAssistantMode === "server" && <StatusDot state={openZeroProbe?.state} />}<span>{settings.activeChatProfile ? "SELECTED API PROFILE" : settings.openZeroAssistantMode === "server" ? "YOUR SERVER" : "BUILT-IN CPU ENGINE"}</span><strong>{settings.activeChatProfile ? "CONFIGURED" : settings.openZeroAssistantMode === "server" ? openZeroProbe?.state || "CHECKING" : cpuStatus.phase.toUpperCase()}</strong><small>{runtimeModel}</small></div>
       </section>
       <section className="automation-grid">
-        <article className="glass-card"><Icon name="pulse" /><strong>Local runtime</strong><p>{openZeroProbe?.state === "online" ? `Ready with ${runtimeModel}` : "Optional local OpenZero connection is not currently reachable."}</p></article>
+        <article className="glass-card"><Icon name="pulse" /><strong>Local runtime</strong><p>{settings.openZeroAssistantMode === "server" ? openZeroProbe?.state === "online" ? `Ready with ${runtimeModel}` : "Check your configured server or choose built-in CPU AI." : cpuStatus.detail || `Built-in CPU engine: ${cpuStatus.phase}`}</p></article>
         <article className="glass-card"><Icon name="shield" /><strong>Permission boundaries</strong><p>Tools and browser actions remain governed by OpenZero permissions and confirmation rules.</p></article>
-        <article className="glass-card"><Icon name="agents" /><strong>Recursive Lab</strong><p>Agent Zero can persist code workspaces, inspect diffs, run approved tests, and promote or roll back verified changes through OpenZero.</p></article>
+        <article className="glass-card"><Icon name="agents" /><strong>Project Agent</strong><p>Choose your project folder, inspect files, review proposed edits and approve project commands. Review current real tool results and changed-file receipts.</p></article>
         <article className="glass-card"><Icon name="agents" /><strong>Real activity only</strong><p>Open the automation console to see actual runs, progress and results.</p></article>
       </section>
-      <div className="agent-action-bar"><div><Icon name="shield" /><span>Execution remains bounded by OpenZero tool permissions and confirmations.</span></div><button className="primary-action" onClick={onOpenZero}>Open autonomous console ↗</button></div>
+      <div className="agent-action-bar"><div><Icon name="shield" /><span>Execution remains bounded by project and browser permissions and confirmations.</span></div><button className="primary-action" onClick={onOpenZero}>Open native project Agent →</button></div>
     </div>
   );
 }
@@ -432,7 +437,6 @@ function BrowserPilotWorkspace({ settings }: { settings: ZeroOneSettings }) {
   const [pageBusy, setPageBusy] = useState(true);
   const [message, setMessage] = useState("Open a page, describe one bounded task, then grant this exact tab.");
   const [pilot, setPilot] = useState<BrowserPilotState>({ status: "idle", runId: "", step: 0, message: "Ready for a user-granted task.", pending: null });
-  const [paired, setPaired] = useState(settings.hasOpenZeroToken);
   const webviewRef = useRef<HTMLElement>(null);
 
   useEffect(() => window.zeroOne.onBrowserPilotState((state) => { setPilot(state); setMessage(state.message); }), []);
@@ -470,11 +474,7 @@ function BrowserPilotWorkspace({ settings }: { settings: ZeroOneSettings }) {
     if (!view || !ready) { setMessage("Wait for the page to finish loading first."); return; }
     if (!task.trim()) { setMessage("Describe one bounded browser task first."); return; }
     try {
-      if (!paired) {
-        setMessage("Pairing securely with local OpenZero…");
-        await window.zeroOne.connectOpenZeroDesktop();
-        setPaired(true);
-      }
+
       const targetId = view.getWebContentsId();
       if (!Number.isSafeInteger(targetId) || targetId <= 0) throw new Error("The isolated browser tab is not ready yet.");
       setPilot(await window.zeroOne.startBrowserPilot({ targetId, task: task.trim() }));
@@ -499,7 +499,7 @@ function BrowserPilotWorkspace({ settings }: { settings: ZeroOneSettings }) {
       </section>
       <aside className="pilot-control glass-card">
         <div className="pilot-heading"><span><Icon name="browser" size={21} /></span><div><p>BUILT INTO ZERO ONE</p><h2>Browser Pilot</h2></div></div>
-        <p className="pilot-intro">Give OpenZero one bounded task on this exact isolated tab. Page labels and visible structure go only to your configured OpenZero endpoint; form values, URL queries, passwords, payment fields, secrets, files and CAPTCHA values are omitted.</p>
+        <p className="pilot-intro">Give OpenZero one bounded task on this exact isolated tab. Page labels and visible structure go only to your selected local model, API profile or server; form values, URL queries, passwords, payment fields, secrets, files and CAPTCHA values are omitted.</p>
         <label><span>One browser task</span><textarea value={task} onChange={(event) => setTask(event.target.value)} disabled={running} rows={5} placeholder="Example: Open the documentation page and find the Windows install steps. Do not submit anything." /></label>
         <button type="button" className="primary-action pilot-start" disabled={!ready || running || !task.trim()} onClick={start}>{running ? `Working · step ${pilot.step}/12` : "Grant this tab & start"}</button>
         <div className={`pilot-run-state ${pilot.status}`} role="status" aria-live="polite"><strong>{pilot.status === "paused" ? "Approval required" : pilot.status === "running" ? "Pilot active" : pilot.status === "finished" ? "Task finished" : pilot.status === "error" ? "Stopped safely" : "Ready"}</strong><span>{message}</span></div>
@@ -524,13 +524,13 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
   const [localPulling, setLocalPulling] = useState(false);
   const [localStatus, setLocalStatus] = useState<LocalOpenZeroStatus | null>(null);
   const [localProgress, setLocalProgress] = useState<LocalOpenZeroProgress | null>(null);
-  const [openZeroMode, setOpenZeroMode] = useState<"local" | "server">(() => settings.openZeroAssistantMode || (isPublishedLocalModel((settings.model || "").toLowerCase()) ? "local" : "server"));
+  const [openZeroMode, setOpenZeroMode] = useState<"local" | "server">(() => settings.openZeroAssistantMode || "local");
   const [zmath, setZmath] = useState<ZmathSecurityStatus | null>(null);
   const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo | null>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const updatesManagedByStore = storeManaged || Boolean(updateInfo?.managedByStore);
 
-  useEffect(() => { setDraft(settings); setOpenZeroMode(settings.openZeroAssistantMode || (isPublishedLocalModel((settings.model || "").toLowerCase()) ? "local" : "server")); }, [settings]);
+  useEffect(() => { setDraft(settings); setOpenZeroMode(settings.openZeroAssistantMode || "local"); }, [settings]);
   useEffect(() => { window.zeroOne.getZmathSecurityStatus().then(setZmath); }, []);
   const checkForUpdate = async () => {
     setCheckingUpdate(true);
@@ -546,7 +546,7 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
     catch { setLocalStatus({ reachable: false, origin: "http://127.0.0.1:11434", defaultModel: LOCAL_OPENZERO_MODEL, version: "", models: [], runningModels: [], message: "The local model service could not be checked." }); }
     finally { setLocalChecking(false); }
   }, []);
-  useEffect(() => { if (draft.assistantProvider === "openzero" && openZeroMode === "local") refreshLocalOpenZero(); }, [draft.assistantProvider, openZeroMode, refreshLocalOpenZero]);
+  useEffect(() => { if (!storeManaged && draft.localRuntimeMode === "ollama" && draft.assistantProvider === "openzero" && openZeroMode === "local") refreshLocalOpenZero(); }, [draft.assistantProvider, draft.localRuntimeMode, storeManaged, openZeroMode, refreshLocalOpenZero]);
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
@@ -639,7 +639,7 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
   const chooseOpenZeroMode = (mode: "local" | "server") => {
     setOpenZeroMode(mode);
     setMessage("");
-    if (mode === "local") { setToken(""); setDraft({ ...draft, assistantProvider: "openzero", openZeroAssistantMode: "local", model: localStatus?.defaultModel || LOCAL_OPENZERO_MODEL, clearOpenZeroToken: false }); }
+    if (mode === "local") { setToken(""); setDraft({ ...draft, assistantProvider: "openzero", openZeroAssistantMode: "local", localRuntimeMode: "managed", model: localStatus?.defaultModel || LOCAL_OPENZERO_MODEL, clearOpenZeroToken: false }); }
     else setDraft({ ...draft, assistantProvider: "openzero", openZeroAssistantMode: "server", openZeroServerModel: draft.openZeroServerModel || OPENZERO_MINISTRAL_RUNTIME_MODEL });
   };
 
@@ -683,25 +683,24 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
         </section>
         <section className="settings-section glass-card assistant-setup">
           <div className="settings-heading"><div><p>ASSISTANT DRAWER</p><h2>Choose how the quick chat answers</h2></div><span>Local model recommended</span></div>
-          <p className="setup-lead">The top-right Assistant uses the responsive OpenZero Gemma4 E2B model by default. Full OpenZero and Tab Pilot use the server-recommended Ministral 8B runtime model. They stay separate so stronger orchestration does not make everyday chat feel broken.</p>
+          <p className="setup-lead">The built-in OpenZero CPU engine uses the published Gemma4 E2B model. One setup handles its verified download and local configuration. The selected API Vault chat profile takes priority for Assistant, ZeroThink and Browser Pilot; your own server remains an explicit alternative.</p>
           <div className="product-role-map" aria-label="How the connected OpenZero tools differ">
             <article><strong>Assistant drawer</strong><span>Quick questions and private local chat inside ZERO ONE.</span></article>
-            <article><strong>OpenZero panel</strong><span>The full runtime for models, runs, tools and automation.</span></article>
-            <article><strong>Tab Pilot</strong><span>Chrome/Brave browser actions planned by full OpenZero, with explicit tab and action consent.</span></article>
+            <article><strong>OpenZero panel</strong><span>Native CPU setup and links to Chat, Research and the project Agent. Your own server panel is available in Server mode.</span></article>
+            <article><strong>Tab Pilot</strong><span>Browser actions planned by your selected model, with explicit tab and action consent.</span></article>
           </div>
           <div className="provider-picker" role="radiogroup" aria-label="Assistant provider">
             <button type="button" role="radio" aria-checked={draft.assistantProvider === "openzero"} className={draft.assistantProvider === "openzero" ? "selected" : ""} onClick={() => chooseProvider("openzero")}><strong>Private Assistant</strong><span>Recommended · private</span><small>Run a fast local model, or use your OpenZero server</small></button>
             <button type="button" role="radio" aria-checked={draft.assistantProvider === "groq"} className={draft.assistantProvider === "groq" ? "selected" : ""} onClick={() => chooseProvider("groq")}><strong>Groq</strong><span>Optional · fast cloud</span><small>Use your own Groq API key</small></button>
             <button type="button" role="radio" aria-checked={draft.assistantProvider === "openai"} className={draft.assistantProvider === "openai" ? "selected" : ""} onClick={() => chooseProvider("openai")}><strong>OpenAI</strong><span>Optional · cloud</span><small>Use your own OpenAI API key</small></button>
           </div>
-          {draft.assistantProvider === "openzero" && storeManaged && <div className="hosted-provider-help"><div><strong>Microsoft Store edition</strong><span>Local model downloading depends on a separate desktop runtime and is therefore not offered in this Store package. Core ZERO ONE features work without an AI model. For optional quick chat, choose OpenAI or Groq and use your own key.</span></div></div>}
-          {draft.assistantProvider === "openzero" && storeManaged && <div className="server-openzero-setup"><button type="button" className="secondary-action" onClick={() => chooseOpenZeroMode("server")}>Use my self-hosted OpenZero server</button>{openZeroMode === "server" && <div className="settings-grid">{field("openZeroUrl", "Your runtime address", "Your own HTTPS server or local loopback tunnel.")}<label className="setting-field"><span>Runtime token</span><input type="password" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="off" placeholder={draft.hasOpenZeroToken ? "Stored securely · leave blank to keep" : "Token from your runtime"}/><small>Stored encrypted under your operating-system account.</small></label>{field("openZeroServerModel", "Server model", "Model provided by your runtime")}</div>}</div>}
-          {draft.assistantProvider === "openzero" && !storeManaged && <>
+          {draft.assistantProvider === "openzero" && <>
             <div className="openzero-mode-picker" role="radiogroup" aria-label="OpenZero location">
-              <button type="button" role="radio" aria-checked={openZeroMode === "local"} className={openZeroMode === "local" ? "selected" : ""} onClick={() => chooseOpenZeroMode("local")}><span className="recommended-pill">RECOMMENDED</span><strong>Local Assistant model</strong><small>Private, automatic chat setup. No token or technical configuration.</small></button>
+              <button type="button" role="radio" aria-checked={openZeroMode === "local"} className={openZeroMode === "local" ? "selected" : ""} onClick={() => chooseOpenZeroMode("local")}><span className="recommended-pill">RECOMMENDED</span><strong>Built-in CPU AI</strong><small>Private, automatic chat setup. No token or technical configuration.</small></button>
               <button type="button" role="radio" aria-checked={openZeroMode === "server"} className={openZeroMode === "server" ? "selected" : ""} onClick={() => chooseOpenZeroMode("server")}><span>ADVANCED</span><strong>Use my OpenZero server</strong><small>Uses an existing OpenZero runtime for Assistant replies.</small></button>
             </div>
-            {openZeroMode === "local" ? <div className={`local-openzero-setup ${localOpenZeroReady ? "ready" : localPulling || localChecking ? "connecting" : ""}`} aria-live="polite" aria-busy={localPulling || localChecking}>
+            {!storeManaged && openZeroMode === "local" && <label className="setting-field"><span>Local engine</span><select value={draft.localRuntimeMode || "managed"} onChange={(event) => setDraft({ ...draft, localRuntimeMode: event.target.value as "managed" | "ollama" })}><option value="managed">Built-in CPU AI · automatic setup</option><option value="ollama">Advanced · existing Ollama installation</option></select><small>Use advanced Ollama only if you already maintain that runtime yourself.</small></label>}
+            {openZeroMode === "local" && (storeManaged || draft.localRuntimeMode !== "ollama") ? <ManagedLocalSetup onReady={() => { void window.zeroOne.loadSettings().then((saved) => { setDraft(saved); onSaved(saved); }); }} /> : openZeroMode === "local" ? <div className={`local-openzero-setup ${localOpenZeroReady ? "ready" : localPulling || localChecking ? "connecting" : ""}`} aria-live="polite" aria-busy={localPulling || localChecking}>
               <label className="setting-field"><span>Local Assistant model</span><select value={selectedLocalModel} onChange={(event) => setDraft({ ...draft, assistantProvider: "openzero", model: event.target.value })}>{!selectedLocalProfileKnown && <option value={selectedLocalModel}>Current custom model · {selectedLocalModel}</option>}{LOCAL_MODEL_PROFILES.map((profile) => <option key={profile.id} value={profile.id}>{profile.label}</option>)}</select><small>{LOCAL_MODEL_PROFILES.find((profile) => profile.id === selectedLocalModel)?.detail || "Your preserved custom Ollama model. ZERO ONE will use it only in explicit Local mode."}</small></label>
               <div className="local-openzero-status"><span className={`status-dot ${localOpenZeroReady || localOpenZeroRunning ? "online" : localPulling || localChecking ? "checking" : "offline"}`} /><div><strong>{localOpenZeroReady ? "Local OpenZero Assistant is ready" : localPulling ? "Downloading the selected local Assistant…" : localChecking ? "Checking this computer…" : localOpenZeroRunning ? "Local engine ready—one model download remains" : "Install or start Ollama to continue"}</strong><small>{localOpenZeroReady ? "Quick chat runs on this computer. Open Assistant and start chatting." : localPulling ? `${localProgress?.status || "Preparing download"}${Number.isFinite(localProgress?.percent) ? ` · ${Math.round(localProgress?.percent || 0)}%` : ""}` : localOpenZeroRunning ? "Choose the compact default for responsiveness, or the 8B runtime edition on a capable CPU with at least 10 GB free disk space." : "Ollama is the small local engine that runs the private Assistant model."}</small></div></div>
               {localPulling && <div className="model-download-bar" role="progressbar" aria-label="Local Assistant model download" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(localProgress?.percent || 0)}><span style={{ width: `${Math.max(2, localProgress?.percent || 0)}%` }} /></div>}
@@ -748,7 +747,7 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
         </section>
         <section className="settings-section glass-card">
           <div className="settings-heading"><div><p>DESKTOP</p><h2>App behavior</h2></div><span>Privacy-first defaults</span></div>
-          <button type="button" className="secondary-action data-clear-action" onClick={clearLocalData}>Clear desktop data</button><small className="data-clear-note">Removes settings, encrypted tokens, saved workspace logins, and workspace cookies after confirmation. Encrypted ZNotes and ZeroThink history/library are retained. Server accounts and diagnostics files you saved are not deleted.</small>
+          <button type="button" className="secondary-action data-clear-action" onClick={clearLocalData}>Clear desktop data</button><small className="data-clear-note">Resets current settings, API Vault, saved workspace logins and workspace cookies after confirmation. Local credential/settings recovery copies, encrypted ZNotes, ZeroThink history/library, research templates and saved research projects are retained. Downloaded model files, readable exports, saved diagnostics and server accounts are not deleted. This is not a complete data purge.</small>
           <button type="button" className="secondary-action quit-action" onClick={() => window.zeroOne.quitApp()}>Quit ZERO ONE completely</button>
         </section>
         <section className="settings-section glass-card">
@@ -767,127 +766,45 @@ function SettingsView({ settings, appVersion, storeManaged, openZeroProbe, onSav
     </div>
   );}
 
-function Copilot({ settings, storeManaged, onOpenSettings }: { settings: ZeroOneSettings; storeManaged: boolean; onOpenSettings: () => void }) {
-  const [messages, setMessages] = useState<ChatMessage[]>(initialAssistant);
-  const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [localReady, setLocalReady] = useState(false);
-  const [localChecking, setLocalChecking] = useState(false);
-  const [pulling, setPulling] = useState(false);
-  const [pullProgress, setPullProgress] = useState<LocalOpenZeroProgress | null>(null);
-  const streamRef = useRef<HTMLDivElement>(null);
-  const clearChat = () => setMessages(initialAssistant);
-  // Published OpenZero GGUF selections are local even when a separate panel
-  // token is retained for browser workflows.
-  const localSelected = settings.assistantProvider === "openzero" && settings.openZeroAssistantMode !== "server";
-  const providerLabel = settings.assistantProvider === "groq" ? "Groq" : settings.assistantProvider === "openai" ? "OpenAI" : localSelected ? "OpenZero Local" : "OpenZero Server";
-  const ready = settings.assistantProvider === "groq" ? settings.hasGroqKey : settings.assistantProvider === "openai" ? settings.hasOpenAiKey : localSelected ? localReady : settings.hasOpenZeroToken;
-  const activeAssistantModel = localSelected ? (settings.model || LOCAL_OPENZERO_MODEL) : settings.assistantProvider === "openzero" ? (settings.openZeroServerModel || OPENZERO_MINISTRAL_RUNTIME_MODEL) : settings.model;
-
+function Copilot({ settings, storeManaged, onOpenSettings, onSettingsSaved }: { settings: ZeroOneSettings; storeManaged: boolean; onOpenSettings: () => void; onSettingsSaved: (value: ZeroOneSettings) => void }) {
+  const [messages, setMessages] = useState<ChatMessage[]>(initialAssistant), [input, setInput] = useState(""), [busy, setBusy] = useState(false), [elapsed, setElapsed] = useState(0), [activity, setActivity] = useState("");
+  const [localReady, setLocalReady] = useState(false), [localChecking, setLocalChecking] = useState(false);
+  const streamRef = useRef<HTMLDivElement>(null), requestRef = useRef("");
+  const { status: managedStatus } = useManagedLocalStatus();
+  const profile = settings.activeChatProfile;
+  const localSelected = !profile && settings.assistantProvider === "openzero" && settings.openZeroAssistantMode !== "server";
+  const legacyOllama = localSelected && !storeManaged && settings.localRuntimeMode === "ollama";
+  const providerLabel = profile?.name || (settings.assistantProvider === "groq" ? "Groq" : settings.assistantProvider === "openai" ? "OpenAI" : localSelected ? legacyOllama ? "Local Ollama" : "OpenZero CPU" : "OpenZero Server");
+  const ready = profile ? profile.hasKey || profile.provider === "openzero" : settings.assistantProvider === "groq" ? settings.hasGroqKey : settings.assistantProvider === "openai" ? settings.hasOpenAiKey : localSelected ? legacyOllama ? localReady : managedStatus.phase === "ready" : settings.hasOpenZeroToken;
+  const activeAssistantModel = profile?.model || (localSelected ? legacyOllama ? (settings.model || LOCAL_OPENZERO_MODEL) : (managedStatus.modelName || "OpenZero Gemma4 E2B Agentic Q4_K_M") : settings.assistantProvider === "openzero" ? settings.openZeroServerModel || OPENZERO_MINISTRAL_RUNTIME_MODEL : settings.model);
+  const clearChat = () => { if (!busy) setMessages(initialAssistant); };
   const refreshLocal = useCallback(async () => {
-    if (!localSelected || !localOpenZeroApi().getLocalOpenZeroStatus) { setLocalReady(false); return; }
-    setLocalChecking(true);
-    try {
-      const status = await localOpenZeroApi().getLocalOpenZeroStatus!();
-      const modelName = (settings.model || status.defaultModel || LOCAL_OPENZERO_MODEL).toLowerCase();
-      setLocalReady(status.reachable && status.models.some((model) => model.name.toLowerCase() === modelName));
-    } catch {
-      setLocalReady(false);
-    } finally {
-      setLocalChecking(false);
-    }
-  }, [localSelected, settings.model]);
-
-  useEffect(() => {
-    refreshLocal();
-    if (!localSelected) return;
-    const id = window.setInterval(refreshLocal, 20_000);
-    return () => window.clearInterval(id);
-  }, [localSelected, refreshLocal]);
-
-  useEffect(() => {
-    const stream = streamRef.current;
-    if (stream) stream.scrollTop = stream.scrollHeight;
-  }, [messages, busy]);
-
-  const pullLocalModel = async () => {
-    const pull = localOpenZeroApi().pullLocalOpenZeroModel;
-    if (!pull || pulling) return;
-    setPulling(true);
-    setPullProgress({ status: "starting", completed: 0, total: 0, done: false });
-    try {
-      await pull(settings.model || LOCAL_OPENZERO_MODEL, (progress) => setPullProgress(progress));
-      await refreshLocal();
-      setMessages((current) => [...current, { role: "assistant", content: "Local model is ready. Ask me anything — no API key required." }]);
-    } catch (error) {
-      setMessages((current) => [...current, { role: "assistant", content: error instanceof Error ? error.message : "Could not download the local model." }]);
-    } finally {
-      setPulling(false);
-    }
-  };
-
+    if (!legacyOllama || !localOpenZeroApi().getLocalOpenZeroStatus) return;
+    setLocalChecking(true); try { const status = await localOpenZeroApi().getLocalOpenZeroStatus!(); setLocalReady(status.reachable && status.models.some((m) => m.name.toLowerCase() === (settings.model || status.defaultModel).toLowerCase())); } catch { setLocalReady(false); } finally { setLocalChecking(false); }
+  }, [legacyOllama, settings.model]);
+  useEffect(() => { void refreshLocal(); if (!legacyOllama) return; const id = window.setInterval(refreshLocal, 20000); return () => window.clearInterval(id); }, [legacyOllama, refreshLocal]);
+  useEffect(() => { if (streamRef.current) streamRef.current.scrollTop = streamRef.current.scrollHeight; }, [messages, busy]);
+  useEffect(() => { if (!busy) return; const start = Date.now(), timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000); return () => window.clearInterval(timer); }, [busy]);
+  useEffect(() => window.zeroOne.onAssistantProgress((event) => { if (requestRef.current) setActivity(event.message); }), []);
+  const stop = async () => { setActivity("Stopping the current request…"); await window.zeroOne.cancelAssistantChat(); };
+  useEffect(() => { if (!busy) return; const escape = (event: globalThis.KeyboardEvent) => { if (event.key === "Escape") void stop(); }; window.addEventListener("keydown", escape); return () => window.removeEventListener("keydown", escape); }, [busy]);
   const send = async () => {
-    const text = input.trim();
-    if (!text || busy || !ready) return;
-    const next = [...messages, { role: "user", content: text } as ChatMessage];
-    setMessages(next);
-    setInput("");
-    setBusy(true);
-    try {
-      const request = { model: activeAssistantModel || LOCAL_OPENZERO_MODEL, messages: next.map(({ role, content }) => ({ role, content })) };
-      // Prefer direct local chat when in local mode; otherwise unified chat (which also falls back to Ollama).
-      const response = localSelected && localOpenZeroApi().chatLocalOpenZero
-        ? await localOpenZeroApi().chatLocalOpenZero!(request)
-        : await window.zeroOne.chat(request);
-      setMessages((current) => [...current, { role: "assistant", content: response.content }]);
-    } catch (error) {
-      setMessages((current) => [...current, { role: "assistant", content: error instanceof Error ? error.message : "The configured OpenZero model is unavailable." }]);
-    } finally {
-      setBusy(false);
-    }
+    const text = input.trim(); if (!text || busy || !ready) return;
+    const next = [...messages, { role: "user", content: text } as ChatMessage]; setMessages(next); setInput(""); setBusy(true); setElapsed(0); setActivity(`I’m on it. Using ${providerLabel}.`); requestRef.current = crypto.randomUUID();
+    try { const response = await window.zeroOne.chat({ model: activeAssistantModel || LOCAL_OPENZERO_MODEL, messages: next.map(({ role, content }) => ({ role, content })) }); setMessages((current) => [...current, { role: "assistant", content: response.content }]); }
+    catch (error) { setMessages((current) => [...current, { role: "assistant", content: error instanceof Error ? error.message : "This request did not finish. Your conversation remains here." }]); }
+    finally { setBusy(false); requestRef.current = ""; setActivity(""); }
   };
-
-  const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); }
-  };
-
-  return (
-    <aside className="copilot">
-      <div className="copilot-header"><div className="copilot-symbol">Ø<span /></div><div><p>ZERO ONE ASSISTANT</p><h3>Zero</h3></div><span className={`copilot-state ${ready ? "ready" : "setup"}`}>{ready ? "READY" : localChecking ? "CHECK" : "SETUP"}</span></div>
-      <div className="copilot-context"><span>{providerLabel.toUpperCase()}</span><strong>{activeAssistantModel || LOCAL_OPENZERO_MODEL}</strong><button type="button" className="chat-clear" onClick={clearChat} title="Clear conversation (Ctrl+L)" aria-label="Clear conversation">Clear</button></div>
-      <div className="chat-stream" ref={streamRef}>
-        {messages.map((message, index) => <div key={index} className={`chat-message ${message.role}`}><span>{message.role === "assistant" ? "Ø" : "YOU"}</span><p>{message.content}</p></div>)}
-        {busy && <div className="thinking"><i /><i /><i /></div>}
-      </div>
-      {!ready && (
-        <div className="assistant-empty">
-          <strong>{localSelected ? (storeManaged ? "Optional assistant" : "One-time local model") : "One quick setup"}</strong>
-          <span>
-            {localSelected
-              ? storeManaged
-                ? "Local model installation is not included in the Microsoft Store edition. ZERO ONE's command centre, workspaces, Browser Pilot and ZSEC remain ready; choose an optional cloud provider in Settings only if you want quick chat."
-                : "Download the private OpenZero local model once. No account, token, or cloud key is required."
-              : `${providerLabel} is selected. Add its key once to start chatting here.`}
-          </span>
-          {localSelected && !storeManaged ? (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button className="token-prompt" disabled={pulling} onClick={pullLocalModel}>
-                <Icon name="shield" size={16} /> {pulling ? (pullProgress?.percent != null ? `Downloading ${pullProgress.percent}%` : "Downloading…") : "Download selected OpenZero model"}
-              </button>
-              <button className="token-prompt" onClick={() => localOpenZeroApi().openOllamaDownload?.()}>Get Ollama ↗</button>
-              <button className="token-prompt" onClick={onOpenSettings}>Settings</button>
-            </div>
-          ) : (
-            <button className="token-prompt" onClick={onOpenSettings}><Icon name="shield" size={16} /> Set up Assistant</button>
-          )}
-        </div>
-      )}
-      <div className="copilot-report"><button type="button" onClick={() => window.zeroOne.openExternal("https://talktoai.org/report-ai/")}>Report AI output</button><span>Opens privacy-aware support guidance</span></div>
-      <div className="chat-compose"><textarea disabled={!ready} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={keyDown} placeholder={ready ? `Ask ${providerLabel}…` : storeManaged && localSelected ? "Optional assistant is not configured" : "Install the local model above — no keys needed"} rows={2} /><button onClick={send} disabled={busy || !input.trim() || !ready} aria-label="Send"><Icon name="send" size={18} /></button><small>{ready ? "Enter to send · Shift+Enter newline · Ctrl+L clear · Ctrl+J toggle" : storeManaged && localSelected ? "Core ZERO ONE features do not require an AI model" : "OpenZero Local is the zero-config private default"}</small></div>
-    </aside>
-  );
+  const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "l") { event.preventDefault(); clearChat(); } else if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } };
+  return <aside className="copilot">
+    <div className="copilot-header"><div className="copilot-symbol">Ø<span /></div><div><p>ZERO ONE ASSISTANT</p><h3>Zero</h3></div><span className={`copilot-state ${ready ? "ready" : "setup"}`}>{ready ? "READY" : localChecking ? "CHECK" : "SETUP"}</span></div>
+    <div className="copilot-context"><span>{providerLabel.toUpperCase()}</span><strong>{activeAssistantModel || LOCAL_OPENZERO_MODEL}</strong><button type="button" className="chat-clear" disabled={busy} onClick={clearChat} title="Clear conversation (Ctrl+L)" aria-label="Clear conversation">Clear</button></div>
+    <div className="chat-stream" ref={streamRef}>{messages.map((message, index) => <div key={index} className={`chat-message ${message.role}`}><span>{message.role === "assistant" ? "Ø" : "YOU"}</span><p>{message.content}</p></div>)}{busy && <div className="thinking" role="status"><p>{activity} · {elapsed}s{localSelected ? " · CPU generation can take several minutes" : ""}</p></div>}</div>
+    {!ready && <div className="assistant-empty">{localSelected && !legacyOllama ? <ManagedLocalSetup compact onReady={() => { void window.zeroOne.loadSettings().then(onSettingsSaved); }} /> : <><strong>Set up Assistant</strong><span>{legacyOllama ? "Your advanced Ollama runtime is not ready. Start it, or select Built-in CPU AI in Settings." : `${providerLabel} is selected. Add its private key in the API Vault or configure your server.`}</span><button className="token-prompt" onClick={onOpenSettings}>Set up Assistant</button></>}</div>}
+    <div className="copilot-report"><button type="button" onClick={() => window.zeroOne.openExternal("https://talktoai.org/report-ai/")}>Report AI output</button><span>Opens privacy-aware support guidance</span></div>
+    <div className="chat-compose"><textarea disabled={!ready || busy} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={keyDown} placeholder={ready ? `Ask ${providerLabel}…` : "Set up built-in CPU AI or select an API profile"} rows={2} />{busy ? <button onClick={() => void stop()} aria-label="Stop Assistant request">Stop · Esc</button> : <button onClick={send} disabled={!input.trim() || !ready} aria-label="Send"><Icon name="send" size={18} /></button>}<small>{ready ? "Enter to send · Shift+Enter newline · Ctrl+L clear · Ctrl+J toggle" : "Core ZERO ONE features do not require an AI model"}</small></div>
+  </aside>;
 }
-
 function CommandPalette({ onClose, onNavigate }: { onClose: () => void; onNavigate: (view: View) => void }) {
   const [query, setQuery] = useState("");
   const paletteRef = useRef<HTMLDivElement>(null);
@@ -919,20 +836,20 @@ function CommandPalette({ onClose, onNavigate }: { onClose: () => void; onNaviga
     </div>
   );}
 
-function Welcome({ storeManaged, onFinish, onSetup }: { storeManaged: boolean; onFinish: () => void; onSetup: () => void }) {
+function Welcome({ onFinish, onSetup }: { storeManaged: boolean; onFinish: () => void; onSetup: () => void }) {
   return <div className="welcome-backdrop"><section className="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-    <span className="welcome-mark">Ø</span><p>WELCOME TO ZERO ONE</p><h1 id="welcome-title">Your workspaces, in one calm desktop.</h1>
+    <span className="welcome-mark">Ø</span><p>WELCOME TO ZERO ONE</p><h1 id="welcome-title">Your AI. On your computer.</h1>
     <div className="welcome-points">
-      <article><strong>1. Assistant setup</strong><span>{storeManaged ? "Core ZERO ONE features work without an AI model. The Store edition does not download local AI models; optional cloud chat can be configured in Settings." : "Private chat uses OpenZero Local + Ollama on this PC. Download the model once if prompted — no cloud key."}</span></article>
+      <article><strong>1. Assistant setup</strong><span>Set up the built-in CPU AI: ZERO ONE downloads the published OpenZero Gemma4 E2B model and configures it for you. No API key, GPU or separate runtime installation is needed.</span></article>
+      <article><strong>One-time download · about 3.4 GB</strong><span>Allow at least 8 GB RAM and sufficient free disk space. Review the model terms before the download begins. Your questions stay on this computer in local mode; retrieving weights contacts the publisher on Hugging Face.</span></article>
       <article><strong>2. Write privately with ZNotes</strong><span>ZNotes encrypts your notes on this device. No hosted notes account or automatic cloud sync is required.</span></article>
-      <article><strong>Work with ZeroThink</strong><span>Chat with Zero, keep conversations and source material on this device, use the original Zero mode and research passes, or choose a project for the native file-and-command agent. Configure your model once.</span></article>
-      <article><strong>3. Browser Pilot is built in</strong><span>Grant one isolated tab to OpenZero, with secret-field blocking, approval pauses, a 12-step limit and an immediate stop control.</span></article>
-      <article><strong>4. ZSEC Shield is local</strong><span>On-demand folder scanning stays on this computer. Server ZSEC handles Linux security updates separately.</span></article>
+      <article><strong>Work with ZeroThink</strong><span>Keep conversations and evidence, reopen saved research projects, or let the native Agent inspect and edit a project with reviewable file and command actions.</span></article>
+      <article><strong>3. Browser Pilot is built in</strong><span>Grant one isolated tab with secret-field blocking, approval pauses, a 12-step limit and an immediate stop control.</span></article>
+      <article><strong>4. ZSEC Shield is local</strong><span>On-demand folder scanning stays on this computer. Core ZERO ONE features work without an AI model.</span></article>
     </div>
-    <div className="welcome-actions"><button className="secondary-action" onClick={onSetup}>Review setup</button><button className="primary-action" onClick={onFinish}>Start using ZERO ONE</button></div>
+    <div className="welcome-actions"><button className="secondary-action" onClick={onFinish}>Continue without a model</button><button className="primary-action" onClick={onSetup}>Set up my CPU AI</button></div>
   </section></div>;
 }
-
 function isValidView(value: string | undefined): value is View {
   if (!value) return false;
   if (value === "home" || value === "notes" || value === "zerothink" || value === "shield" || value === "agents" || value === "pilot" || value === "settings") return true;
@@ -941,6 +858,9 @@ function isValidView(value: string | undefined): value is View {
 
 export default function App() {
   const [view, setView] = useState<View>("home");
+  const [autoSetupRequested, setAutoSetupRequested] = useState(false);
+  const [zeroThinkNavigationNonce, setZeroThinkNavigationNonce] = useState(0);
+  const [requestedZeroThinkTab, setRequestedZeroThinkTab] = useState<"chat" | "research" | "agent">("chat");
   const [settings, setSettings] = useState<ZeroOneSettings | null>(null);
   const [probes, setProbes] = useState<ServiceProbe[]>([]);
   const [system, setSystem] = useState<SystemSnapshot | null>(null);
@@ -953,8 +873,7 @@ export default function App() {
   const [mountedServiceIds, setMountedServiceIds] = useState<ServiceId[]>([]);
   const [appUpdate, setAppUpdate] = useState<AppUpdateInfo | null>(null);
   const [appVersion, setAppVersion] = useState("");
-  // Hide Store-incompatible setup during startup until the main process proves
-  // this is a direct build. This avoids briefly advertising model downloads.
+  // Distribution still governs updates and advanced external runtime integrations.
   const [storeManaged, setStoreManaged] = useState(import.meta.env.PROD);
   const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState("");
   const searchButtonRef = useRef<HTMLButtonElement>(null);
@@ -1084,27 +1003,27 @@ export default function App() {
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <Sidebar view={view} mountedServiceIds={renderedServiceIds} version={appVersion} onNavigate={(next) => navigate(next)} />
       <main className="main-stage">
-        <Topbar view={view} probes={probes} system={system} zoom={zoom} copilotOpen={copilotOpen} onZoom={updateZoom} onToggleCopilot={() => setCopilotOpen((value) => !value)} onRefresh={refresh} onSearch={() => setPalette(true)} searchRef={searchButtonRef} />
+        <Topbar view={view} settings={settings} probes={probes} system={system} zoom={zoom} copilotOpen={copilotOpen} onZoom={updateZoom} onToggleCopilot={() => setCopilotOpen((value) => !value)} onRefresh={refresh} onSearch={() => setPalette(true)} searchRef={searchButtonRef} />
         {appUpdate?.updateAvailable && appUpdate.status === "available" && appUpdate.latestVersion !== dismissedUpdateVersion && <UpdateBanner update={appUpdate} onDismiss={() => setDismissedUpdateVersion(appUpdate.latestVersion)} />}
         <div className="content-frame" id="main-content">
           {view === "home" && <Dashboard settings={settings} probes={probes} system={system} zsec={zsec} onOpen={(id) => navigate(`service:${id}`)} onOpenShield={() => navigate("shield")} onOpenNotes={() => navigate("notes")} onOpenZeroThink={() => navigate("zerothink")} />}
           {view === "shield" && <ZsecView snapshot={zsec} onRefresh={refresh} />}
-          {view === "agents" && <AgentLattice settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onOpenZero={() => navigate("service:openzero")} />}
+          {view === "agents" && <AgentLattice settings={settings} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onOpenZero={() => { setRequestedZeroThinkTab("agent"); setZeroThinkNavigationNonce((value) => value + 1); navigate("zerothink"); }} />}
           {view === "pilot" && <BrowserPilotWorkspace settings={settings} />}
           <div hidden={view !== "notes"} inert={view !== "notes"} aria-hidden={view !== "notes"}><NotesWorkspace active={view === "notes"} /></div>
           <div hidden={view !== "zerothink"} inert={view !== "zerothink"} aria-hidden={view !== "zerothink"}>
-            <ZeroThinkWorkspace settings={settings} storeManaged={storeManaged} onSettings={() => navigate("settings")} onSettingsSaved={setSettings} />
+            <ZeroThinkWorkspace settings={settings} storeManaged={storeManaged} requestedTab={requestedZeroThinkTab} requestedTabNonce={zeroThinkNavigationNonce} active={view === "zerothink"} onSettings={() => navigate("settings")} onSettingsSaved={setSettings} />
           </div>
           {view === "settings" && <SettingsView settings={settings} appVersion={appVersion} storeManaged={storeManaged} openZeroProbe={probes.find((probe) => probe.name === "openzero")} onSaved={(saved) => { setSettings(saved); refresh(); }} />}
           {renderedServiceIds.map((serviceId) => {
             const service = serviceById(serviceId);
-            return <ServiceWorkspace key={serviceId} service={service} settings={settings} probe={probes.find((probe) => probe.name === serviceId)} active={serviceId === activeService?.id} />;
+            return <ServiceWorkspace key={serviceId} service={service} settings={settings} probe={probes.find((probe) => probe.name === serviceId)} active={serviceId === activeService?.id} autoSetupRequested={autoSetupRequested} onReady={() => { setAutoSetupRequested(false); void window.zeroOne.loadSettings().then(setSettings); }} onZeroThink={(tab) => { setRequestedZeroThinkTab(tab); setZeroThinkNavigationNonce((value) => value + 1); navigate("zerothink"); }} onPilot={() => navigate("pilot")} />;
           })}
         </div>
       </main>
-      <Copilot settings={settings} storeManaged={storeManaged} onOpenSettings={() => navigate("settings")} />
+      <Copilot settings={settings} storeManaged={storeManaged} onOpenSettings={() => navigate("settings")} onSettingsSaved={setSettings} />
       {palette && <CommandPalette onClose={closePalette} onNavigate={navigate} />}
-      {!settings.onboardingCompleted && <Welcome storeManaged={storeManaged} onFinish={() => completeOnboarding()} onSetup={() => completeOnboarding("settings")} />}
+      {!settings.onboardingCompleted && <Welcome storeManaged={storeManaged} onFinish={() => completeOnboarding()} onSetup={() => { void window.zeroOne.saveSettings({ ...settings, onboardingCompleted: true, assistantProvider: "openzero", openZeroAssistantMode: "local", localRuntimeMode: "managed" }).then((saved) => { setSettings(saved); setAutoSetupRequested(true); navigate("service:openzero"); }); }} />}
     </div>
   );
 }

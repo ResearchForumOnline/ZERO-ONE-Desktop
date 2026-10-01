@@ -78,6 +78,11 @@ jobs:
         shell: pwsh
         run: ./scripts/stage-zsec-vendor.ps1
       - run: npm run dist:win
+      - name: Smoke bundled Windows CPU engine without model data
+        shell: pwsh
+        run: |
+          & "release/win-unpacked/resources/local-runtime/llama-server.exe" --version
+          if ($LASTEXITCODE -ne 0) { throw "Bundled CPU engine could not execute" }
       - name: Smoke packaged Windows application
         shell: pwsh
         run: ./scripts/smoke-packaged-windows.ps1 -AppPath "release/win-unpacked/ZERO ONE.exe"
@@ -118,6 +123,8 @@ jobs:
       - run: npm ci
       - run: npm run stage:zsec:native
       - run: npm run dist:mac
+      - name: Smoke bundled macOS CPU engine without model data
+        run: '"release/mac-arm64/ZERO ONE.app/Contents/Resources/local-runtime/llama-server" --version'
       - name: Verify bundled macOS ZSEC runtime
         run: |
           test "$("release/mac-arm64/ZERO ONE.app/Contents/Resources/zsec-shield/zsec-shield" --version)" = "zsec-shield 0.1.2"
@@ -143,6 +150,8 @@ jobs:
       - run: npm ci
       - run: npm run stage:zsec:native
       - run: npm run dist:linux
+      - name: Smoke bundled Linux CPU engine without model data
+        run: release/linux-unpacked/resources/local-runtime/llama-server --version
       - name: Verify bundled Linux ZSEC runtime
         run: |
           test "$(release/linux-unpacked/resources/zsec-shield/zsec-shield --version)" = "zsec-shield 0.1.2"
@@ -171,7 +180,7 @@ jobs:
       - name: Generate release checksums
         working-directory: release-assets
         run: sha256sum * > SHA256SUMS.txt
-      - name: Publish installable preview
+      - name: Publish installable release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

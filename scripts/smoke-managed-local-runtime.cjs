@@ -1,0 +1,20 @@
+'use strict';
+const path = require('node:path');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const { spawn } = require('node:child_process');
+const { createManagedLocalRuntime, hashFile, manifest } = require('../electron/managed-local-runtime.cjs');
+const started = Date.now(); let unauthenticatedStatus, keyAuthenticated = false, backend = [], commandFlags;
+const runtimeDir = path.resolve(process.argv[2] || 'vendor/local-runtime');
+const dataDir = path.resolve(process.argv[3] || 'release-audit/local-runtime/models');
+const receiptFile = path.resolve(process.argv[4] || 'release-audit/local-runtime/native-inference.json');
+const manager = createManagedLocalRuntime({ runtimeDir, dataDir, spawnImpl: (exe, args, opts) => { commandFlags = args.filter((_, i) => args[i - 1] !== '-m'); const port = args[args.indexOf('--port') + 1]; const token = opts.env.LLAMA_API_KEY; const c = spawn(exe, args, { ...opts, stdio: ['ignore', 'ignore', 'pipe'] }); c.stderr.on('data', b => { for (const line of b.toString().split('\n')) if (/CPU|sandybridge|AVX/.test(line) && backend.length < 12) backend.push(line.replaceAll(token, '[redacted]').slice(0, 300)); }); manager._probe = async () => { unauthenticatedStatus = (await fetch(`http://127.0.0.1:${port}/v1/models`)).status; keyAuthenticated = (await fetch(`http://127.0.0.1:${port}/v1/models`, { headers: { Authorization: `Bearer ${token}` } })).ok; }; return c; } });
+(async () => { try {
+  await manager.ensureReady(); const loadMs = Date.now() - started; await manager._probe();
+  if (unauthenticatedStatus !== 401 || !keyAuthenticated) throw new Error('Loopback authentication check failed');
+  const performance = process.argv.includes('--performance');
+  const inferenceStart = Date.now(); const result = await manager.complete({ messages: [{ role: 'user', content: performance ? 'List eight short numbered practical steps to debug a desktop app.' : 'Reply in one short sentence: what is 2 plus 2?' }], maxTokens: performance ? 128 : 32 });
+  if (performance ? result.text.length < 20 : !/4|four/i.test(result.text)) throw new Error('CPU inference acceptance failed');
+  const receipt = { schema: 1, runtimeVersion: manifest.runtimeVersion, runtimePlatform: `${process.platform}-${process.arch}`, cpu: os.cpus()[0].model, gpuLayers: 0, ramBytes: os.totalmem(), modelId: manifest.model.id, modelRevision: manifest.model.revision, modelBytes: (await fs.stat(manager.modelPath)).size, modelSha256: await hashFile(manager.modelPath), loadMs, inferenceMs: Date.now() - inferenceStart, result, unauthenticatedStatus, authenticatedModels: keyAuthenticated, backend, commandFlags, at: new Date().toISOString(), externalInferenceRequests: 0 };
+  await fs.mkdir(path.dirname(receiptFile), { recursive: true }); await fs.writeFile(receiptFile, JSON.stringify(receipt, null, 2) + '\n'); console.log(JSON.stringify(receipt, null, 2));
+} finally { manager.stop(); } })().catch(e => { console.error(e.message); process.exitCode = 1; });

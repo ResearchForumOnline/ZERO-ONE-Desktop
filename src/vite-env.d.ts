@@ -7,6 +7,9 @@ interface ZeroOneSettings {
   openZeroServerModel: string;
   openZeroAssistantMode: "local" | "server";
   localResourceProfile: "low-memory" | "balanced" | "performance";
+  localRuntimeMode?: "managed" | "ollama";
+  managedLocalConfigured?: boolean;
+  activeChatProfile?: { id: string; name: string; provider: string; model: string; hasKey: boolean } | null;
   mediaEnabled: boolean;
   launchAtLogin: boolean;
   closeToTray: boolean;
@@ -115,6 +118,13 @@ interface BrowserPilotState {
 
 interface Window {
   zeroOne: {
+    getManagedLocalStatus(): Promise<ManagedLocalStatus>;
+    setupManagedLocal(input?: { acceptTerms: boolean }): Promise<ManagedLocalStatus>;
+    cancelManagedLocalSetup(): Promise<{ cancelled: boolean }>;
+    stopManagedLocal(): Promise<ManagedLocalStatus>;
+    onManagedLocalStatus(callback: (status: ManagedLocalStatus) => void): () => void;
+    onAssistantProgress(callback: (event: { stage: string; message: string }) => void): () => void;
+    cancelAssistantChat(): Promise<{ cancelled: boolean }>;
     getAppInfo(): Promise<{ name: string; version: string; platform: string; packaged: boolean; distribution: "direct" | "microsoft-store" }>;
     checkForAppUpdate(): Promise<AppUpdateInfo>;
     installAppUpdate(): Promise<{ status: string; version?: string; message: string }>;
@@ -178,7 +188,7 @@ interface Window {
     scanWithZsec(): Promise<ZsecScanResult>;
     getZmathSecurityStatus(): Promise<ZmathSecurityStatus>;
     openDiskEncryptionSettings(): Promise<boolean>;
-  } & ZeroThinkVaultAPI & ZeroThinkQuantumBridge & ZeroThinkIBMBridge & ZeroThinkTemplateAPI;
+  } & ZeroThinkVaultAPI & ZeroThinkQuantumBridge & ZeroThinkIBMBridge & ZeroThinkTemplateAPI & ZeroThinkProjectsAPI;
 }
 
 interface ZeroThinkProcess { id: string; label: string; description: string; stages: string[]; checks: string[] }
