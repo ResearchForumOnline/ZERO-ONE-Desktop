@@ -71,5 +71,75 @@
     },
     "verified": "name/version/main/dependencies match source; builder removes development metadata"
   },
-  "acceptance_limits": "Native synthetic OS storage and packaged PDF checks passed. No real account or paid provider calls; not installed Store-signed UI acceptance. Store unsigned upload package requires Microsoft certification and signing."
+  "acceptance_limits": "Native synthetic OS storage and packaged PDF checks passed. No real account or paid provider calls; not installed Store-signed UI acceptance. Store unsigned upload package requires Microsoft certification and signing.",
+  "source_sha": "80883fb3f817bb6a8fe94249ec172cb6c9e065b5",
+  "ci_source_sha": "eb6c1e0b56073f87710ad7109be4211d2f1297b2",
+  "public_release": {
+    "assets": [
+      {
+        "browser_download_url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.2.0/SHA256SUMS.txt",
+        "digest": "sha256:ab69409815276afc263e5135d81aafc455f54f87710822ee7b38c60cb44f96d6",
+        "name": "SHA256SUMS.txt",
+        "size": 585,
+        "state": "uploaded"
+      },
+      {
+        "browser_download_url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.2.0/ZERO-ONE-8.2.0-linux-amd64.deb",
+        "digest": "sha256:ce10a72b97fff426ec469ee230b70cc6be98cb9d1f75cf19b52978ae02ef91a8",
+        "name": "ZERO-ONE-8.2.0-linux-amd64.deb",
+        "size": 148979184,
+        "state": "uploaded"
+      },
+      {
+        "browser_download_url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.2.0/ZERO-ONE-8.2.0-linux-x86_64.AppImage",
+        "digest": "sha256:dc5f6ec102b5e7607905205052413a33fee03f33e24632d9b2633c29dfa95ab2",
+        "name": "ZERO-ONE-8.2.0-linux-x86_64.AppImage",
+        "size": 147096806,
+        "state": "uploaded"
+      },
+      {
+        "browser_download_url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.2.0/ZERO-ONE-8.2.0-mac-arm64.dmg",
+        "digest": "sha256:1b00734d9b3cb450386d1e1d414e606808d88326a5fab5d0cded00e3b8baa893",
+        "name": "ZERO-ONE-8.2.0-mac-arm64.dmg",
+        "size": 142866209,
+        "state": "uploaded"
+      },
+      {
+        "browser_download_url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.2.0/ZERO-ONE-8.2.0-mac-arm64.zip",
+        "digest": "sha256:1d9158c590a30d748e24f28a8815a3ecce0c6c2adeac6bc236c783daa233cfa3",
+        "name": "ZERO-ONE-8.2.0-mac-arm64.zip",
+        "size": 156052968,
+        "state": "uploaded"
+      },
+      {
+        "browser_download_url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.2.0/ZERO-ONE-8.2.0-win-x64.exe",
+        "digest": "sha256:cb34275d25007cd51641b57d1c076609a708141751632f923b60794ef7270c58",
+        "name": "ZERO-ONE-8.2.0-win-x64.exe",
+        "size": 131477419,
+        "state": "uploaded"
+      },
+      {
+        "browser_download_url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.2.0/ZERO-ONE-8.2.0-win-x64.exe.blockmap",
+        "digest": "sha256:07c3bed88c0ce174ab83e74fefaf571e3224ce497124c7218e97e084a8f5d3d0",
+        "name": "ZERO-ONE-8.2.0-win-x64.exe.blockmap",
+        "size": 134848,
+        "state": "uploaded"
+      }
+    ],
+    "draft": false,
+    "html_url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v8.2.0",
+    "id": 400566808,
+    "prerelease": false,
+    "published_at": "2026-10-01T01:09:35Z",
+    "tag_name": "v8.2.0"
+  },
+  "installer_workflow": {
+    "id": 36798358315,
+    "url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/actions/runs/36798358315",
+    "conclusion": "success",
+    "passed_jobs": 6,
+    "automatic_publish": "skipped for main dispatch; manually published verified artifacts",
+    "runtime_matches_feature_tag": true,
+    "all_asset_digests_sizes_and_manifest_verified": true
+  }
 }

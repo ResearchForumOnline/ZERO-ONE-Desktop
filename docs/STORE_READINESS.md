@@ -2,7 +2,7 @@
 
 ## ZERO ONE 8.2.0 source and public-preview gate
 
-Updated 1 October 2026. Source version **8.2.0** is the current candidate. Partner Center showed the preceding **Submission 4 available in Microsoft Store** on this date. That 8.1 publication state is separate from 8.2 packaging, upload, certification, delivery and installation. The 8.1 release receipt in `docs/qa/RELEASE_8.1.0.md` remains historical evidence for 8.1; source edits alone do not update installed apps.
+Updated 1 October 2026. Source version **8.2.0** and its Windows/macOS/Linux GitHub installers are published. Partner Center confirmed **Submission 5 in certification**, package **8.2.0.0**, with publication scheduled as soon as certification passes. The preceding **Submission 4 remains available in Microsoft Store** until the update publishes. The current [release receipt](qa/RELEASE_8.2.0.md) records package hashes, corrected cross-platform CI, public assets, saved listing and exact privacy URL. Store certification, public Store delivery and installed state remain separate; no installed-version claim is made.
 
 ## Candidate feature scope
 
@@ -23,3 +23,10 @@ Hosted ZMail, CallChat, DNA, admin/payment routes, private databases, owner gran
 Run `npm run check`, `npm run verify:zsec` and `npm run dist:store:win`. The immutable pinned ZSEC manifest and native hashes must pass before packaging. Use the identity in `build/store-identity.json` and product **9PMPR7PTW025**. Upload the exact candidate AppX, verify server-side package validation, use `store/REVIEWER_NOTES_8.2.0.md`, reconcile Store descriptions/privacy with the candidate and record the final submission state. Successful local tests or upload do not establish certification or publication.
 
 Public source is Apache-2.0. Historical EULA/source-policy drafts do not impose different unpublished licence terms. The public privacy URL is `https://researchforumonline.github.io/OpenZero/zero-one-privacy.html`; a public legal notice is separate from inference hosting.
+
+## Returned delivery evidence
+
+- Package validation: `ZERO-ONE-8.2.0-win-x64.appx`, 197,017,209 bytes, SHA-256 `7a6783e2959a5a05c2b4c952e6123b0559772b066d148e87fca95a7bbda073f6`, validated by Partner Center and saved in Submission 5.
+- Saved English description, release notes, short description and nine product features cover Vault, Quantum, Research Workbench and PDF support. The 5,049-character reviewer instructions were saved and confirmed after reload; exact text is in [STORE_REVIEWER_8.2.0.txt](qa/STORE_REVIEWER_8.2.0.txt).
+- The configured privacy URL exactly matches the deployed public 8.2 policy and returned HTTP 200.
+- Microsoft status: submission and pre-processing completed; certification in progress; publishing not started. Publish immediately after approval remains selected. See [Store receipt](qa/STORE_SUBMISSION_8.2.0.json).
