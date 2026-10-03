@@ -152,7 +152,7 @@ test("the two-pass UI label matches the real draft and revision stages", async (
   const result = await main.call("zerothink:run", { ...request(), maxPasses: 2, useModel: true });
   assert.deepEqual(Array.from(result.steps, (entry) => entry.id), ["retrieve", "draft", "revise"]);
   const workspace = fs.readFileSync(path.join(__dirname, "..", "src", "ZeroThinkWorkspace.tsx"), "utf8");
-  assert.ok(workspace.includes('<option value={2}>2 · Draft + revision</option>'));
+  assert.ok(workspace.includes('<option value={2}>Reviewed · draft and revision</option>'));
   assert.ok(!workspace.includes('<option value={2}>2 · Draft + critique</option>'));
 });
 

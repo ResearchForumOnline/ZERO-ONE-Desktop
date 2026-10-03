@@ -1,0 +1,20 @@
+{
+  "version": "8.4.0",
+  "productionFilesMatched": 39,
+  "files": [
+    {
+      "file": "release/ZERO-ONE-8.4.0-win-x64.exe",
+      "bytes": 145945067,
+      "sha256": "72cf91b6f429f4e117a1ffbdcc3f78c548ff9bf7cb315a82a32cde997d935ab6"
+    },
+    {
+      "file": "release/store/ZERO-ONE-8.4.0-win-x64.appx",
+      "bytes": 217163413,
+      "sha256": "85ed808fb5d26ff203fb65f2fb8f8ab5ace2046286fc114d0809f7cdbd77987c"
+    }
+  ],
+  "appxEntriesChecked": 213,
+  "appxVersion": "8.4.0.0",
+  "appxIdentity": "talktoai.ZEROONEDesktop",
+  "appxAsarMatches": true
+}

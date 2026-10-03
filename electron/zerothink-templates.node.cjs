@@ -14,18 +14,18 @@ async function setup(t) { const directory = await fs.mkdtemp(path.join(os.tmpdir
 const custom = (name = "SYNTHETIC_PRIVATE_WORKFLOW") => ({ name, description: "Synthetic workflow description", kind: "custom", processId: "custom", stages: ["Inspect selected sources", "Review missing evidence"], requiredSources: ["Selected notes"], validationChecks: ["Do not invent citations"] });
 
 test("built-in paper, original review, scenario and custom workflows have public stages", () => {
-  assert.equal(BUILTIN_TEMPLATES.length, 10); assert.ok(BUILTIN_TEMPLATES.some((item) => item.kind === "paper")); assert.ok(BUILTIN_TEMPLATES.some((item) => item.kind === "scenario"));
+  assert.equal(BUILTIN_TEMPLATES.length, 13); assert.ok(BUILTIN_TEMPLATES.some((item) => item.kind === "paper")); assert.ok(BUILTIN_TEMPLATES.some((item) => item.kind === "scenario"));
   assert.ok(BUILTIN_TEMPLATES.every((item) => item.builtIn && item.stages.length && item.validationChecks.length));
   assert.throws(() => normalizeTemplate({ ...custom(), id: "builtin-paper" }), /custom template identifiers/);
 });
 test("custom templates encrypt on disk and survive reopening", async (t) => {
   const { store, options, filePath } = await setup(t); const saved = await store.save(custom()); assert.equal(saved.builtIn, false);
   const onDisk = await fs.readFile(filePath, "utf8"); assert.doesNotMatch(onDisk, /SYNTHETIC_PRIVATE_WORKFLOW|Synthetic workflow description|Inspect selected sources/);
-  const reopened = createTemplateStore(options); const list = await reopened.list(); assert.equal(list.length, 11); assert.deepEqual(list.find((item) => item.id === saved.id), saved);
+  const reopened = createTemplateStore(options); const list = await reopened.list(); assert.equal(list.length, 14); assert.deepEqual(list.find((item) => item.id === saved.id), saved);
 });
 test("editing and deleting custom workflows retain built-ins", async (t) => {
   const { store } = await setup(t); const saved = await store.save(custom()); const edited = await store.save({ ...saved, name: "Edited synthetic template" }); assert.equal(edited.id, saved.id);
-  assert.equal((await store.list()).find((item) => item.id === saved.id).name, "Edited synthetic template"); assert.equal(await store.delete(saved.id), true); assert.equal(await store.delete(saved.id), false); assert.equal((await store.list()).length, 10);
+  assert.equal((await store.list()).find((item) => item.id === saved.id).name, "Edited synthetic template"); assert.equal(await store.delete(saved.id), true); assert.equal(await store.delete(saved.id), false); assert.equal((await store.list()).length, 13);
   await assert.rejects(store.delete("builtin-paper"), /cannot be deleted/); await assert.rejects(store.save({ ...custom(), builtIn: true }), /cannot be overwritten/);
 });
 test("concurrent saves serialize and do not lose custom workflows", async (t) => { const { store } = await setup(t); await Promise.all(Array.from({ length: 8 }, (_, index) => store.save(custom(`Synthetic workflow ${index}`)))); const list = await store.list(); assert.equal(list.filter((item) => !item.builtIn).length, 8); });
@@ -44,7 +44,7 @@ test("invalid encrypted template schema is preserved and not replaced", async (t
   await assert.rejects(store.list(), /identifiers/); await assert.rejects(store.save(custom())); assert.equal(await fs.readFile(filePath, "utf8"), original);
 });
 test("validation failures do not break the write queue", async (t) => {
-  const { store } = await setup(t); await assert.rejects(store.save({ ...custom(), stages: [] }), /at least one/); await store.save(custom()); assert.equal((await store.list()).length, 11);
+  const { store } = await setup(t); await assert.rejects(store.save({ ...custom(), stages: [] }), /at least one/); await store.save(custom()); assert.equal((await store.list()).length, 14);
 });
 test("custom template counts and field sizes are bounded", async (t) => {
   const { store } = await setup(t); for (let index = 0; index < MAX_CUSTOM; index++) await store.save(custom(`Synthetic ${index}`)); await assert.rejects(store.save(custom("Extra")), /32 custom/);

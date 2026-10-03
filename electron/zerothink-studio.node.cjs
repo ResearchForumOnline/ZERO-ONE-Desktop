@@ -9,6 +9,56 @@ const { runStudio, normalizeConversation, briefAndAnswer } = require("./zerothin
 const { createStudioStore } = require("./zerothink-studio-store.cjs");
 const { normalizeResearchRequest } = require("./zerothink-desktop.cjs");
 const input = () => ({ question: "Explain the synthetic comet fixture", mode: "chat", maxPasses: 1, tokenBudget: 1024, documents: [] });
+const { buildClaimLedger, proseUnits, ledgerMarkdown } = require("./zerothink-claim-ledger.cjs");
+
+test("claim review ties prose to actual excerpt fingerprints without claiming truth", () => {
+  const sources = [{ sourceId: "S1", chunkId: "S1.1", title: "Comet", excerpt: "The comet measured 12.5 units and 50%." }];
+  const report = buildClaimLedger("The comet measured 12.5 units [S1]. The comet reached 99 units [S1]. Another finding is described [S9]. This uncited statement needs context.", sources);
+  assert.equal(report.summary.reviewed, 4); assert.equal(report.summary.numericReview, 1);
+  assert.deepEqual(report.claims[1].unmatchedNumbers, ["99"]); assert.equal(report.claims[0].status, "reference-present");
+  assert.equal(report.summary.unknownReferences, 1); assert.equal(report.summary.uncited, 2);
+  assert.match(report.receipts[0].excerptSha256, /^[a-f0-9]{64}$/);
+  assert.notEqual(report.receipts[0].excerptSha256, buildClaimLedger("", [{ ...sources[0], excerpt: "Changed evidence" }]).receipts[0].excerptSha256);
+  assert.match(report.limitation, /do not establish truth/);
+});
+
+test("claim review excludes code, brief, headings and question text and bounds malicious output", () => {
+  assert.deepEqual(proseUnits("# Long heading should not be a claim\n```js\nconsole.log('a synthetic code claim [S8]');\n```\n<reasoning_brief>Private synthetic editorial brief</reasoning_brief>\nWhat should be checked in this question?"), []);
+  const many = Array.from({ length: 1000 }, () => "A synthetic prose sentence without citation.").join("\n");
+  assert.equal(proseUnits(many).length, 80);
+});
+
+test("claim exports escape untrusted Markdown and bound rows without losing excerpt receipts", () => {
+  const sources = [{ sourceId: "S1", title: "<script>title|fixture</script>", excerpt: "A synthetic evidence fixture." }];
+  const answer = Array.from({ length: 80 }, () => "**<script>fixture|".repeat(45) + " [S1].").join("\n");
+  const exported = ledgerMarkdown(buildClaimLedger(answer, sources));
+  assert.match(exported, /additional reviewed prose units were omitted/);
+  assert.ok(exported.length < 30000); assert.doesNotMatch(exported, /(?<!\\)<script>/);
+  assert.match(exported, /excerpt SHA-256/);
+});
+
+test("research critique receives real draft findings and exports claim provenance without extra calls", async () => {
+  const requests = [];
+  const result = await runStudio({ ...input(), mode: "research", maxPasses: 3, documents: [{ title: "Synthetic comet", text: "The synthetic comet measured 12 units." }] }, { complete: async request => {
+    requests.push(request);
+    return request.stage === "draft" ? "The synthetic comet measured 99 units [S1]." : request.stage === "critique" ? "Check the unsupported number." : "The synthetic comet measured 12 units [S1].";
+  } });
+  assert.deepEqual(requests.map(item => item.stage), ["draft", "critique", "revise"]);
+  assert.match(requests[1].messages.at(-1).content, /DETERMINISTIC SOURCE CHECK/);
+  assert.match(requests[1].messages.at(-1).content, /99/);
+  assert.equal(result.claimLedger.summary.numericReview, 0);
+  assert.match(result.markdown, /Claim and provenance review/); assert.match(result.markdown, /excerpt SHA-256/);
+});
+
+test("chat revision gets selected evidence checks and standalone offline research retains provenance", async () => {
+  const documents = [{ title: "Synthetic comet", text: "The synthetic comet measured 12 units." }], seen = [];
+  const result = await runStudio({ ...input(), maxPasses: 2, documents }, { complete: async request => { seen.push(request); return request.stage === "draft" ? "The synthetic comet measured 99 units [S1]." : "The synthetic comet measured 12 units [S1]."; } });
+  assert.match(seen[1].messages.at(-1).content, /number-needs-review/);
+  assert.equal(result.metrics.passes, 2); assert.equal(result.claimLedger.summary.numericReview, 0);
+  const offline = await runStudio({ ...input(), mode: "research", documents });
+  assert.equal(offline.status, "offline"); assert.equal(offline.claimLedger.receipts.length, 1);
+  assert.match(offline.markdown, /Excerpt fingerprints/);
+});
 function fixtureStorage() {
   const key = randomBytes(32);
   return { encryptString: (text) => { const iv = randomBytes(12), cipher = createCipheriv("aes-256-gcm", key, iv); const ciphertext = Buffer.concat([cipher.update(text, "utf8"), cipher.final()]); return Buffer.concat([iv, cipher.getAuthTag(), ciphertext]); }, decryptString: (data) => { const decipher = createDecipheriv("aes-256-gcm", key, data.subarray(0, 12)); decipher.setAuthTag(data.subarray(12, 28)); return Buffer.concat([decipher.update(data.subarray(28)), decipher.final()]).toString("utf8"); } };

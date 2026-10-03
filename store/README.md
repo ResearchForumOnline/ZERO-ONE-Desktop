@@ -1,6 +1,6 @@
 # ZERO ONE Store submission pack
 
-Working-tree product version: `8.3.0`.
+Working-tree product version: `8.4.0`.
 
 **8.3 source candidate:** prepared listing and reviewer material adds bundled CPU AI setup, separately downloaded verified weights, model terms/RAM/progress/cancellation, encrypted named research projects and unified Vault routing. No 8.3 package publication, upload, certification or installed state is established by these documents. Use [8.3 release notes](RELEASE_NOTES_8.3.0.md), [8.3 reviewer notes](REVIEWER_NOTES_8.3.0.md) and [listing copy](LISTING_COPY.md). Preserve the 8.2 receipts below as historical evidence.
 

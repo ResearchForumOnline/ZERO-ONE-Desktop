@@ -1,3 +1,9 @@
+# ZERO ONE Store readiness
+
+## ZERO ONE 8.4.0 release gate
+
+June-backup recovery and simplified native ZeroThink. Source verification, publication and Store submission are tracked separately in the current release receipt. Previous receipts below are historical.
+
 # ZERO ONE Store-readiness gate
 
 ## ZERO ONE 8.3.0 release gate

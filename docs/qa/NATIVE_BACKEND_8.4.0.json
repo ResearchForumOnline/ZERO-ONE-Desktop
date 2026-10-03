@@ -1,0 +1,23 @@
+{
+  "electron": "43.7.7",
+  "engine": "1.0.0",
+  "offlineRetrieval": true,
+  "reportEncryptedOnDisk": true,
+  "encryptionVersion": 2,
+  "independentKeys": 2,
+  "authenticatedLayers": 2,
+  "custody": "os-account",
+  "decryptedReportMatches": true,
+  "reloadedNotebookMatches": true,
+  "syntheticNoteDeletion": true,
+  "researchProjectEncryptedOnDisk": true,
+  "researchProjectReopenedResultMatches": true,
+  "researchProjectPortableDiskRoundTrip": true,
+  "portableImportNewIdentity": true,
+  "portableExportOmitsCredentials": true,
+  "researchProjectEditedAndDeleted": true,
+  "interruptedProjectRecoveredWithoutResult": true,
+  "visibleWindows": 0,
+  "cloudRequests": 0,
+  "modelGenerationRequests": 0
+}
