@@ -29,7 +29,35 @@ test('tampered bundled executable never launches', async () => { const f = await
 test('bad model SHA removes partial and never launches', async () => { const f = await fixture({ fetchImpl: async () => new Response('bad') }); try { await assert.rejects(f.manager.ensureReady(), /interrupted|verification/); assert.equal(f.spawned.length, 0); } finally { await f.cleanup(); } });
 test('resume uses exact checked byte range', async () => { let range; const bytes = Buffer.from('GGUF verified test model'); const f = await fixture({ fetchImpl: async (url, opts) => { if (url.endsWith('/health')) return new Response('{}'); range = opts.headers.Range; return new Response(bytes.subarray(4), { status: 206, headers: { 'content-range': `bytes 4-${bytes.length - 1}/${bytes.length}`, 'content-length': String(bytes.length - 4) } }); } }); try { await fs.writeFile(f.manager.modelPath + '.partial', bytes.subarray(0, 4)); await f.manager.ensureReady(); assert.equal(range, 'bytes=4-'); assert.deepEqual(await fs.readFile(f.manager.modelPath), bytes); } finally { await f.cleanup(); } });
 test('unsafe redirect refuses before fetching attacker host', async () => { let count = 0; const f = await fixture({ fetchImpl: async () => { count++; return new Response(null, { status: 302, headers: { location: 'https://evil.test/a' } }); } }); try { await assert.rejects(f.manager.ensureReady(), /redirect was refused/); assert.equal(count, 1); } finally { await f.cleanup(); } });
-test('cancelled download leaves resumable partial and no child', async () => { const f = await fixture({ fetchImpl: async (_u, opts) => new Response(new ReadableStream({ start(c) { c.enqueue(Buffer.from('GGUF')); opts.signal.addEventListener('abort', () => c.error(new Error('cancelled')), { once: true }); } })) }); try { const p = f.manager.ensureReady(); setTimeout(() => f.manager.cancelSetup(), 50); await assert.rejects(p, /cancelled/); assert.equal(f.manager.status().phase, 'cancelled'); assert.equal(f.spawned.length, 0); assert.equal((await fs.stat(f.manager.modelPath + '.partial')).size, 4); } finally { await f.cleanup(); } });
+test('cancelled download leaves resumable partial and no child', async () => {
+  const bytes = Buffer.from('GGUF');
+  const f = await fixture({ fetchImpl: async (_u, opts) => new Response(new ReadableStream({ start(c) { c.enqueue(bytes); opts.signal.addEventListener('abort', () => c.error(new Error('cancelled')), { once: true }); } })) });
+  const setup = f.manager.ensureReady();
+  // Attach a handler while waiting so an early setup failure is not unhandled.
+  void setup.catch(() => {});
+  try {
+    // Cancel after the first chunk has actually reached the partial file. A
+    // fixed delay races fixture setup and filesystem writes on loaded CI hosts.
+    const deadline = Date.now() + 10000;
+    for (;;) {
+      let partial;
+      try { partial = await fs.readFile(f.manager.modelPath + '.partial'); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+      if (partial?.equals(bytes)) break;
+      assert.ok(Date.now() < deadline, 'first download chunk was not persisted before cancellation');
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    f.manager.cancelSetup();
+    await assert.rejects(setup, /cancelled/);
+    assert.equal(f.manager.status().phase, 'cancelled');
+    assert.equal(f.spawned.length, 0);
+    assert.deepEqual(await fs.readFile(f.manager.modelPath + '.partial'), bytes);
+  } finally {
+    f.manager.cancelSetup();
+    await setup.catch(() => {});
+    await f.cleanup();
+  }
+});
 test('oversized context is explicit and never silently truncated', async () => { const f = await fixture(); try { await assert.rejects(f.manager.complete({ messages: [{ role: 'user', content: 'a'.repeat(24001) }] }), /no content has been silently removed/); assert.equal(f.requests.length, 0); } finally { await f.cleanup(); } });
 test('token budget failure never invokes generation', async () => { const f = await fixture({ fetchImpl: async url => url.endsWith('/tokenize') ? new Response(JSON.stringify({ tokens: Array(8000).fill(1) })) : new Response('{}') }); try { await fs.writeFile(f.manager.modelPath, f.modelBytes); await assert.rejects(f.manager.complete({ messages: [{ role: 'user', content: 'Hi' }] }), /context is full/); } finally { await f.cleanup(); } });
 test('reset removes only owned model and partial', async () => { const f = await fixture(); try { await fs.writeFile(f.manager.modelPath, f.modelBytes); await fs.writeFile(path.join(f.dataDir, 'unrelated'), 'keep'); await f.manager.resetModel(); assert.deepEqual(await fs.readdir(f.dataDir), ['unrelated']); } finally { await f.cleanup(); } });
