@@ -1,6 +1,6 @@
 # ZERO ONE Desktop 8.4.0 reviewer notes
 
-Product 9PMPR7PTW025, AppX 8.4.0.0 x64, identity talktoai.ZEROONEDesktop. Package digest is recorded after build in the release receipt.
+Product 9PMPR7PTW025, AppX 8.4.0.0 x64, identity talktoai.ZEROONEDesktop. Package SHA-256: 85ed808fb5d26ff203fb65f2fb8f8ab5ace2046286fc114d0809f7cdbd77987c; 217,163,413 bytes.
 
 ## Account-free local review
 
@@ -25,7 +25,7 @@ Browser Pilot uses the shared adapter without mandatory server pairing. Explicit
 
 ## Performance, quantum and retention
 
-One real CPU-only i7-2600/3.40 GHz/32 GB check generated 86 tokens at 6.23 tokens/second, with 19.3-second loading and a 28.2-second request. This is a short sample, not a broad speed guarantee or packaged Store acceptance.
+Historical 8.3 CPU-only i7-2600/3.40 GHz/32 GB check generated 86 tokens at 6.23 tokens/second, with 19.3-second loading and a 28.2-second request. This is a short sample, not a broad speed guarantee or packaged Store acceptance.
 
 IonQ simulator submission needs confirmation. Hardware needs a fresh exact-job estimate and explicit possible-cost approval; review ceilings cannot cap provider charges and remote jobs may outlive Stop. IBM is read-only backend/status discovery, not hardware/Qiskit. No grant credentials/restricted results are bundled.
 
@@ -33,7 +33,7 @@ OS-backed encryption is required; Linux basic_text is refused. Exports retain re
 
 Privacy: https://researchforumonline.github.io/OpenZero/zero-one-privacy.html. The 8.3 disclosure deployment was previously verified; current 8.4 publication is checked separately. App source is Apache-2.0; engine/weights retain upstream terms. No hosted mail/calls/DNA/admin database, AGI, unrestricted control or weight rewriting is claimed.
 
-Verification: 69 UI and 247 backend tests, TypeScript/build and pinned runtime/ZSEC hashes passed for 8.4.0. Native Electron backend smoke passed with encrypted notes and saved research projects. Packaging and public delivery are pending receipt verification; prior 8.3 tests are historical. Certification and installed Store delivery are separate.
+Verification: 69 UI and 247 backend tests, TypeScript/build and pinned runtime/ZSEC hashes passed for 8.4.0. Native Electron backend smoke passed with encrypted notes and saved research projects. Packaged launch/DOM and scan integration checks passed. All 213 AppX entries passed integrity and 39 production files match source/build. Public GitHub platform delivery is pending CI; prior 8.3 CPU generation measurements are historical. Certification and installed Store delivery are separate.
 
 ## Updated native interface
 

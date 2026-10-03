@@ -30,7 +30,7 @@ Use the authenticated [latest ZERO ONE release](https://github.com/ResearchForum
 | Linux x64 | `ZERO-ONE-*-linux-x86_64.AppImage` | Make executable and open |
 | Debian/Ubuntu x64 | `ZERO-ONE-*-linux-amd64.deb` | Open with the software installer or use `sudo apt install ./ZERO-ONE-*-linux-amd64.deb` |
 
-Current source version is **8.4.0**. [Windows/macOS/Linux 8.3.0 installers](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v8.3.0) are published, with successful platform CI and independently verified public asset digests. Microsoft Store accepted Submission 6 for 8.3.0.0; it is in certification and will publish automatically after approval. Submission 5 remains available meanwhile. Installed Store state has not been checked or changed. See [8.3 changes](store/RELEASE_NOTES_8.3.0.md), [verification receipt](docs/qa/RELEASE_8.3.0.md), [reviewer notes](store/REVIEWER_NOTES_8.3.0.md) and [Store-readiness gate](docs/STORE_READINESS.md). Direct installers remain unsigned; updater verification requires matching GitHub digest and SHA256SUMS.
+Current source version is **8.4.0**, with the June ZeroThink recovery and simplified native interface. [8.4 changes](store/RELEASE_NOTES_8.4.0.md), [recovery map](docs/ZEROTHINK-JUNE-RECOVERY.md) and [verification receipt](docs/qa/RELEASE_8.4.0.md) describe completed checks and remaining work. The previous 8.3.0 Microsoft Store Submission 6 was verified live on 3 October 2026. The 8.4 platform release and Store update are tracked separately in the receipt. Installed Store state is unverified. Direct installers remain unsigned; updater verification requires matching GitHub digest and SHA256SUMS.
 
 ## What is included
 

@@ -24,3 +24,7 @@ Verified 3 October 2026. Native desktop changes use selected public application-
 Windows 8.4 installer and unsigned Store-upload AppX built locally. GitHub platform release and Store submission states will be recorded after verification. Existing Store Submission 6 was verified live on 3 October; Submission 7 was prepared for this update.
 
 The checked-in static website snapshot still records published 7.9.2 and is not a receipt for the current desktop release. Installed Store version is unverified.
+
+## CI cancellation test repair
+
+The initial tagged Linux verify job encountered the historical fixed-50ms cancellation test race (0 bytes persisted instead of four). Main now waits for the actual four-byte partial before cancelling, with a bounded failure timeout and exact-content assertion. The 26-test runtime suite passed twice and the full 69/247 check passed again. Production source and packaged bytes are unchanged by this test-only correction.
