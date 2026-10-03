@@ -31,3 +31,7 @@ DNA Lab, admin/users/login, backup databases and private credentials are exclude
 ## Delivery status
 
 Build, GitHub release and Store acceptance must be verified in the 8.4 receipt; no inherited 8.3 publication claim applies.
+
+Microsoft Store accepted Submission 7 (8.4.0.0) on 3 October 2026 as **Update in certification**, with automatic publication after approval. The description, release notes, reviewer instructions and live 8.4 privacy notice were verified. Previous Submission 6 remains live; installed Store version is unverified. [Store receipt](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/blob/main/docs/qa/STORE_SUBMISSION_8.4.0.json).
+
+**GitHub 8.4.0 published:** [Windows/macOS/Linux installers](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v8.4.0). All seven release jobs passed, including native Linux/macOS runtime checks. The initial cancellation-test race passed on retry; main contains the deterministic correction. Public SHA256SUMS matches GitHub asset digest metadata; installer bodies were not independently downloaded and rehashed. [Public receipt](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/blob/main/docs/qa/PUBLIC_RELEASE_8.4.0.json).

@@ -1,0 +1,54 @@
+{
+  "version": "8.4.0",
+  "releaseUrl": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v8.4.0",
+  "publishedAt": "2026-10-03T01:36:35Z",
+  "tag": "v8.4.0",
+  "ciRun": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/actions/runs/37086075189",
+  "allSevenReleaseJobsPassed": true,
+  "githubDigestMatchesPublishedChecksum": true,
+  "independentlyDownloadedInstallerHashes": false,
+  "assets": [
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 585,
+      "url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.4.0/SHA256SUMS.txt",
+      "githubDigest": "sha256:e6d4a556ffe9e1543c1f0ea8ec6e1b10f95ceff25972e1a2afdc722bfdda3029"
+    },
+    {
+      "name": "ZERO-ONE-8.4.0-linux-amd64.deb",
+      "bytes": 167770988,
+      "url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.4.0/ZERO-ONE-8.4.0-linux-amd64.deb",
+      "githubDigest": "sha256:7464566efea529e532c0a7d45e762c67bcb479c2f7052e539f65819c2056e336"
+    },
+    {
+      "name": "ZERO-ONE-8.4.0-linux-x86_64.AppImage",
+      "bytes": 160652493,
+      "url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.4.0/ZERO-ONE-8.4.0-linux-x86_64.AppImage",
+      "githubDigest": "sha256:1e4dc6ae249d1867a60111cf508f70b6ae2b906b7a96011b8a0d4bcda1578256"
+    },
+    {
+      "name": "ZERO-ONE-8.4.0-mac-arm64.dmg",
+      "bytes": 164637962,
+      "url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.4.0/ZERO-ONE-8.4.0-mac-arm64.dmg",
+      "githubDigest": "sha256:30246c6a50e8e563256e09f04d95a8733d3d0b9da245e3c9dff13c7b5e1d5537"
+    },
+    {
+      "name": "ZERO-ONE-8.4.0-mac-arm64.zip",
+      "bytes": 179523142,
+      "url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.4.0/ZERO-ONE-8.4.0-mac-arm64.zip",
+      "githubDigest": "sha256:8ea5340e975cc5852444983eaa3c7e93af9844fb196f50fc2555e12568c83cf8"
+    },
+    {
+      "name": "ZERO-ONE-8.4.0-win-x64.exe",
+      "bytes": 145862047,
+      "url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.4.0/ZERO-ONE-8.4.0-win-x64.exe",
+      "githubDigest": "sha256:5476820f53ea979bf3b6b34566ddcb75bb6dafbc7bca955014286bf01fe9bec0"
+    },
+    {
+      "name": "ZERO-ONE-8.4.0-win-x64.exe.blockmap",
+      "bytes": 149412,
+      "url": "https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/download/v8.4.0/ZERO-ONE-8.4.0-win-x64.exe.blockmap",
+      "githubDigest": "sha256:c4468b3074b7f5a831fb8090a7e493fca9a6073e0b11d15d3513e7efb476a331"
+    }
+  ]
+}

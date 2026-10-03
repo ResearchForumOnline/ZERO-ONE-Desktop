@@ -31,9 +31,9 @@ IonQ simulator submission needs confirmation. Hardware needs a fresh exact-job e
 
 OS-backed encryption is required; Linux basic_text is refused. Exports retain readable selected content. Clear desktop data preserves credential/settings recovery bytes and retained notes/Studio/templates/projects/model data; it is not universal erasure. Verify reset behavior in the final package.
 
-Privacy: https://researchforumonline.github.io/OpenZero/zero-one-privacy.html. The 8.3 disclosure deployment was previously verified; current 8.4 publication is checked separately. App source is Apache-2.0; engine/weights retain upstream terms. No hosted mail/calls/DNA/admin database, AGI, unrestricted control or weight rewriting is claimed.
+Privacy: https://researchforumonline.github.io/OpenZero/zero-one-privacy.html. The 8.4 privacy notice was deployed and verified live on 3 October 2026. App source is Apache-2.0; engine/weights retain upstream terms. No hosted mail/calls/DNA/admin database, AGI, unrestricted control or weight rewriting is claimed.
 
-Verification: 69 UI and 247 backend tests, TypeScript/build and pinned runtime/ZSEC hashes passed for 8.4.0. Native Electron backend smoke passed with encrypted notes and saved research projects. Packaged launch/DOM and scan integration checks passed. All 213 AppX entries passed integrity and 39 production files match source/build. Public GitHub platform delivery is pending CI; prior 8.3 CPU generation measurements are historical. Certification and installed Store delivery are separate.
+Verification: 69 UI and 247 backend tests, TypeScript/build and pinned runtime/ZSEC hashes passed for 8.4.0. Native Electron backend smoke passed with encrypted notes and saved research projects. Packaged launch/DOM and scan integration checks passed. All 213 AppX entries passed integrity and 39 production files match source/build. Public GitHub Windows/macOS/Linux delivery passed all seven release jobs; prior 8.3 CPU generation measurements are historical. Certification and installed Store delivery are separate.
 
 ## Updated native interface
 

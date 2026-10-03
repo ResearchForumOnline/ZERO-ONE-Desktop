@@ -28,3 +28,7 @@ The checked-in static website snapshot still records published 7.9.2 and is not 
 ## CI cancellation test repair
 
 The initial tagged Linux verify job encountered the historical fixed-50ms cancellation test race (0 bytes persisted instead of four). Main now waits for the actual four-byte partial before cancelling, with a bounded failure timeout and exact-content assertion. The 26-test runtime suite passed twice and the full 69/247 check passed again. Production source and packaged bytes are unchanged by this test-only correction.
+
+Microsoft Store accepted Submission 7 (8.4.0.0) on 3 October 2026 as **Update in certification**, with automatic publication after approval. The description, release notes, reviewer instructions and live 8.4 privacy notice were verified. Previous Submission 6 remains live; installed Store version is unverified. [Store receipt](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/blob/main/docs/qa/STORE_SUBMISSION_8.4.0.json).
+
+**GitHub 8.4.0 published:** [Windows/macOS/Linux installers](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/releases/tag/v8.4.0). All seven release jobs passed, including native Linux/macOS runtime checks. The initial cancellation-test race passed on retry; main contains the deterministic correction. Public SHA256SUMS matches GitHub asset digest metadata; installer bodies were not independently downloaded and rehashed. [Public receipt](https://github.com/ResearchForumOnline/ZERO-ONE-Desktop/blob/main/docs/qa/PUBLIC_RELEASE_8.4.0.json).

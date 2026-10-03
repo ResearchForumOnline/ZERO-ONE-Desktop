@@ -2,6 +2,8 @@
 
 ## ZERO ONE 8.4.0 release gate
 
+3 October: Submission 7 accepted as **Update in certification**, automatic publication after approval. [Store receipt](qa/STORE_SUBMISSION_8.4.0.json).
+
 June-backup recovery and simplified native ZeroThink. Source verification, publication and Store submission are tracked separately in the current release receipt. Previous receipts below are historical.
 
 # ZERO ONE Store-readiness gate
